@@ -240,7 +240,7 @@ public sealed class SettingsForm : Form
         _hrrCombo.SelectedIndexChanged += (_, _) => ApplyCurrentSettings();
         UpdateDiagnosticInputs();
 
-        // Einzel-Intensitaetsregler
+        // Single-profile intensity control.
         _singlePanel = new Panel { AutoSize = true, Width = 340, Margin = new Padding(0, 12, 0, 0) };
         _singleLabel = new Label { Text = Localization.Intensity(_preferences.SingleIntensity), AutoSize = true };
         _singleSlider = new TrackBar { Minimum = 0, Maximum = 100, Value = _preferences.SingleIntensity, Width = 370, TickFrequency = 10 };
@@ -256,7 +256,7 @@ public sealed class SettingsForm : Form
         _singlePanel.Height = 60;
         root.Controls.Add(_singlePanel);
 
-        // Mixed-Modus: zwei getrennte Regler
+        // Mixed mode uses separate red-green and blue-yellow controls.
         _mixedPanel = new Panel { AutoSize = true, Width = 340, Visible = false, Margin = new Padding(0, 12, 0, 0) };
         _rgLabel = new Label { Text = Localization.RedGreen(_preferences.RedGreenIntensity), AutoSize = true, Top = 0 };
         _rgSlider = new TrackBar { Minimum = 0, Maximum = 100, Value = _preferences.RedGreenIntensity, Width = 370, Top = 20 };
@@ -292,11 +292,16 @@ public sealed class SettingsForm : Form
         _resetButton = new Button { Text = Localization.Reset, AutoSize = true, Margin = new Padding(0, 10, 0, 0) };
         _resetButton.Click += (_, _) =>
         {
+            _diagnosticKnownCheck.Checked = false;
+            _aqTextBox.Clear();
+            _hrrCombo.SelectedIndex = 0;
             _rbTritan.Checked = true;
             _singleSlider.Value = 0;
             _rgSlider.Value = 0;
             _bySlider.Value = 0;
             _enabledCheck.Checked = false;
+            _startWithWindowCheck.Checked = false;
+            SaveCurrentSettings();
         };
         root.Controls.Add(_resetButton);
 

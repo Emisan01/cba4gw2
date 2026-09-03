@@ -31,8 +31,14 @@ jobs:
       - name: Publish slim build
         run: dotnet publish ColorblindAssist.csproj --configuration Release --runtime win-x64 --self-contained false --property:PublishSingleFile=true --output artifacts/ColorblindAssist-slim-win-x64
 
+      - name: Package builds
+        shell: pwsh
+        run: |
+          Compress-Archive -Path artifacts/ColorblindAssist-win-x64/* -DestinationPath artifacts/ColorblindAssist-win-x64.zip
+          Compress-Archive -Path artifacts/ColorblindAssist-slim-win-x64/* -DestinationPath artifacts/ColorblindAssist-slim-win-x64.zip
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ColorblindAssist-builds
-          path: artifacts/
+          path: artifacts/*.zip
