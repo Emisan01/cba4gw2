@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyName>ColorblindAssist</AssemblyName>
+    <RootNamespace>ColorblindAssist</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Start-ColorblindAssist.cmd" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,18 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local runtime and preference files
+*.json
+!appsettings.example.json
+
+# Published binaries are generated artifacts
+publish/
+publish-*/
+portable/
+curves*/
+diagnostic*/
