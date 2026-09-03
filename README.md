@@ -34,6 +34,8 @@ so each person can find a setting that works for their own display and vision.
 
 ## Download and run
 
+Prebuilt Windows downloads are available in the [Releases](https://github.com/Emisan01/ColorblindAssist/releases) section.
+
 For the smallest package, use `Start-ColorblindAssist.cmd` from a framework-
 dependent publish. It checks for the .NET 8 Desktop Runtime and opens the
 official Microsoft download page when needed.
@@ -95,3 +97,7 @@ dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile
 Feedback from people with color vision deficiency is especially valuable.
 Please open an issue with the Windows version, selected profile, and what was
 better or worse. Do not include medical records or other personal information.
+
+## License
+
+Released under the [MIT License](LICENSE).

@@ -72,6 +72,9 @@ internal static class Localization
     public static string SaveSettings => Current == AppLanguage.German ? "Einstellungen speichern" : "Save settings";
     public static string StartWithWindows => Current == AppLanguage.German ? "Mit Windows starten" : "Start with Windows";
     public static string SettingsSaved => Current == AppLanguage.German ? "Einstellungen gespeichert" : "Settings saved";
+    public static string FilterApplyFailed => Current == AppLanguage.German
+        ? "Der Windows-Farbfilter konnte nicht angewendet werden."
+        : "The Windows color filter could not be applied.";
     public static string OverviewTitle => Current == AppLanguage.German ? "Dein Farbprofil" : "Your color profile";
     public static string OverviewText => Current == AppLanguage.German
         ? "Passe die Korrektur an, bis Farben für dich leichter unterscheidbar sind."

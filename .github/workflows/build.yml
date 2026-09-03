@@ -24,3 +24,15 @@ jobs:
 
       - name: Build
         run: dotnet build ColorblindAssist.csproj --configuration Release --no-restore
+
+      - name: Publish portable build
+        run: dotnet publish ColorblindAssist.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/ColorblindAssist-win-x64
+
+      - name: Publish slim build
+        run: dotnet publish ColorblindAssist.csproj --configuration Release --runtime win-x64 --self-contained false --property:PublishSingleFile=true --output artifacts/ColorblindAssist-slim-win-x64
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ColorblindAssist-builds
+          path: artifacts/

@@ -340,10 +340,16 @@ public sealed class SettingsForm : Form
         _preferences.BlueYellowIntensity = _bySlider.Value;
         _preferences.StartWithWindow = _startWithWindowCheck.Checked;
         _preferences.DiagnosticValueKnown = _diagnosticKnownCheck.Checked;
-        _preferences.DiagnosticAq = double.TryParse(_aqTextBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var aq) ? aq : null;
+        _preferences.DiagnosticAq = TryParseDiagnosticAq(_aqTextBox.Text, out var aq) ? aq : null;
         _preferences.DiagnosticHrrLevel = Math.Max(0, _hrrCombo.SelectedIndex);
         _preferences.Save();
         _saveStatus.Text = Localization.SettingsSaved;
+    }
+
+    private static bool TryParseDiagnosticAq(string text, out double value)
+    {
+        var normalized = text.Trim().Replace(',', '.');
+        return double.TryParse(normalized, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value);
     }
 
     private void ApplyLanguage()
@@ -416,7 +422,7 @@ public sealed class SettingsForm : Form
         double? diagnosticSeverity = null;
         if (_diagnosticKnownCheck is not null && _diagnosticKnownCheck.Checked)
         {
-            double? aq = double.TryParse(_aqTextBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedAq)
+            double? aq = TryParseDiagnosticAq(_aqTextBox.Text, out var parsedAq)
                 ? parsedAq
                 : null;
             diagnosticSeverity = DiagnosticMapper.ResolveSeverity(typeIndex, aq, (HrrLevel)Math.Max(0, _hrrCombo.SelectedIndex));
@@ -437,6 +443,9 @@ public sealed class SettingsForm : Form
 
         var effect = ColorMatrix.ToMagColorEffect(matrix);
         _curveView.SetMatrix(matrix);
-        _controller.Apply(effect);
+        if (!_controller.Apply(effect))
+        {
+            _saveStatus.Text = Localization.FilterApplyFailed;
+        }
     }
 }
