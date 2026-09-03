@@ -69,10 +69,6 @@ internal static class Localization
     public static string Open => Current == AppLanguage.German ? "Öffnen" : "Open";
     public static string Exit => Current == AppLanguage.German ? "Beenden" : "Exit";
     public static string Language => Current == AppLanguage.German ? "Sprache" : "Language";
-    public static string DiagnosisProfile => Current == AppLanguage.German ? "Diagnoseprofil (optional)" : "Diagnosis profile (optional)";
-    public static string DiagnosisType => Current == AppLanguage.German ? "Farbsehschwäche" : "Color vision deficiency";
-    public static string Severity => Current == AppLanguage.German ? "Stärke" : "Severity";
-    public static string ApplyProfile => Current == AppLanguage.German ? "Profil anwenden" : "Apply profile";
     public static string SaveSettings => Current == AppLanguage.German ? "Einstellungen speichern" : "Save settings";
     public static string StartWithWindows => Current == AppLanguage.German ? "Mit Windows starten" : "Start with Windows";
     public static string SettingsSaved => Current == AppLanguage.German ? "Einstellungen gespeichert" : "Settings saved";
@@ -95,12 +91,6 @@ internal static class Localization
     public static string ApproximationHint => Current == AppLanguage.German
         ? "Näherungswert aus dem Befund. Danach visuell feinjustieren."
         : "Approximate starting point from a test result. Fine-tune visually afterwards.";
-    public static string[] DiagnosisTypes => Current == AppLanguage.German
-        ? new[] { "Keine Auswahl", "Protan", "Deutan", "Tritan", "Gemischt" }
-        : new[] { "No selection", "Protan", "Deutan", "Tritan", "Mixed" };
-    public static string[] Severities => Current == AppLanguage.German
-        ? new[] { "Unbekannt", "Leicht", "Mittel", "Stark" }
-        : new[] { "Unknown", "Mild", "Moderate", "Severe" };
 
     private sealed class LanguageSettings
     {

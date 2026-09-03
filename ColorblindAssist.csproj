@@ -9,6 +9,12 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>ColorblindAssist</AssemblyName>
     <RootNamespace>ColorblindAssist</RootNamespace>
+    <Version>0.1.0</Version>
+    <Authors>Emisan01</Authors>
+    <Product>ColorblindAssist</Product>
+    <Description>A transparent, system-wide color aid for Windows.</Description>
+    <RepositoryUrl>https://github.com/Emisan01/ColorblindAssist</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
