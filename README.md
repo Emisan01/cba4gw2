@@ -36,12 +36,17 @@ so each person can find a setting that works for their own display and vision.
 
 Prebuilt Windows downloads are available in the [Releases](https://github.com/Emisan01/ColorblindAssist/releases) section.
 
-For the smallest package, use `Start-ColorblindAssist.cmd` from a framework-
-dependent publish. It checks for the .NET 8 Desktop Runtime and opens the
-official Microsoft download page when needed.
+| Package | Runtime | Size | Best for |
+| --- | --- | --- | --- |
+| `portable-includes-runtime` | Included | Larger download | Works without a separate .NET installation |
+| `slim-requires-runtime` | Not included | Small download | Systems that already have the .NET 8 Desktop Runtime |
 
-For a self-contained package, publish with the `WinX64` profile. That version
-includes the runtime and can run without a separate .NET installation.
+The `slim-requires-runtime` package includes `Start-ColorblindAssist.cmd`. It
+checks for the .NET 8 Desktop Runtime and opens the official Microsoft download
+page when needed.
+
+The `portable-includes-runtime` package includes the runtime and can run
+without a separate .NET installation. Its larger size is expected.
 
 ## Requirements
 
