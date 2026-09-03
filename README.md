@@ -1,67 +1,73 @@
-# Colorblind Assist – Prototyp
+# ColorblindAssist
 
-Kleines Windows-Tool, das systemweit eine Daltonisierungs-Matrix über die
-Windows Magnification API (`MagSetFullscreenColorEffect`) anwendet – derselbe
-Mechanismus, den auch die Bordmittel-Farbfilter unter
-**Einstellungen > Eingabehilfen > Farbe und hoher Kontrast** nutzen, nur mit
-frei wählbarem Typ (Protan/Deutan/Tritan/Mixed) und stufenlosem
-Intensitätsregler statt fester Ein/Aus-Presets.
+ColorblindAssist is a small Windows desktop accessibility helper that applies
+a system-wide color correction matrix through the Windows Magnification API.
+It provides adjustable Protan, Deutan, Tritan, and Mixed profiles, a live RGB
+curve view, saved settings, and optional diagnostic-value input.
+
+The tool is intended as a practical visual aid. It is not a medical device and
+does not restore or diagnose color vision.
+
+## Features
+
+- System-wide color correction
+- Adjustable correction intensity
+- Protan, Deutan, Tritan, and Mixed modes
+- Optional Anomaloscope AQ and HRR input
+- Live RGB transformation graph
+- English and German UI
+- Saved settings and optional Windows startup
+- Global `Ctrl+Alt+C` toggle
+- Single-instance protection
+
+## Requirements
+
+- Windows 10 or Windows 11 for the modern .NET 8 build
+- Windows Magnification API support
+
+The color-effect API is available from Windows 8, but .NET 8 is not supported
+on Windows 8.1. Supporting Windows 8/8.1 requires a separately tested legacy
+build.
 
 ## Build
 
-Voraussetzung: .NET 8 SDK + Windows.
+Framework-dependent development build:
 
-```
+```text
 dotnet build
 dotnet run
 ```
 
-For a portable Windows x64 executable that includes the .NET runtime:
+Portable Windows x64 build with the .NET runtime included:
 
-```
+```text
 dotnet publish --profile WinX64
 ```
 
-The modern build targets Windows 10 and 11. The Windows Magnification API itself
-is available from Windows 8 onward, but .NET 8 is not supported on Windows 8.1.
-Supporting Windows 8/8.1 requires a separate legacy build and should be tested on
-the actual operating systems before distribution.
+Slim Windows x64 build without an embedded runtime:
 
-Öffnet sich als normales Fenster, legt sich zusätzlich als Tray-Icon ab.
-Minimieren schickt es in den Tray, Doppelklick auf das Tray-Icon holt es
-zurück. **Strg+Alt+C** schaltet den Effekt global ein/aus, auch wenn das
-Fenster nicht im Fokus ist.
+```text
+dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
+```
 
-## Funktionsweise
+For the slim build, use `Start-ColorblindAssist.cmd`. It checks for the .NET 8
+Desktop Runtime and opens the official Microsoft download page when needed.
 
-- `Magnification.cs` – P/Invoke-Wrapper um `magnification.dll`
-- `ColorMatrix.cs` – Matrix-Mathematik nach dem in daltonize.js/Vischeck
-  verbreiteten Fidaner-Ansatz: Farbschwäche simulieren, Differenz zum
-  Original berechnen, Differenz auf die verbleibenden Kanäle umverteilen.
-  Kollabiert zu einer einzigen 3×3-Matrix, linear zwischen Identität (0%)
-  und voller Korrektur (100%) interpoliert.
-- `SettingsForm.cs` – UI, ruft bei jeder Änderung `ApplyCurrentSettings()`
-  auf, die die aktuelle Matrix berechnet und über den Controller setzt.
+## Important limitations
 
-## Bekannte Einschränkungen (bitte vor dem Einsatz lesen)
+- Exclusive fullscreen applications may bypass the Desktop Window Manager.
+  Borderless or windowed mode is recommended for games.
+- Windows color filters and this tool can overwrite each other.
+- The correction matrices are practical approximations, not clinically
+  calibrated conversions.
+- AQ-to-severity mapping is heuristic and should not be treated as a medical
+  measurement.
 
-1. **Exklusiver Vollbildmodus wird nicht erfasst.** `MagSetFullscreenColorEffect`
-   arbeitet auf DWM-Compositor-Ebene. Läuft ein Spiel (z. B. GW2) im echten
-   exklusiven Vollbild statt "Vollbild (Fenster)"/Borderless, umgeht es den
-   Compositor – der Effekt greift dann nicht. Für Spiele: Borderless/
-   Fenstermodus verwenden.
-2. **Kollidiert mit den Windows-eigenen Farbfiltern.** Es kann jeweils nur
-   ein systemweiter Vollbild-Farbeffekt aktiv sein. Sind die
-   Bordmittel-Farbfilter gleichzeitig aktiv, überschreiben sie sich
-   gegenseitig – vor dem Testen die Windows-eigenen Filter deaktivieren.
-3. **Mixed-Modus nutzt aktuell Deutan als Rot-Grün-Basis**, nicht Protan.
-   Für die meiste Rot-Grün-Schwäche ist das eine brauchbare Näherung, aber
-   keine exakte Unterscheidung – eine spätere Version könnte hier zusätzlich
-   Protan/Deutan getrennt wählbar machen.
-4. **Ungetestet.** Ich konnte diesen Code in dieser Umgebung nicht unter
-   Windows kompilieren – bitte in Visual Studio / mit `dotnet build`
-   gegenprüfen, bevor du dich darauf verlässt. API-Namen und Struct-Layout
-   habe ich nach bestem Wissen aus `magnification.h` übertragen, aber ohne
-   Testlauf gebe ich dafür keine Garantie.
-5. **Kein Admin-Manifest hinterlegt.** Falls `MagSetFullscreenColorEffect`
-   mit Zugriffsfehler fehlschlägt, testweise als Administrator ausführen.
+## Project structure
+
+- `SettingsForm.cs` - Windows Forms UI and interaction logic
+- `ColorMatrix.cs` - color simulation and correction matrices
+- `ColorCurveView.cs` - live RGB graph
+- `DiagnosticMapper.cs` - optional AQ/HRR approximation mapping
+- `Magnification.cs` - Windows API wrapper and filter lifecycle
+- `AppPreferences.cs` - local settings and Windows startup registration
