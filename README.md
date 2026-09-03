@@ -48,6 +48,14 @@ page when needed.
 The `portable-includes-runtime` package includes the runtime and can run
 without a separate .NET installation. Its larger size is expected.
 
+### Windows trust warning
+
+Because this is a new desktop application, Windows Defender SmartScreen may
+initially show an “unrecognized app” warning. This is a publisher and download
+reputation check, not a diagnosis of malware. Download only from the official
+GitHub Releases page and compare the published SHA-256 checksum. See
+[SECURITY.md](SECURITY.md) for the signing and verification policy.
+
 ## Requirements
 
 - Windows 10 or Windows 11 for the modern .NET 8 build

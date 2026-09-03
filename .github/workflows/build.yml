@@ -31,6 +31,22 @@ jobs:
       - name: Publish slim build
         run: dotnet publish ColorblindAssist.csproj --configuration Release --runtime win-x64 --self-contained false --property:PublishSingleFile=true --output artifacts/ColorblindAssist-slim-win-x64
 
+      - name: Sign release binaries (optional)
+        if: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'colorblindassist-signing.pfx'
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64))
+          $signTool = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+          if ($null -eq $signTool) { throw 'SignTool was not found on the GitHub runner.' }
+          Get-ChildItem artifacts -Filter *.exe -Recurse | ForEach-Object {
+            & $signTool.FullName sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f $certificatePath /p $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Signing failed for $($_.FullName)." }
+          }
+
       - name: Package builds
         shell: pwsh
         run: |
