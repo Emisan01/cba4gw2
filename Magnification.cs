@@ -2,8 +2,8 @@ using System.Runtime.InteropServices;
 
 namespace ColorblindAssist;
 
-// 5x5-Farbtransformationsmatrix, wie sie die Magnification API erwartet.
-// Layout muss exakt dem nativen MAGCOLOREFFECT-Struct aus magnification.h entsprechen.
+// 5x5 color transformation matrix expected by the Magnification API.
+// The layout must match the native MAGCOLOREFFECT struct from magnification.h.
 [StructLayout(LayoutKind.Sequential)]
 public struct MagColorEffect
 {
@@ -23,8 +23,8 @@ public struct MagColorEffect
     };
 }
 
-// Dünner Wrapper um magnification.dll. Nur die drei Funktionen, die wir
-// tatsächlich brauchen, um systemweit eine Farbmatrix zu setzen bzw. zu loeschen.
+// Small wrapper around magnification.dll for applying and clearing a
+// system-wide color matrix.
 internal static class NativeMagnification
 {
     [DllImport("Magnification.dll", SetLastError = true)]
@@ -33,9 +33,7 @@ internal static class NativeMagnification
     [DllImport("Magnification.dll", SetLastError = true)]
     public static extern bool MagUninitialize();
 
-    // Setzt den Vollbild-Farbeffekt fuer den gesamten Desktop (Windows 8+).
-    // Das ist derselbe zugrunde liegende Mechanismus, den auch die
-    // Bordmittel-Farbfilter unter Einstellungen > Eingabehilfen verwenden.
+    // Applies a fullscreen color effect to the desktop (Windows 8+).
     [DllImport("Magnification.dll", SetLastError = true)]
     public static extern bool MagSetFullscreenColorEffect(ref MagColorEffect effect);
 
@@ -43,9 +41,8 @@ internal static class NativeMagnification
     public static extern bool MagGetFullscreenColorEffect(out MagColorEffect effect);
 }
 
-// Hoeherwertiger Controller: kapselt Init/Uninit-Lebenszyklus und stellt
-// sicher, dass wir beim Beenden immer auf Identity zuruecksetzen, statt den
-// Bildschirm verfaerbt zu hinterlassen.
+// Controls the native lifecycle and restores the identity matrix on shutdown
+// so the desktop is not left with an active color effect.
 public sealed class ColorEffectController : IDisposable
 {
     private bool _initialized;

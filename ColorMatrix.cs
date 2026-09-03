@@ -7,18 +7,14 @@ public enum DeficiencyType
     Tritan
 }
 
-// Berechnet Daltonisierungs-Matrizen nach dem in daltonize.js / Vischeck
-// verbreiteten Ansatz (Fidaner, Lin, Ozguven 2005): eine lineare Simulation
-// der jeweiligen Farbschwaeche, der Fehler zwischen Original und Simulation,
-// und eine Umverteilung dieses Fehlers auf die noch intakten Kanaele.
+// Calculates daltonization matrices using the Fidaner, Lin, and Ozguven
+// approach (2005): simulate the deficiency, calculate the color error, and
+// redistribute that error through the remaining channels.
 //
-// Wichtig: das ist eine praktikable Naeherung, keine klinisch kalibrierte
-// Loesung. Fuer eine erste, nutzbare Version reicht das; fuer eine spaetere
-// Version waere ein Abgleich mit echten Anomaloskop-/Cambridge-Colour-Test-
-// Werten sinnvoll.
+// This is a practical approximation, not a clinically calibrated solution.
 public static class ColorMatrix
 {
-    // Vereinfachte RGB-Simulationsmatrizen pro Typ (voller Schweregrad = Anopie).
+    // Simplified RGB simulation matrices per type (full severity = anopia).
     private static readonly double[,] SimProtan =
     {
         { 0.56667, 0.43333, 0.00000 },
@@ -40,7 +36,7 @@ public static class ColorMatrix
         { 0.00000, 0.47500, 0.52500 }
     };
 
-    // Verteilt den "verlorenen" Farbanteil auf die verbleibenden Kanaele um.
+    // Redistributes the lost color component through the remaining channels.
     private static readonly double[,] ErrorRedistribution =
     {
         { 0.0, 0.0, 0.0 },
@@ -95,8 +91,8 @@ public static class ColorMatrix
         return result;
     }
 
-    // Kombinierte Daltonisierungsmatrix fuer einen Typ bei gegebenem
-    // Schweregrad (0.0 = keine Korrektur, 1.0 = volle Korrektur fuer Anopie).
+    // Combined correction matrix for a type and severity
+    // (0.0 = no correction, 1.0 = full correction for anopia).
     public static double[,] CorrectionMatrix(DeficiencyType type, double severity01)
     {
         var sim = SimulationMatrix(type);
@@ -106,10 +102,8 @@ public static class ColorMatrix
         return Lerp(Identity3, full, Clamp01(severity01));
     }
 
-    // Mixed-Modus: zwei unabhaengige Achsen (Rot-Gruen ueber Deutan als
-    // Basistyp, Blau-Gelb ueber Tritan) werden nacheinander angewendet.
-    // Eine spaetere Version koennte Protan statt Deutan als RG-Basis
-    // anbieten, wenn das fuer den Einzelfall praeziser ist.
+    // Mixed mode applies two independent axes in sequence: red-green uses
+    // Deutan as its base type and blue-yellow uses Tritan.
     public static double[,] MixedCorrectionMatrix(double rgSeverity01, double bySeverity01)
     {
         var rg = CorrectionMatrix(DeficiencyType.Deutan, rgSeverity01);

@@ -1,12 +1,24 @@
 # ColorblindAssist
 
-ColorblindAssist is a small Windows desktop accessibility helper that applies
-a system-wide color correction matrix through the Windows Magnification API.
-It provides adjustable Protan, Deutan, Tritan, and Mixed profiles, a live RGB
-curve view, saved settings, and optional diagnostic-value input.
+![Build](https://github.com/Emisan01/ColorblindAssist/actions/workflows/build.yml/badge.svg)
+
+**A transparent, system-wide color aid for Windows.**
+
+ColorblindAssist applies an adjustable color correction matrix through the
+Windows Magnification API. It was born from a practical Guild Wars 2 use case,
+but works across the Windows desktop wherever a system-level color aid helps.
+
+The interface keeps the important controls visible: choose a color profile,
+adjust intensity, and watch the RGB transformation respond in real time.
 
 The tool is intended as a practical visual aid. It is not a medical device and
 does not restore or diagnose color vision.
+
+## Why it exists
+
+Many color filters are fixed presets that change everything at once. This tool
+keeps correction strength adjustable and makes the transformation visible,
+so each person can find a setting that works for their own display and vision.
 
 ## Features
 
@@ -19,6 +31,15 @@ does not restore or diagnose color vision.
 - Saved settings and optional Windows startup
 - Global `Ctrl+Alt+C` toggle
 - Single-instance protection
+
+## Download and run
+
+For the smallest package, use `Start-ColorblindAssist.cmd` from a framework-
+dependent publish. It checks for the .NET 8 Desktop Runtime and opens the
+official Microsoft download page when needed.
+
+For a self-contained package, publish with the `WinX64` profile. That version
+includes the runtime and can run without a separate .NET installation.
 
 ## Requirements
 
@@ -50,9 +71,6 @@ Slim Windows x64 build without an embedded runtime:
 dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
 ```
 
-For the slim build, use `Start-ColorblindAssist.cmd`. It checks for the .NET 8
-Desktop Runtime and opens the official Microsoft download page when needed.
-
 ## Important limitations
 
 - Exclusive fullscreen applications may bypass the Desktop Window Manager.
@@ -71,3 +89,9 @@ Desktop Runtime and opens the official Microsoft download page when needed.
 - `DiagnosticMapper.cs` - optional AQ/HRR approximation mapping
 - `Magnification.cs` - Windows API wrapper and filter lifecycle
 - `AppPreferences.cs` - local settings and Windows startup registration
+
+## Contributing
+
+Feedback from people with color vision deficiency is especially valuable.
+Please open an issue with the Windows version, selected profile, and what was
+better or worse. Do not include medical records or other personal information.
