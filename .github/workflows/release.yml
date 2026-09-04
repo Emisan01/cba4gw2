@@ -1,14 +1,15 @@
-name: Build
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - "v*"
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Check out source
@@ -21,9 +22,6 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore ColorblindAssist.csproj
-
-      - name: Build
-        run: dotnet build ColorblindAssist.csproj --configuration Release --no-restore
 
       - name: Publish portable build
         run: dotnet publish ColorblindAssist.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/ColorblindAssist-win-x64
@@ -62,8 +60,11 @@ jobs:
           Compress-Archive -Path artifacts/ColorblindAssist-slim-win-x64/* -DestinationPath artifacts/ColorblindAssist-slim-requires-runtime-win-x64.zip
           Compress-Archive -Path artifacts/nexus-plugin/* -DestinationPath artifacts/ColorblindAssist-nexus-plugin-win-x64.zip
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ColorblindAssist-builds
-          path: artifacts/*.zip
+          files: |
+            artifacts/ColorblindAssist-portable-includes-runtime-win-x64.zip
+            artifacts/ColorblindAssist-slim-requires-runtime-win-x64.zip
+            artifacts/ColorblindAssist-nexus-plugin-win-x64.zip
+          generate_release_notes: true

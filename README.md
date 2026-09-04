@@ -31,6 +31,7 @@ so each person can find a setting that works for their own display and vision.
 - Saved settings and optional Windows startup
 - Global `Ctrl+Alt+C` toggle
 - Single-instance protection
+- Optional standalone GW2 Nexus plugin with the same correction engine
 
 ## Download and run
 
@@ -40,6 +41,11 @@ Prebuilt Windows downloads are available in the [Releases](https://github.com/Em
 | --- | --- | --- | --- |
 | `portable-includes-runtime` | Included | Larger download | Works without a separate .NET installation |
 | `slim-requires-runtime` | Not included | Small download | Systems that already have the .NET 8 Desktop Runtime |
+| `nexus-plugin` | None (Nexus DLL) | Smallest download | Guild Wars 2 via Nexus; no Windows autostart |
+
+The standalone Nexus plugin (`ColorblindAssist-nexus-plugin-win-x64.zip`) contains
+`cba.dll` for the GW2 Nexus loader. Copy it into your Nexus addons folder. It
+is loaded by Nexus with Guild Wars 2 and has no Windows autostart registration.
 
 The `slim-requires-runtime` package includes `Start-ColorblindAssist.cmd`. It
 checks for the .NET 8 Desktop Runtime and opens the official Microsoft download
@@ -104,6 +110,9 @@ dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile
 - `DiagnosticMapper.cs` - optional AQ/HRR approximation mapping
 - `Magnification.cs` - Windows API wrapper and filter lifecycle
 - `AppPreferences.cs` - local settings and Windows startup registration
+
+The Nexus plugin lives under `plugins/nexus/`. Its lifecycle is owned by
+Nexus; it does not use the executable's Windows startup preference.
 
 ## Contributing
 

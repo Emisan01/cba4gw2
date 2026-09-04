@@ -17,3 +17,6 @@ portable/
 curves*/
 diagnostic*/
 release-*/
+
+# Nexus plugin build output
+plugins/nexus/build/
