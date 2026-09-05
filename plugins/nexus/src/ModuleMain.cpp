@@ -1,3 +1,6 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include "Shared.h"
 #include "ColorMatrix.h"
 #include "ColorEffectController.h"
@@ -318,6 +321,205 @@ namespace
 
 	void EnsureDeferredInitialized();
 
+	// ── Conflict Resolution & Replacement Color Calculation (Step 4) ────────
+	static void RgbToHsv(float r, float g, float b, float& h, float& s, float& v)
+	{
+		float maxVal = r;
+		if (g > maxVal) maxVal = g;
+		if (b > maxVal) maxVal = b;
+
+		float minVal = r;
+		if (g < minVal) minVal = g;
+		if (b < minVal) minVal = b;
+
+		float delta = maxVal - minVal;
+		v = maxVal;
+		s = (maxVal > 1e-5f) ? (delta / maxVal) : 0.0f;
+		if (delta < 1e-5f) {
+			h = 0.0f;
+		} else if (maxVal == r) {
+			h = 60.0f * std::fmod(((g - b) / delta), 6.0f);
+			if (h < 0.0f) h += 360.0f;
+		} else if (maxVal == g) {
+			h = 60.0f * (((b - r) / delta) + 2.0f);
+		} else {
+			h = 60.0f * (((r - g) / delta) + 4.0f);
+		}
+	}
+
+	static void HsvToRgb(float h, float s, float v, float& r, float& g, float& b)
+	{
+		float c = v * s;
+		float hPrime = std::fmod(h / 60.0f, 6.0f);
+		if (hPrime < 0.0f) hPrime += 6.0f;
+		float x = c * (1.0f - std::abs(std::fmod(hPrime, 2.0f) - 1.0f));
+		float m = v - c;
+		if (hPrime < 1.0f)      { r = c; g = x; b = 0; }
+		else if (hPrime < 2.0f) { r = x; g = c; b = 0; }
+		else if (hPrime < 3.0f) { r = 0; g = c; b = x; }
+		else if (hPrime < 4.0f) { r = 0; g = x; b = c; }
+		else if (hPrime < 5.0f) { r = x; g = 0; b = c; }
+		else                    { r = c; g = 0; b = x; }
+		r += m; g += m; b += m;
+		r = std::clamp(r, 0.0f, 1.0f);
+		g = std::clamp(g, 0.0f, 1.0f);
+		b = std::clamp(b, 0.0f, 1.0f);
+	}
+
+	static float RelativeLuma(float r, float g, float b)
+	{
+		return 0.2126f * r + 0.7152f * g + 0.0722f * b;
+	}
+
+	struct TagConflictState
+	{
+		bool inConflict = false;
+		float repR = 0.0f, repG = 0.0f, repB = 0.0f;
+	};
+	static std::array<TagConflictState, 8> s_tagConflictStates{};
+
+	void UpdateTagEnhancerConflicts()
+	{
+		if (CurrentSettings.CommanderTagMode == 0)
+		{
+			GetHybridScanner().SetHighlighterParams(false, {}, CurrentSettings.EnhancerTolerance);
+			for (auto& st : s_tagConflictStates) st = {};
+			return;
+		}
+
+		DeficiencyType defType = CurrentSettings.Mixed ? DeficiencyType::Deutan : CurrentSettings.Type;
+		double sev = CurrentSettings.Mixed 
+			? (CurrentSettings.MixedRgSeverity01 > CurrentSettings.MixedBySeverity01 ? CurrentSettings.MixedRgSeverity01 : CurrentSettings.MixedBySeverity01)
+			: CurrentSettings.Severity01;
+
+		// 4a: Simulate each tag color under the user's deficiency and severity
+		struct SimTag {
+			float origR, origG, origB;
+			float simR, simG, simB;
+			float luma;
+		};
+		std::array<SimTag, 8> simTags{};
+		for (int i = 0; i < 8; ++i)
+		{
+			simTags[i].origR = kGw2TagRefs[i].r;
+			simTags[i].origG = kGw2TagRefs[i].g;
+			simTags[i].origB = kGw2TagRefs[i].b;
+			simTags[i].luma = RelativeLuma(kGw2TagRefs[i].r, kGw2TagRefs[i].g, kGw2TagRefs[i].b);
+
+			double outR = 0.0, outG = 0.0, outB = 0.0;
+			ColorMatrix::SimulatePixel(simTags[i].origR, simTags[i].origG, simTags[i].origB, defType, outR, outG, outB);
+
+			// Interpolate with severity (sev = 0 -> original, sev = 1 -> full simulation)
+			simTags[i].simR = (float)(simTags[i].origR + sev * (outR - simTags[i].origR));
+			simTags[i].simG = (float)(simTags[i].origG + sev * (outG - simTags[i].origG));
+			simTags[i].simB = (float)(simTags[i].origB + sev * (outB - simTags[i].origB));
+		}
+
+		// 4b & 4c: Pairwise Euclidean distance to find conflicts
+		constexpr float kConflictThreshold = 0.16f; // Distances below this are confused by the user
+		std::array<bool, 8> hasConflict{};
+		for (int i = 0; i < 8; ++i)
+		{
+			for (int j = i + 1; j < 8; ++j)
+			{
+				float dr = simTags[i].simR - simTags[j].simR;
+				float dg = simTags[i].simG - simTags[j].simG;
+				float db = simTags[i].simB - simTags[j].simB;
+				float dist = std::sqrt(dr * dr + dg * dg + db * db);
+				if (dist < kConflictThreshold)
+				{
+					hasConflict[i] = true;
+					hasConflict[j] = true;
+				}
+			}
+		}
+
+		// 4d: For each conflicting tag, find a replacement color via Hue-Rotation
+		// keeping luminance >= 85% of original luma (brightness adjustment as last resort)
+		std::vector<TargetColor> targetColors;
+		targetColors.reserve(8);
+
+		for (int i = 0; i < 8; ++i)
+		{
+			s_tagConflictStates[i].inConflict = hasConflict[i];
+			if (!hasConflict[i])
+			{
+				s_tagConflictStates[i].repR = simTags[i].origR;
+				s_tagConflictStates[i].repG = simTags[i].origG;
+				s_tagConflictStates[i].repB = simTags[i].origB;
+				continue;
+			}
+
+			float bestR = simTags[i].origR, bestG = simTags[i].origG, bestB = simTags[i].origB;
+			float bestScore = -1.0f;
+
+			float h = 0, s = 0, v = 0;
+			RgbToHsv(simTags[i].origR, simTags[i].origG, simTags[i].origB, h, s, v);
+
+			// Test hue shifts from 30° to 330° in 15° steps
+			for (int step = 1; step <= 23; ++step)
+			{
+				float testH = std::fmod(h + step * 15.0f, 360.0f);
+				float r = 0, g = 0, b = 0;
+				HsvToRgb(testH, s, v, r, g, b);
+
+				// Luminance preservation: ensure at least 85% of original luma
+				float newLuma = RelativeLuma(r, g, b);
+				float minLuma = simTags[i].luma * 0.85f;
+				if (newLuma < minLuma && newLuma > 1e-4f)
+				{
+					float scale = minLuma / newLuma;
+					r = std::clamp(r * scale, 0.0f, 1.0f);
+					g = std::clamp(g * scale, 0.0f, 1.0f);
+					b = std::clamp(b * scale, 0.0f, 1.0f);
+				}
+
+				// Simulate candidate under CVD
+				double candSimR = 0, candSimG = 0, candSimB = 0;
+				ColorMatrix::SimulatePixel(r, g, b, defType, candSimR, candSimG, candSimB);
+				candSimR = r + sev * (candSimR - r);
+				candSimG = g + sev * (candSimG - g);
+				candSimB = b + sev * (candSimB - b);
+
+				// Calculate minimum distance to all OTHER simulated tags
+				float minDist = 999.0f;
+				for (int j = 0; j < 8; ++j)
+				{
+					if (i == j) continue;
+					float dr = (float)candSimR - simTags[j].simR;
+					float dg = (float)candSimG - simTags[j].simG;
+					float db = (float)candSimB - simTags[j].simB;
+					float d = std::sqrt(dr * dr + dg * dg + db * db);
+					if (d < minDist) minDist = d;
+				}
+
+				if (minDist > bestScore)
+				{
+					bestScore = minDist;
+					bestR = r;
+					bestG = g;
+					bestB = b;
+				}
+			}
+
+			s_tagConflictStates[i].repR = bestR;
+			s_tagConflictStates[i].repG = bestG;
+			s_tagConflictStates[i].repB = bestB;
+
+			TargetColor tc;
+			tc.r = simTags[i].origR;
+			tc.g = simTags[i].origG;
+			tc.b = simTags[i].origB;
+			tc.repR = (uint8_t)(std::clamp(bestR * 255.0f, 0.0f, 255.0f));
+			tc.repG = (uint8_t)(std::clamp(bestG * 255.0f, 0.0f, 255.0f));
+			tc.repB = (uint8_t)(std::clamp(bestB * 255.0f, 0.0f, 255.0f));
+			targetColors.push_back(tc);
+		}
+
+		// 4e: Pass target color list to HybridScanner
+		GetHybridScanner().SetHighlighterParams(true, targetColors, CurrentSettings.EnhancerTolerance);
+	}
+
 	// Rebuilds the MAGCOLOREFFECT from CurrentSettings and either applies or
 	// clears it. Live math is computed immediately; DWM calls are throttled.
 	void Recompute(bool aForce = false)
@@ -329,6 +531,8 @@ namespace
 		{
 			return;
 		}
+
+		UpdateTagEnhancerConflicts();
 
 		if (!CurrentSettings.Enabled)
 		{
@@ -1081,6 +1285,7 @@ namespace
 				bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
 				if (ImGui::Checkbox(t.EnableEnhancer, &enhancerActive)) {
 					CurrentSettings.CommanderTagMode = enhancerActive ? 1 : 0;
+					UpdateTagEnhancerConflicts();
 					changed = true;
 					saveNeeded = true;
 				}
@@ -1089,6 +1294,7 @@ namespace
 				{
 					ImGui::SameLine(0, 20.0f);
 					if (ImGui::Checkbox(t.SmartEnhancer, &CurrentSettings.SmartEnhancer)) {
+						UpdateTagEnhancerConflicts();
 						changed = true;
 						saveNeeded = true;
 					}
@@ -1101,6 +1307,7 @@ namespace
 					ImGui::SetNextItemWidth(240.0f);
 					if (ImGui::SliderFloat(isDe ? "Toleranz##enhancer_tol" : "Tolerance##enhancer_tol",
 					                       &CurrentSettings.EnhancerTolerance, 0.04f, 0.20f, "%.3f")) {
+						UpdateTagEnhancerConflicts();
 						changed = true;
 					}
 					if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
@@ -1118,8 +1325,20 @@ namespace
 						ImVec2 sz(18.0f, 18.0f);
 						ImU32 col = IM_COL32((int)(kGw2TagRefs[i].r * 255), (int)(kGw2TagRefs[i].g * 255), (int)(kGw2TagRefs[i].b * 255), 255);
 						ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), col, 4.0f);
-						ImGui::GetWindowDrawList()->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), IM_COL32(200, 200, 200, 120), 4.0f);
+
+						bool conflict = s_tagConflictStates[i].inConflict;
+						ImU32 borderCol = conflict ? IM_COL32(255, 70, 70, 240) : IM_COL32(200, 200, 200, 120);
+						ImGui::GetWindowDrawList()->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), borderCol, 4.0f, 0, conflict ? 2.0f : 1.0f);
+
 						ImGui::Dummy(sz);
+						if (ImGui::IsItemHovered())
+						{
+							if (conflict)
+								ImGui::SetTooltip(isDe ? "Konflikt erkannt! Auto-Farbverschiebung aktiv." : "Conflict detected! Auto-hue shift active.");
+							else
+								ImGui::SetTooltip(isDe ? "Kein Konflikt für diese Farbe." : "No conflict for this color.");
+						}
+
 						ImGui::SameLine(0, 5.0f);
 						ImGui::TextUnformatted(kGw2TagRefs[i].labelFunc(t));
 						ImGui::EndGroup();
@@ -1317,6 +1536,7 @@ namespace
 			// Initialize hybrid background scanner
 			GetHybridScanner().Initialize();
 			GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
+			UpdateTagEnhancerConflicts();
 
 			// Startup policy: Filter only active on startup if LoadOnStartup is explicitly enabled.
 			if (!CurrentSettings.LoadOnStartup)
