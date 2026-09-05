@@ -4,6 +4,7 @@
 #include "WindowMode.h"
 #include "Settings.h"
 #include "CbaIcon.h"
+#include "HybridScanner.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -1077,6 +1078,17 @@ namespace
 				ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.25f, 1.0f), "%s", t.FocusWatchdogBackground);
 			}
 
+			// ── Hybrid Modus ──────────────────────────────────────────────────────
+			ImGui::Spacing();
+			if (ImGui::Checkbox(t.HybridMode, &CurrentSettings.EnableHybridMode)) {
+				GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("%s", t.HybridModeHelp);
+			}
+
 			// ── Entwickler- & Debug-Modus ─────────────────────────────────────────
 			ImGui::Spacing();
 			ImGui::Separator();
@@ -1150,6 +1162,24 @@ namespace
 			}
 		}
 
+		// ── Hybrid Scanner Frame Capture & Overlay ──────────────────────────────
+		if (CurrentSettings.EnableHybridMode && s_deferredInitDone.load())
+		{
+			IDXGISwapChain* swapChain = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
+			if (swapChain)
+			{
+				GetHybridScanner().ScanFrame(swapChain);
+			}
+
+			int texW = 0, texH = 0;
+			ID3D11ShaderResourceView* srv = GetHybridScanner().GetOverlaySRV(texW, texH);
+			if (srv)
+			{
+				ImVec2 disp = ImGui::GetIO().DisplaySize;
+				ImGui::GetBackgroundDrawList()->AddImage((ImTextureID)srv, ImVec2(0, 0), disp);
+			}
+		}
+
 		if (!CurrentSettings.DetachedWindow || !ImGui::GetCurrentContext()) return;
 
 		float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
@@ -1204,6 +1234,10 @@ namespace
 			const char* dir = (APIDefs->Paths.GetAddonDirectory) ? APIDefs->Paths.GetAddonDirectory("cba") : nullptr;
 			AddonDir = dir ? dir : "";
 			CurrentSettings = Settings::Load(AddonDir);
+
+			// Initialize hybrid background scanner
+			GetHybridScanner().Initialize();
+			GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
 
 			// Startup policy: Filter only active on startup if LoadOnStartup is explicitly enabled.
 			if (!CurrentSettings.LoadOnStartup)
@@ -1290,6 +1324,7 @@ namespace
 				}
 			}
 
+			GetHybridScanner().Shutdown();
 			GetColorEffectController().Shutdown(); // clears the effect before unload
 		}
 		catch (...)
