@@ -82,6 +82,18 @@ namespace cba
 			else if (key == "LoadOnStartup")     s.LoadOnStartup = (value == "1");
 			else if (key == "DetachedWindow")    s.DetachedWindow = (value == "1");
 			else if (key == "SystemWide")        s.SystemWide = (value == "1");
+			else if (key.rfind("Preset", 0) == 0 && key.size() >= 10)
+			{
+				int idx = key[6] - '0';
+				if (idx >= 0 && idx < 3 && key[7] == '_')
+				{
+					std::string prop = key.substr(8);
+					if (prop == "Name") s.Presets[idx].Name = value;
+					else if (prop == "Type") s.Presets[idx].Type = safeStoi(value, 0);
+					else if (prop == "Sev")  s.Presets[idx].Severity = safeStod(value, 1.0);
+					else if (prop == "Tol")  s.Presets[idx].Tolerance = safeStof(value, 0.12f);
+				}
+			}
 		}
 
 		return s;
@@ -112,5 +124,13 @@ namespace cba
 		file << "LoadOnStartup=" << (LoadOnStartup ? "1" : "0") << "\n";
 		file << "DetachedWindow=" << (DetachedWindow ? "1" : "0") << "\n";
 		file << "SystemWide=" << (SystemWide ? "1" : "0") << "\n";
+
+		for (int i = 0; i < 3; ++i)
+		{
+			file << "Preset" << i << "_Name=" << Presets[i].Name << "\n";
+			file << "Preset" << i << "_Type=" << Presets[i].Type << "\n";
+			file << "Preset" << i << "_Sev=" << Presets[i].Severity << "\n";
+			file << "Preset" << i << "_Tol=" << Presets[i].Tolerance << "\n";
+		}
 	}
 }

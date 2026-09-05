@@ -27,6 +27,19 @@ namespace cba
 		float EnhancerHue = 60.0f; // 0-360 degrees
 		float EnhancerTolerance = 0.12f; // 0.04 - 0.20
 
+		struct EnhancerPreset
+		{
+			std::string Name = "";
+			int Type = 0; // 0=Protan, 1=Deutan, 2=Tritan, 3=Mixed
+			double Severity = 1.0;
+			float Tolerance = 0.12f;
+		};
+		EnhancerPreset Presets[3]{
+			{ "WvW Zerg", 0, 1.0, 0.12f },
+			{ "Fractal", 1, 0.8, 0.10f },
+			{ "Raid", 2, 1.0, 0.14f }
+		};
+
 		float UiOpacity = 1.0f;
 		bool LoadOnStartup = false;
 		bool DetachedWindow = false;

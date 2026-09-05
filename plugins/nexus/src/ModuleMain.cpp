@@ -1343,6 +1343,77 @@ namespace
 						ImGui::TextUnformatted(kGw2TagRefs[i].labelFunc(t));
 						ImGui::EndGroup();
 					}
+
+					// ── Preset-System (3 Slots) ──────────────────────────────────
+					ImGui::Spacing();
+					ImGui::Separator();
+					ImGui::Spacing();
+					ImGui::TextUnformatted(t.PresetsTitle);
+					ImGui::Spacing();
+
+					for (int pIdx = 0; pIdx < 3; ++pIdx)
+					{
+						ImGui::PushID(pIdx);
+						char nameBuf[64];
+						std::snprintf(nameBuf, sizeof(nameBuf), "%s", CurrentSettings.Presets[pIdx].Name.c_str());
+						ImGui::SetNextItemWidth(130.0f);
+						if (ImGui::InputText("##preset_name", nameBuf, sizeof(nameBuf)))
+						{
+							CurrentSettings.Presets[pIdx].Name = nameBuf;
+							saveNeeded = true;
+						}
+
+						ImGui::SameLine(0, 6.0f);
+						if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(55.0f, 0.0f)))
+						{
+							CurrentSettings.Type = static_cast<DeficiencyType>(CurrentSettings.Presets[pIdx].Type);
+							CurrentSettings.Severity01 = CurrentSettings.Presets[pIdx].Severity;
+							CurrentSettings.EnhancerTolerance = CurrentSettings.Presets[pIdx].Tolerance;
+							CurrentSettings.CommanderTagMode = 1;
+							UpdateTagEnhancerConflicts();
+							changed = true;
+							saveNeeded = true;
+						}
+						if (ImGui::IsItemHovered())
+						{
+							ImGui::SetTooltip(isDe ? "Preset '%s' laden" : "Load preset '%s'", CurrentSettings.Presets[pIdx].Name.c_str());
+						}
+
+						ImGui::SameLine(0, 4.0f);
+						if (ImGui::Button(isDe ? "Speichern" : "Save", ImVec2(70.0f, 0.0f)))
+						{
+							CurrentSettings.Presets[pIdx].Type = static_cast<int>(CurrentSettings.Type);
+							CurrentSettings.Presets[pIdx].Severity = CurrentSettings.Severity01;
+							CurrentSettings.Presets[pIdx].Tolerance = CurrentSettings.EnhancerTolerance;
+							CurrentSettings.Save(AddonDir);
+						}
+						if (ImGui::IsItemHovered())
+						{
+							ImGui::SetTooltip(isDe ? "Aktuelle Einstellungen in Slot %d speichern" : "Save current settings to slot %d", pIdx + 1);
+						}
+
+						ImGui::PopID();
+					}
+
+					// Safe Reset Button for Enhancer
+					ImGui::Spacing();
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.38f, 0.22f, 0.22f, 0.85f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.50f, 0.28f, 0.28f, 0.95f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.30f, 0.16f, 0.16f, 1.00f));
+					if (ImGui::Button(isDe ? "Safe (Reset auf Neutral)" : "Safe (Reset to Neutral)", ImVec2(180.0f, 24.0f)))
+					{
+						CurrentSettings.CommanderTagMode = 0;
+						CurrentSettings.EnhancerTolerance = 0.12f;
+						CurrentSettings.SmartEnhancer = true;
+						UpdateTagEnhancerConflicts();
+						changed = true;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(3);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurück" : "Resets Commander Tag Enhancer to Off / Neutral");
+					}
 				}
 			}
 
