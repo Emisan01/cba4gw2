@@ -16,7 +16,7 @@ namespace cba
 		double MixedBySeverity01 = 0.0;
 		bool Mixed = false;
 		std::string ToggleKeybind = "CTRL+ALT+C"; // matches the exe's default
-		int Language = 0; // 0 = Auto (System), 1 = English, 2 = German
+		int Language = 1; // 1 = English (default), 0 = System (Windows), 2 = German, 3 = Game (GW2)
 		std::string DiagnosisHint = ""; // freeform AQ/HRR diagnostic label for presets
 		bool EnableHybridMode = false; // toggles the experimental DXGI CPU readback layer
 		bool DebugMode = false; // toggles the developer metrics UI

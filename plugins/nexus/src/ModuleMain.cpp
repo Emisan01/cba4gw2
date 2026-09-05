@@ -113,7 +113,30 @@ namespace
 		const char* LangAuto;
 		const char* SmartEnhancer;
 		const char* SmartEnhancerDesc;
+
+		// Bottom Section
+		const char* LoadOnStartup;
+		const char* LoadOnStartupTooltip;
+		const char* ProfileSummaryTitle;
+		const char* ValuesLabel;
+		const char* ClassificationLabel;
+		const char* KeepActiveBackground;
+		const char* KeepActiveBackgroundTooltip;
+		const char* FocusWatchdogExclusive;
+		const char* FocusWatchdogBackground;
+		const char* DebugModeCheckbox;
+		const char* MethodologyTitle;
+		const char* MethodologyDesc;
 	};
+
+	const char* DetectSystemLanguage()
+	{
+		LANGID lang = GetUserDefaultUILanguage();
+		if (PRIMARYLANGID(lang) == LANG_GERMAN) return "de";
+		if (PRIMARYLANGID(lang) == LANG_FRENCH) return "fr";
+		if (PRIMARYLANGID(lang) == LANG_SPANISH) return "es";
+		return "en";
+	}
 
 	const L10n& Strings()
 	{
@@ -124,17 +147,17 @@ namespace
 			"Deutan",
 			"Tritan",
 			"Gemischt",
-			"Stärke",
-			"Rot-Grün Stärke",
-			"Blau-Gelb Stärke",
+			"St\xc3\xa4rke",
+			"Rot-Gr\xc3\xbc\x6e St\xc3\xa4rke",
+			"Blau-Gelb St\xc3\xa4rke",
 			"Fenstermodus",
 			"Screenshots: GW2-intern wirkt vor dem Filter. PrintScreen / Win+PrintScreen und die meisten Display-Captures sehen den Filter.",
 			"Sprache",
 			"AQ/HRR Diagnose",
-			"Freitext für Diagnose-Presets oder eine genauere Zuordnung.",
+			"Freitext f\xc3\xbcr Diagnose-Presets oder eine genauere Zuordnung.",
 			"Hybrid Modus",
 			"Kinematic Fader: Blendet das Overlay bei schnellen Kamerabewegungen automatisch sanft aus.\nLiest den GW2 Render-Buffer im Hintergrund, um WCAG-Fehler zu erkennen.",
-			"Color Profile Graph: Verlauf der R/G/B-Farbkanäle",
+			"Color Profile Graph: Verlauf der R/G/B-Farbkan\xc3\xa4le",
 			"Diagnose Profil-Referenz (AQ/HRR):",
 			"Hinweis: Trage hier z.B. Farnsworth-Munsell Scores, HRR-Ergebnisse\n(wie 'Deutan Mild') oder andere Referenzen ein, um dieses\nFarb-Profil eindeutig zuzuordnen.",
 			"Commander Tag Enhancer (Symbol-Unterscheidung)",
@@ -142,17 +165,31 @@ namespace
 			"Enhancer Aktivieren",
 			"Voreinstellungen (Metabattle)",
 			"Tag Rot",
-			"Tag Grün",
+			"Tag Gr\xc3\xbc\x6e",
 			"Tag Lila",
 			"Tag Gelb",
 			"Tag Blau",
 			"Tag Pink",
 			"Tag Orange",
-			"Tag Weiß",
+			"Tag Wei\xc3\x9f",
 
 			"Auto",
 			"Smart-Enhancer: Symbole automatisch anpassen",
-			"Passt Commander-Tags und Wegmarker automatisch an die oben gewählte Farbsehschwäche an."
+			"Passt Commander-Tags und Wegmarker automatisch an die oben gew\xc3\xa4hlte Farbsehschw\xc3\xa4\x63he an.",
+
+			// Bottom Section
+			" Beim Spielstart laden (Load on Startup)",
+			"Aktiviert: Der gespeicherte Filterzustand wird beim Starten von GW2 geladen.\nDeaktiviert: Der Filter startet bei Spielstart immer inaktiv/neutral (kein ungewollter Farbstich).",
+			"Profil-Zusammenfassung (Live-Feedback):",
+			"Werte:",
+			"Einstufung:",
+			" Filter auch im Hintergrund aktiv lassen (z. B. bei Klick in Browser / 2. Monitor)",
+			"Standard (Deaktiviert): Sobald GW2 den Fokus verliert (z. B. Klick in den Browser auf Monitor 2 oder Alt-Tab), pausiert der Filter sofort, damit andere Programme nicht beeinflusst werden.\n\nAktiviert: L\xc3\xa4sst den Filter auch weiterlaufen, wenn ein anderes Fenster aktiv ist.\nHinweis: Bei Minimieren von GW2 pausiert der Filter in jedem Fall sofort.",
+			"Fokus-W\xc3\xa4\x63hter: Filter ist exklusiv an GW2 gebunden und pausiert bei Alt-Tab/Klick auf 2. Monitor.",
+			"Hintergrund-Modus: Filter bleibt auch bei Fokusverlust aktiv (pausiert nur bei Minimieren).",
+			"Entwickler- & Debug-Modus (Performance Watchdog)",
+			"Methodik & Referenzen:",
+			"  \xe2\x80\xa2 Daltonisierung: Fidaner et al. (2005)   \xe2\x80\xa2 LMS-Dichromasie: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Farbraum   \xe2\x80\xa2 W3C WCAG 2.1 Farbkontrast"
 		};
 
 		static const L10n en{
@@ -190,14 +227,29 @@ namespace
 
 			"Auto",
 			"Smart-Enhancer: Adjust symbols automatically",
-			"Automatically adjusts Commander Tags and waymarkers based on the selected color blindness type above."
+			"Automatically adjusts Commander Tags and waymarkers based on the selected color blindness type above.",
+
+			// Bottom Section
+			" Load on Startup",
+			"Enabled: Saved filter profile is restored when Guild Wars 2 launches.\nDisabled: Filter starts inactive/neutral at launch to prevent unintended color shifts.",
+			"Profile Summary (Live Feedback):",
+			"Values:",
+			"Classification:",
+			" Keep filter active in background (e.g. browser / 2nd monitor)",
+			"Default (Disabled): As soon as GW2 loses focus (e.g. clicking browser on 2nd monitor or Alt-Tab), the filter pauses immediately to avoid tinting other applications.\n\nEnabled: Keeps the filter active even when another window has focus.\nNote: Minimizing GW2 always pauses the filter immediately.",
+			"Focus Watchdog: Filter is bound exclusively to GW2 and pauses on Alt-Tab / 2nd monitor focus.",
+			"Background Mode: Filter remains active when focus is lost (only pauses when minimized).",
+			"Developer & Debug Mode (Performance Watchdog)",
+			"Methodology & References:",
+			"  \xe2\x80\xa2 Daltonization: Fidaner et al. (2005)   \xe2\x80\xa2 LMS Dichromacy: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Color Space   \xe2\x80\xa2 W3C WCAG 2.1 Color Contrast"
 		};
 
-		if (CurrentSettings.Language == 2) return de;
-		if (CurrentSettings.Language == 1) return en;
-		
-		LANGID lang = GetUserDefaultUILanguage();
-		return (PRIMARYLANGID(lang) == LANG_GERMAN) ? de : en;
+		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
+		if (CurrentSettings.Language == 0)            // System Language (Windows)
+		{
+			return (strcmp(DetectSystemLanguage(), "de") == 0) ? de : en;
+		}
+		return en; // English (1, default)
 	}
 
 	namespace
@@ -212,6 +264,7 @@ namespace
 		std::atomic<HWND> s_gw2Hwnd{nullptr};
 		std::atomic<bool> s_gw2Minimized{false};
 		std::atomic<bool> s_resetDetachedWindowPos{false};
+		std::atomic<bool> s_deferredInitDone{false};
 
 		bool RoughlyEqual(const MAGCOLOREFFECT& a, const MAGCOLOREFFECT& b)
 		{
@@ -224,6 +277,9 @@ namespace
 
 		void ApplyThrottled(const MAGCOLOREFFECT& aEffect, bool aForce = false)
 		{
+			if (!s_deferredInitDone.load())
+				return;
+
 			if (!aForce && s_hasApplied && RoughlyEqual(aEffect, s_lastAppliedEffect))
 				return; // Identical, save DWM IPC call
 
@@ -239,12 +295,19 @@ namespace
 		}
 	}
 
+	void EnsureDeferredInitialized();
+
 	// Rebuilds the MAGCOLOREFFECT from CurrentSettings and either applies or
 	// clears it. Live math is computed immediately; DWM calls are throttled.
 	void Recompute(bool aForce = false)
 	{
 		std::lock_guard<std::mutex> lock(s_recomputeMutex);
 		auto& controller = GetColorEffectController();
+
+		if (!s_deferredInitDone.load())
+		{
+			return;
+		}
 
 		if (!CurrentSettings.Enabled)
 		{
@@ -298,6 +361,11 @@ namespace
 			while (s_watchdogRunning)
 			{
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+				if (!s_deferredInitDone.load())
+				{
+					continue;
+				}
 
 				if (!CurrentSettings.Enabled)
 				{
@@ -402,21 +470,16 @@ namespace
 				break;
 			}
 		}
-		return aMsg; // Pass message to Guild Wars 2
+		return aMsg;
 	}
 
 	void ProcessKeybind(const char* aIdentifier, bool aIsRelease)
 	{
 		if (aIsRelease) return;
 
-		if (strcmp(aIdentifier, "KB_CBA_TOGGLE") == 0)
+		if (strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
 		{
-			CurrentSettings.Enabled = !CurrentSettings.Enabled;
-			CurrentSettings.Save(AddonDir);
-			Recompute(/*aForce=*/true);
-		}
-		else if (strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
-		{
+			EnsureDeferredInitialized();
 			CurrentSettings.DetachedWindow = !CurrentSettings.DetachedWindow;
 		}
 	}
@@ -620,7 +683,7 @@ namespace
 		}
 
 		ImGui::SameLine();
-		if (ImGui::Button(" \xe2\x9f\xb2 Reset ")) {
+		if (ImGui::Button("Reset GUI")) {
 			s_resetDetachedWindowPos = true;
 			CurrentSettings.DetachedWindow = true;
 		}
@@ -629,30 +692,70 @@ namespace
 		}
 
 		// ── Primary Controls (Enable, Language, Transparency) ────────────────
-		changed |= ImGui::Checkbox(t.Enabled, &CurrentSettings.Enabled);
+		// Styled ON / OFF toggle — the button that starts the magic
+		{
+			bool wasEnabled = CurrentSettings.Enabled;
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(9.0f, 3.0f));
+			if (wasEnabled) {
+				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.50f, 0.21f, 0.92f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.64f, 0.28f, 0.97f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.38f, 0.16f, 1.00f));
+			} else {
+				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.26f, 0.26f, 0.28f, 0.78f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.36f, 0.38f, 0.88f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.18f, 0.20f, 1.00f));
+			}
+			if (ImGui::Button(wasEnabled ? "ON " : "OFF")) {
+				CurrentSettings.Enabled = !CurrentSettings.Enabled;
+				changed    = true;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(3);
+			ImGui::PopStyleVar(2);
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip(wasEnabled ? "Filter active — click to disable" : "Filter inactive — click to enable");
+		}
 		
 		ImGui::SameLine();
 		ImGui::TextDisabled(" | ");
 		ImGui::SameLine();
-		if (ImGui::RadioButton(t.LangAuto, CurrentSettings.Language == 0)) { CurrentSettings.Language = 0; changed = true; }
-		ImGui::SameLine();
-		if (ImGui::RadioButton("English", CurrentSettings.Language == 1)) { CurrentSettings.Language = 1; changed = true; }
-		ImGui::SameLine();
-		if (ImGui::RadioButton("Deutsch", CurrentSettings.Language == 2)) { CurrentSettings.Language = 2; changed = true; }
+
+		int langComboIdx = 0;
+		if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
+		else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
+		else langComboIdx = 0;                                     // English (1)
+
+		const char* langComboItems[] = {
+			"English",
+			"System (Windows)",
+			"Deutsch"
+		};
+
+		ImGui::SetNextItemWidth(130.0f);
+		if (ImGui::Combo("##LangCombo", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
+		{
+			if (langComboIdx == 0) CurrentSettings.Language = 1;      // English
+			else if (langComboIdx == 1) CurrentSettings.Language = 0; // System (Windows)
+			else if (langComboIdx == 2) CurrentSettings.Language = 2; // Deutsch
+			changed = true;
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("Language:\n- English: Standard (Default)\n- System (Windows): Matches active Windows OS language\n- Deutsch: Explizit Deutsch");
+		}
 
 		ImGui::SameLine();
 		ImGui::TextDisabled(" | ");
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(110.0f);
-		if (ImGui::SliderFloat("UI Transparenz", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
+		if (ImGui::SliderFloat("Opacity", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
 			CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.20f, 1.00f);
 			changed = true;
 		}
 
-		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.58f, 0.72f, 0.90f, 0.90f));
-		ImGui::Text("  \xe2\x8c\xa8 Keybinds:   Filter: %s     |     Detach Graph: ALT+C", CurrentSettings.ToggleKeybind.c_str());
-		ImGui::PopStyleColor();
+
 
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -803,61 +906,58 @@ namespace
 			ImGui::Spacing();
 			ImGui::Spacing();
 
-			// ── Save / Reset with Spacious Layout & Animated Feedback ────────────
-			static double s_saveFeedbackTime = -10.0;
+			// ── Save Profile with Compact Styling & Inline Animated Feedback ────
+			static auto s_saveFeedbackTime = std::chrono::steady_clock::time_point{};
 
-			float btnW = (availW > 390.0f) ? (availW - 10.0f) * 0.5f : availW;
-			float btnH = 30.0f;
-
-			// Button 1: Save
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.44f, 0.26f, 0.85f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.58f, 0.34f, 0.95f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.14f, 0.35f, 0.20f, 1.0f));
-			if (ImGui::Button(" \xe2\x9c\x93  Einstellungen speichern ", ImVec2(btnW, btnH))) {
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
+			if (ImGui::Button("Save Profile", ImVec2(120.0f, 26.0f))) {
 				CurrentSettings.Save(AddonDir);
-				s_saveFeedbackTime = ImGui::GetTime();
+				s_saveFeedbackTime = std::chrono::steady_clock::now();
 				changed = false;
 			}
 			ImGui::PopStyleColor(3);
-
-			if (availW > 390.0f) {
-				ImGui::SameLine(0, 10.0f);
-			} else {
-				ImGui::Spacing();
+			ImGui::PopStyleVar();
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("Save current profile and settings to disk");
 			}
 
-			// Button 2: Safe Reset
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.38f, 0.26f, 0.26f, 0.85f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.50f, 0.32f, 0.32f, 0.95f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.30f, 0.20f, 0.20f, 1.0f));
-			if (ImGui::Button(" \xe2\x9f\xb2  Safe (Reset auf Neutral) ", ImVec2(btnW, btnH))) {
-				CurrentSettings.MixedRgSeverity01 = 0.0;
-				CurrentSettings.MixedBySeverity01 = 0.0;
-				CurrentSettings.Severity01 = 0.0;
-				CurrentSettings.EnableHybridMode = false;
-				CurrentSettings.UiOpacity = 1.0f;
-				changed = true;
-				CurrentSettings.Save(AddonDir);
-			}
-			ImGui::PopStyleColor(3);
+			// Animated feedback badge (clearly visible right next to the Save button)
+			if (s_saveFeedbackTime.time_since_epoch().count() > 0) {
+				auto now = std::chrono::steady_clock::now();
+				float elapsed = std::chrono::duration<float>(now - s_saveFeedbackTime).count();
+				if (elapsed >= 0.0f && elapsed < 3.0f) {
+					// Smooth fade out over the last 1.2s (from 1.8s to 3.0s)
+					float alpha = (elapsed > 1.8f) ? (3.0f - elapsed) / 1.2f : 1.0f;
+					alpha = std::clamp(alpha, 0.0f, 1.0f);
 
-			// Animated feedback badge
-			double timeSinceSave = ImGui::GetTime() - s_saveFeedbackTime;
-			if (timeSinceSave >= 0.0 && timeSinceSave < 2.5) {
-				float alpha = (timeSinceSave > 1.6) ? 1.0f - (float)(timeSinceSave - 1.6) / 0.9f : 1.0f;
-				ImGui::PushStyleVar(ImGuiStyleVar_Alpha, std::clamp(alpha, 0.0f, 1.0f));
-				ImGui::Spacing();
-				ImGui::TextColored(ImVec4(0.25f, 0.95f, 0.45f, alpha), " \xe2\x9c\x93 Einstellungen erfolgreich dauerhaft gespeichert!");
-				ImGui::PopStyleVar();
+					// Dynamic pulse during the first 0.35s
+					float pulse = (elapsed < 0.35f) ? (1.0f + 0.20f * sinf(elapsed * 3.14159265f / 0.35f)) : 1.0f;
+					float green = std::clamp(0.95f * pulse, 0.0f, 1.0f);
+
+					ImGui::SameLine(0, 12.0f);
+
+					// Vertically center text relative to the 26px button
+					float textOffset = (26.0f - ImGui::GetTextLineHeight()) * 0.5f;
+					if (textOffset > 0.0f) {
+						ImGui::SetCursorPosY(ImGui::GetCursorPosY() + textOffset);
+					}
+
+					bool isDe = (t.Enabled[0] == 'A');
+					const char* msg = isDe ? "[OK] Einstellungen gespeichert!" : "[OK] Profile saved successfully!";
+					ImGui::TextColored(ImVec4(0.20f, green, 0.45f, alpha), "%s", msg);
+				}
 			}
 
 			// ── Startup Checkbox ─────────────────────────────────────────────────
 			ImGui::Spacing();
-			if (ImGui::Checkbox(" Beim Spielstart laden (Load on Startup)", &CurrentSettings.LoadOnStartup)) {
+			if (ImGui::Checkbox(t.LoadOnStartup, &CurrentSettings.LoadOnStartup)) {
 				CurrentSettings.Save(AddonDir);
 			}
 			if (ImGui::IsItemHovered()) {
-				ImGui::SetTooltip("Aktiviert: Der gespeicherte Filterzustand wird beim Starten von GW2 geladen.\nDeaktiviert: Der Filter startet bei Spielstart immer inaktiv/neutral (kein ungewollter Farbstich).");
+				ImGui::SetTooltip("%s", t.LoadOnStartupTooltip);
 			}
 
 			ImGui::Spacing();
@@ -865,7 +965,7 @@ namespace
 			ImGui::Spacing();
 
 			// ── Profil-Status & Live-Feedback ────────────────────────────────────
-			ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "Profil-Zusammenfassung (Live-Feedback):");
+			ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "%s", t.ProfileSummaryTitle);
 			ImGui::Spacing();
 
 			{
@@ -873,46 +973,47 @@ namespace
 				std::string severityDesc;
 				std::string clinicalGrade;
 				bool isNeutral = false;
+				bool isDe = (t.Enabled[0] == 'A');
 
 				if (CurrentSettings.Mixed) {
-					profileName = "Gemischte Farbsehschw\xc3\xa4\x63he (Mixed)";
+					profileName = isDe ? "Gemischte Farbsehschw\xc3\xa4\x63he (Mixed)" : "Mixed Color Deficiency (Dual-Axis)";
 					char buf[96];
-					std::snprintf(buf, sizeof(buf), "Rot-Gr\xc3\xbc\x6e: %.1f%%   |   Blau-Gelb: %.1f%%", 
+					std::snprintf(buf, sizeof(buf), isDe ? "Rot-Gr\xc3\xbc\x6e: %.1f%%   |   Blau-Gelb: %.1f%%" : "Red-Green: %.1f%%   |   Blue-Yellow: %.1f%%", 
 						CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
 					severityDesc = buf;
 					double avgSev = (CurrentSettings.MixedRgSeverity01 + CurrentSettings.MixedBySeverity01) * 0.5;
 					if (avgSev <= 0.005) {
-						clinicalGrade = "Neutral (Filter inaktiv / 100% Originalfarben)";
+						clinicalGrade = isDe ? "Neutral (Filter inaktiv / 100% Originalfarben)" : "Neutral (Filter inactive / 100% original colors)";
 						isNeutral = true;
 					} else if (avgSev <= 0.35) {
-						clinicalGrade = "Milde Kompensation";
+						clinicalGrade = isDe ? "Milde Kompensation" : "Mild Compensation";
 					} else if (avgSev <= 0.70) {
-						clinicalGrade = "Mittlere Kompensation";
+						clinicalGrade = isDe ? "Mittlere Kompensation" : "Moderate Compensation";
 					} else {
-						clinicalGrade = "Starke Kompensation (hohe Farbtrennung)";
+						clinicalGrade = isDe ? "Starke Kompensation (hohe Farbtrennung)" : "Strong Compensation (High separation)";
 					}
 				} else {
 					if (CurrentSettings.Type == DeficiencyType::Protan) {
-						profileName = "Protanopie (Rotsehschw\xc3\xa4\x63he)";
+						profileName = isDe ? "Protanopie (Rotsehschw\xc3\xa4\x63he)" : "Protanopia (Red Deficiency)";
 					} else if (CurrentSettings.Type == DeficiencyType::Deutan) {
-						profileName = "Deuteranopie (Gr\xc3\xbcnsehschw\xc3\xa4\x63he)";
+						profileName = isDe ? "Deuteranopie (Gr\xc3\xbcnsehschw\xc3\xa4\x63he)" : "Deuteranopia (Green Deficiency)";
 					} else {
-						profileName = "Tritanopie (Blau-Gelb-Schw\xc3\xa4\x63he)";
+						profileName = isDe ? "Tritanopie (Blau-Gelb-Schw\xc3\xa4\x63he)" : "Tritanopia (Blue-Yellow Deficiency)";
 					}
 
 					char buf[64];
-					std::snprintf(buf, sizeof(buf), "Korrekturst\xc3\xa4rke: %.1f%%", CurrentSettings.Severity01 * 100.0);
+					std::snprintf(buf, sizeof(buf), isDe ? "Korrekturst\xc3\xa4rke: %.1f%%" : "Correction strength: %.1f%%", CurrentSettings.Severity01 * 100.0);
 					severityDesc = buf;
 
 					if (CurrentSettings.Severity01 <= 0.005) {
-						clinicalGrade = "Neutral (Filter inaktiv / 100% Originalfarben)";
+						clinicalGrade = isDe ? "Neutral (Filter inaktiv / 100% Originalfarben)" : "Neutral (Filter inactive / 100% original colors)";
 						isNeutral = true;
 					} else if (CurrentSettings.Severity01 <= 0.35) {
-						clinicalGrade = "Leichte Auspr\xc3\xa4gung (HRR / Farnsworth Mild)";
+						clinicalGrade = isDe ? "Leichte Auspr\xc3\xa4gung (HRR / Farnsworth Mild)" : "Mild Expression (HRR / Farnsworth Mild)";
 					} else if (CurrentSettings.Severity01 <= 0.70) {
-						clinicalGrade = "M\xc3\xa4\xc3\x9fige Auspr\xc3\xa4gung (HRR Moderate)";
+						clinicalGrade = isDe ? "M\xc3\xa4\xc3\x9fige Auspr\xc3\xa4gung (HRR Moderate)" : "Moderate Expression (HRR Moderate)";
 					} else {
-						clinicalGrade = "Starke Auspr\xc3\xa4gung / Anopie (HRR Severe)";
+						clinicalGrade = isDe ? "Starke Auspr\xc3\xa4gung / Anopie (HRR Severe)" : "Severe Expression / Anopia (HRR Severe)";
 					}
 				}
 
@@ -924,19 +1025,19 @@ namespace
 
 				float cardW = (availW < 480.0f) ? availW : 480.0f;
 				if (ImGui::BeginChild("##status_feedback_card", ImVec2(cardW, 88.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-					// Line 1: Active Profile
-					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "\xe2\x97\x8f  %s", profileName.c_str());
+					// Line 1: Active Profile (clean bullet without broken unicode '?')
+					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "- %s", profileName.c_str());
 					
 					// Line 2: Values & Numbers with plenty of space
 					ImGui::Spacing();
-					ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "Werte:   %s", severityDesc.c_str());
+					ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "%s   %s", t.ValuesLabel, severityDesc.c_str());
 					
 					// Line 3: Clinical Classification
 					ImGui::Spacing();
 					ImGui::TextColored(
 						!isNeutral ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.65f, 0.72f, 0.82f, 0.90f),
-						"%s  Einstufung: %s",
-						!isNeutral ? "\xe2\x9c\x93" : "\xe2\x80\xa2",
+						"%s %s",
+						t.ClassificationLabel,
 						clinicalGrade.c_str()
 					);
 					ImGui::EndChild();
@@ -962,21 +1063,18 @@ namespace
 				ImGui::TextColored({0.4f,0.85f,0.4f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode));
 			}
 			ImGui::Spacing();
-			if (ImGui::Checkbox(" Filter auch im Hintergrund aktiv lassen (z. B. bei Klick in Browser / 2. Monitor)", &CurrentSettings.SystemWide)) {
+			if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
 				changed = true;
 				saveNeeded = true;
 			}
 			if (ImGui::IsItemHovered()) {
-				ImGui::SetTooltip(
-					"Standard (Deaktiviert): Sobald GW2 den Fokus verliert (z. B. Klick in den Browser auf Monitor 2 oder Alt-Tab), pausiert der Filter sofort, damit andere Programme nicht beeinflusst werden.\n\n"
-					"Aktiviert: L\xc3\xa4sst den Filter auch weiterlaufen, wenn ein anderes Fenster aktiv ist.\n"
-					"Hinweis: Bei Minimieren von GW2 pausiert der Filter in jedem Fall sofort.");
+				ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
 			}
 
 			if (!CurrentSettings.SystemWide) {
-				ImGui::TextDisabled("Fokus-W\xc3\xa4\x63hter: Filter ist exklusiv an GW2 gebunden und pausiert bei Alt-Tab/Klick auf 2. Monitor.");
+				ImGui::TextDisabled("%s", t.FocusWatchdogExclusive);
 			} else {
-				ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.25f, 1.0f), "Hintergrund-Modus: Filter bleibt auch bei Fokusverlust aktiv (pausiert nur bei Minimieren).");
+				ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.25f, 1.0f), "%s", t.FocusWatchdogBackground);
 			}
 
 			// ── Entwickler- & Debug-Modus ─────────────────────────────────────────
@@ -984,7 +1082,7 @@ namespace
 			ImGui::Separator();
 			ImGui::Spacing();
 
-			if (ImGui::Checkbox("Entwickler- & Debug-Modus (Performance Watchdog)", &CurrentSettings.DebugMode)) {
+			if (ImGui::Checkbox(t.DebugModeCheckbox, &CurrentSettings.DebugMode)) {
 				changed = true;
 				saveNeeded = true;
 			}
@@ -992,12 +1090,10 @@ namespace
 			// ── Unauffällige Keynotes / Referenzen (ganz unten, dezent gräulich) ──
 			ImGui::Spacing();
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.48f, 0.52f, 0.58f, 0.70f));
-			ImGui::TextUnformatted("Methodik & Referenzen:");
-			ImGui::TextWrapped(
-				"  \xe2\x80\xa2 Daltonisierung: Fidaner et al. (2005)   \xe2\x80\xa2 LMS-Dichromasie: Vi\xc3\xa9not, Brettel & Mollon (1999)\n"
-				"  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Farbraum   \xe2\x80\xa2 W3C WCAG 2.1 Farbkontrast"
-			);
+			ImGui::TextUnformatted(t.MethodologyTitle);
+			ImGui::TextWrapped("%s", t.MethodologyDesc);
 			ImGui::PopStyleColor();
+
 		}
 
 		if (saveNeeded) {
@@ -1011,14 +1107,49 @@ namespace
 		ImGui::PopID();
 	}
 
+	void EnsureDeferredInitialized()
+	{
+		if (s_deferredInitDone.load()) return;
+
+		if (GetColorEffectController().Initialize())
+		{
+			s_deferredInitDone.store(true);
+			if (CurrentSettings.Enabled)
+			{
+				Recompute(/*aForce=*/true);
+			}
+		}
+		else
+		{
+			s_deferredInitDone.store(true);
+			if (APIDefs && APIDefs->Log)
+			{
+				APIDefs->Log(ELogLevel_WARNING, "cba4gw2", "MagInitialize deferred init failed.");
+			}
+		}
+	}
+
 	void AddonOptions()
 	{
 		if (!ImGui::GetCurrentContext()) return;
+		EnsureDeferredInitialized();
 		RenderCbaControls(/*isDetached=*/false);
 	}
 
 	void AddonRenderWindow()
 	{
+		// ── Deferred Warmup Gate ────────────────────────────────────────────────
+		// Give GW2, D3D11 swapchains, ArcDPS, FastLoad and NVIDIA Overlay
+		// 30 frames of stable rendering before touching DWM magnification.
+		if (!s_deferredInitDone.load())
+		{
+			static int s_renderWarmupFrames = 0;
+			if (++s_renderWarmupFrames >= 30)
+			{
+				EnsureDeferredInitialized();
+			}
+		}
+
 		if (!CurrentSettings.DetachedWindow || !ImGui::GetCurrentContext()) return;
 
 		float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
@@ -1080,29 +1211,7 @@ namespace
 				CurrentSettings.Enabled = false;
 			}
 
-			{
-				LANGID lang = GetUserDefaultUILanguage();
-				CurrentSettings.Language = (PRIMARYLANGID(lang) == LANG_GERMAN) ? 0 : 1;
-			}
-
-			GetColorEffectController().Initialize();
-
-			// Register keybinds
-			if (APIDefs->InputBinds.RegisterWithString)
-			{
-				APIDefs->InputBinds.RegisterWithString("KB_CBA_TOGGLE", ProcessKeybind, CurrentSettings.ToggleKeybind.c_str());
-				APIDefs->InputBinds.RegisterWithString("KB_CBA_WINDOW", ProcessKeybind, "ALT+C");
-			}
-
-			// QuickAccess toolbar icon
-			if (APIDefs->Textures.GetOrCreateFromMemory)
-			{
-				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON", (void*)kCbaIconPng, kCbaIconPngSize);
-			}
-			if (APIDefs->QuickAccess.Add)
-			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "KB_CBA_WINDOW", "cba4gw2");
-			}
+			// Language defaults to 0 (Auto/Sys) via Settings struct — no override needed.
 
 			// Escape closes floating window
 			if (APIDefs->UI.RegisterCloseOnEscape)
@@ -1123,11 +1232,23 @@ namespace
 				APIDefs->WndProc.Register(AddonWndProc);
 			}
 
+			// QuickAccess toolbar icon & window toggle keybind
+			if (APIDefs->InputBinds.RegisterWithString)
+			{
+				APIDefs->InputBinds.RegisterWithString("KB_CBA_WINDOW", ProcessKeybind, "ALT+C");
+			}
+			if (APIDefs->Textures.GetOrCreateFromMemory)
+			{
+				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON", (void*)kCbaIconPng, kCbaIconPngSize);
+			}
+			if (APIDefs->QuickAccess.Add)
+			{
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "KB_CBA_WINDOW", "cba4gw2 (ALT+C)");
+			}
+
 			// Start state watchdog thread (monitors focus transitions every 50ms)
 			s_watchdogRunning = true;
 			s_watchdogThread = std::thread(WatchdogLoop);
-
-			Recompute();
 		}
 		catch (...)
 		{
@@ -1148,6 +1269,14 @@ namespace
 
 			if (APIDefs)
 			{
+				if (APIDefs->QuickAccess.Remove)
+				{
+					APIDefs->QuickAccess.Remove("QA_CBA");
+				}
+				if (APIDefs->InputBinds.Deregister)
+				{
+					APIDefs->InputBinds.Deregister("KB_CBA_WINDOW");
+				}
 				if (APIDefs->WndProc.Deregister)
 					APIDefs->WndProc.Deregister(AddonWndProc);
 				if (APIDefs->Renderer.Deregister)
@@ -1158,15 +1287,6 @@ namespace
 				if (APIDefs->UI.DeregisterCloseOnEscape)
 				{
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2###CBA_FloatingWindow");
-				}
-				if (APIDefs->QuickAccess.Remove)
-				{
-					APIDefs->QuickAccess.Remove("QA_CBA");
-				}
-				if (APIDefs->InputBinds.Deregister)
-				{
-					APIDefs->InputBinds.Deregister("KB_CBA_WINDOW");
-					APIDefs->InputBinds.Deregister("KB_CBA_TOGGLE");
 				}
 			}
 
@@ -1193,7 +1313,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Name = "cba4gw2";
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 0;
-	AddonDef.Version.Build = 0;
+	AddonDef.Version.Build = 1;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "Emisan01";
 	AddonDef.Description =

@@ -67,7 +67,9 @@ namespace cba
 			{
 				if (value == "en") s.Language = 1;
 				else if (value == "de") s.Language = 2;
-				else s.Language = safeStoi(value, 0);
+				else if (value == "game") s.Language = 3;
+				else if (value == "sys") s.Language = 0;
+				else s.Language = safeStoi(value, 1);
 			}
 			else if (key == "DiagnosisHint") s.DiagnosisHint = value;
 			else if (key == "EnableHybrid")  s.EnableHybridMode = (value == "1");

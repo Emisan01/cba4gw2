@@ -11,6 +11,7 @@ public:
     bool Apply(MAGCOLOREFFECT effect);
     bool Clear();
     void Shutdown();
+    bool IsInitialized() const { return _initialized; }
 
 private:
     bool _initialized = false;

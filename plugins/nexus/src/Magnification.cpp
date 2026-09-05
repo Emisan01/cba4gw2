@@ -18,7 +18,7 @@ namespace cba
 
 	bool ColorEffectController::Clear()
 	{
-		if (!_initialized) return false;
+		if (!_initialized) return true;
 		MAGCOLOREFFECT identity{};
 		identity.transform[0][0] = 1.0f;
 		identity.transform[1][1] = 1.0f;
