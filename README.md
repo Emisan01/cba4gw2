@@ -1,14 +1,12 @@
-# ColorblindAssist (CBA) — GW2 Nexus Plugin (v1.0)
+# cba4gw2 — Color Balance Assist for Guild Wars 2 (v1.0)
 
-A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. Applies a real-time, hardware-accelerated color-vision-deficiency (CVD) correction filter to the game window via the Windows Desktop Window Manager (DWM).
-
-Officially approved for the Nexus addon library.
+A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. Applies a real-time, hardware-accelerated color balance and contrast assistance filter to the game window via the Windows Desktop Window Manager (DWM).
 
 ---
 
 ## 🔬 Scientific & Mathematical Foundation
 
-ColorblindAssist v1.0 implements a mathematically verified, clinically grounded color correction pipeline:
+cba4gw2 v1.0 implements a mathematically verified, clinically grounded color correction pipeline:
 
 * **Color Space:** Standard sRGB is transformed into the physiological **LMS (Long, Medium, Short) cone response space** using the **Hunt-Pointer-Estévez (HPE)** conversion matrix.
 * **Dichromacy Simulation:** Missing cone channels are projected according to **Viénot, Brettel & Mollon (1999)**, ensuring that the equi-energy neutral axis (white, gray, black) remains completely invariant ($Sim(White) = White$).
@@ -48,11 +46,11 @@ ColorblindAssist v1.0 implements a mathematically verified, clinically grounded 
 
 ## 📦 Installation
 
-1. Download `cba.dll` from the latest [Release](https://github.com/Emisan01/ColorblindAssist/releases).
+1. Download `cba.dll` from the latest [Release](https://github.com/Emisan01/cba4gw2/releases).
 2. Place `cba.dll` into your Nexus addons folder:
    `<Guild Wars 2>/addons/`
 3. Launch Guild Wars 2 through Nexus.
-4. In Nexus → **Addons** → **Colorblind Assist**, click **Options** to configure your profile.
+4. In Nexus → **Addons** → **cba4gw2**, click **Options** to configure your profile.
 
 > **Important:** Set Guild Wars 2 to **Windowed** or **Windowed Fullscreen (Borderless)** in Graphics Options. The Windows Magnification API cannot apply to Exclusive Fullscreen windows.
 

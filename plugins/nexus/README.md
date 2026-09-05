@@ -1,18 +1,16 @@
-# ColorblindAssist Nexus Plugin
+# cba4gw2 Nexus Plugin
 
-This directory contains the standalone `cba.dll` plugin for the GW2 Nexus
-loader. It is independent from the WinForms executable and intentionally has
-no Windows autostart registration: Nexus loads the DLL with Guild Wars 2.
+This directory contains the source code for `cba.dll`, a standalone plugin for the GW2 Nexus addon loader.
 
 The plugin provides:
 
 - Protan, Deutan, Tritan, and mixed correction profiles
 - Adjustable correction strength
-- AQ/HRR diagnosis hint input for a more precise starting point
+- Diagnosis hint input for choosing a precise starting point
 - German/English option labels
-- A colored beam preview and static commander-symbol contrast view
-- A global `Ctrl+Alt+C` toggle through Nexus keybinds
-- Exclusive-fullscreen detection with a visible warning
+- Real-time RGB transfer curves and dynamic filtered spectrum beam
+- Detachable floating HUD (`ALT+C`) with glassmorphic transparency
+- Window-mode detection with automatic neutral restoration when tabbing out
 
 ## Build
 
@@ -25,22 +23,16 @@ cmake --build build --config Release
 
 The resulting `cba.dll` is written to `build/bin/Release/cba.dll` and can be
 copied to the Nexus addons directory. The vendored Nexus and ImGui headers are
-kept in `thirdparty/` so the plugin build does not depend on the standalone
-application or on an autostart helper.
+kept in `thirdparty/` so the plugin build has zero external dependencies.
 
 ## Install (release package)
 
-1. Download `ColorblindAssist-nexus-plugin-win-x64.zip` from
-   [Releases](https://github.com/Emisan01/ColorblindAssist/releases).
-2. Extract `cba.dll`.
-3. Copy `cba.dll` into your Nexus addons folder (the same directory where other
-   GW2 Nexus addons live).
-4. Start Guild Wars 2 through Nexus and open Nexus options to configure the
-   addon. Use windowed or borderless display mode in GW2 graphics settings.
+1. Download `cba.dll` from [Releases](https://github.com/Emisan01/cba4gw2/releases).
+2. Copy `cba.dll` into your Nexus addons folder: `<Guild Wars 2>/addons/`.
+3. Start Guild Wars 2 through Nexus and open Nexus options → `cba4gw2` to configure the addon.
+4. Use Windowed or Windowed Fullscreen (Borderless) display mode in GW2 graphics settings.
 
 The plugin uses the Windows Magnification API and should be used in windowed
 or borderless GW2 mode. Exclusive fullscreen bypasses the desktop compositor,
 so the effect is disabled there and the options panel explains why.
 
-AQ/HRR values are heuristics for choosing a starting point, not a medical
-diagnosis or clinically validated conversion.

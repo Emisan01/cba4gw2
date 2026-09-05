@@ -600,7 +600,7 @@ namespace
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, widgetAlpha);
 
 		// ── Header Bar & Dock/Detach Controls ─────────────────────────────────
-		ImGui::Text("Colorblind Assist");
+		ImGui::Text("cba4gw2");
 		ImGui::SameLine();
 		
 		// Status indicators
@@ -1042,7 +1042,7 @@ namespace
 		}
 
 		ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
-		if (ImGui::Begin("Colorblind Assist###CBA_FloatingWindow", &CurrentSettings.DetachedWindow, winFlags))
+		if (ImGui::Begin("cba4gw2###CBA_FloatingWindow", &CurrentSettings.DetachedWindow, winFlags))
 		{
 			RenderCbaControls(/*isDetached=*/true);
 		}
@@ -1101,13 +1101,13 @@ namespace
 			}
 			if (APIDefs->QuickAccess.Add)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "KB_CBA_WINDOW", "Colorblind Assist");
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "KB_CBA_WINDOW", "cba4gw2");
 			}
 
 			// Escape closes floating window
 			if (APIDefs->UI.RegisterCloseOnEscape)
 			{
-				APIDefs->UI.RegisterCloseOnEscape("Colorblind Assist###CBA_FloatingWindow", &CurrentSettings.DetachedWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba4gw2###CBA_FloatingWindow", &CurrentSettings.DetachedWindow);
 			}
 
 			// Renderers
@@ -1157,7 +1157,7 @@ namespace
 				}
 				if (APIDefs->UI.DeregisterCloseOnEscape)
 				{
-					APIDefs->UI.DeregisterCloseOnEscape("Colorblind Assist###CBA_FloatingWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2###CBA_FloatingWindow");
 				}
 				if (APIDefs->QuickAccess.Remove)
 				{
@@ -1190,21 +1190,21 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 {
 	AddonDef.Signature = -78341; // arbitrary negative ID — not on Raidcore (yet)
 	AddonDef.APIVersion = NEXUS_API_VERSION;
-	AddonDef.Name = "Colorblind Assist";
+	AddonDef.Name = "cba4gw2";
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 0;
 	AddonDef.Version.Build = 0;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "Emisan01";
 	AddonDef.Description =
-		"Adjustable color-vision-deficiency correction filter with diagnosis hint, language toggle, "
-		"beam preview, and commander contrast view. Applied via the Windows Magnification API.";
+		"Color balance, contrast enhancement and visual assist for Guild Wars 2. "
+		"Applied via the Windows Magnification API.";
 	AddonDef.Load = AddonLoad;
 	AddonDef.Unload = AddonUnload;
 	AddonDef.Flags = EAddonFlags_None;
 
 	AddonDef.Provider = EUpdateProvider_GitHub;
-	AddonDef.UpdateLink = "https://github.com/Emisan01/ColorblindAssist";
+	AddonDef.UpdateLink = "https://github.com/Emisan01/cba4gw2";
 
 	return &AddonDef;
 }
