@@ -73,6 +73,7 @@ namespace cba
 			}
 			else if (key == "DiagnosisHint") s.DiagnosisHint = value;
 			else if (key == "EnableHybrid")  s.EnableHybridMode = (value == "1");
+			else if (key == "DebugMode")     s.DebugMode = (value == "1");
 			else if (key == "CommanderTagMode")  s.CommanderTagMode = safeStoi(value, 0);
 			else if (key == "EnhancerHue")       s.EnhancerHue = safeStof(value, 60.0f);
 			else if (key == "EnhancerTol")       s.EnhancerTolerance = safeStof(value, 0.12f);
