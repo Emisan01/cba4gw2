@@ -22,7 +22,8 @@ namespace cba
 		bool DebugMode = false; // toggles the developer metrics UI
 
 		// Commander Tag Enhancer
-		int CommanderTagMode = 0; // 0=Off, 1=On (Smart Enhancer)
+		int CommanderTagMode = 0; // 0=Off, 1=On
+		bool SmartEnhancer = true; // true = auto conflict resolution based on CVD profile
 		float EnhancerHue = 60.0f; // 0-360 degrees
 		float EnhancerTolerance = 0.12f; // 0.04 - 0.20
 

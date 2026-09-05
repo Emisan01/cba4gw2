@@ -130,6 +130,26 @@ namespace
 		const char* MethodologyDesc;
 	};
 
+	// 8 GW2 Commander Tag Reference Colors (Red, Green, Purple, Yellow, Blue, Pink, Orange, White)
+	// NOTE: Placeholder values until live game screenshot pixel sampling is performed.
+	// TODO: Sample exact GW2 commander tag RGB from live game screenshot!
+	struct Gw2TagRef {
+		const char* (*labelFunc)(const L10n&);
+		float r, g, b; // 0.0 - 1.0 placeholder
+	};
+
+	static const Gw2TagRef kGw2TagRefs[8] = {
+		// TODO: Sample exact GW2 commander tag RGB from live game screenshot!
+		{ [](const L10n& l) { return l.TagRed; },    0.92f, 0.15f, 0.15f },
+		{ [](const L10n& l) { return l.TagGreen; },  0.15f, 0.85f, 0.25f },
+		{ [](const L10n& l) { return l.TagPurple; }, 0.65f, 0.20f, 0.85f },
+		{ [](const L10n& l) { return l.TagYellow; }, 0.95f, 0.85f, 0.15f },
+		{ [](const L10n& l) { return l.TagBlue; },   0.20f, 0.55f, 0.95f },
+		{ [](const L10n& l) { return l.TagPink; },   0.95f, 0.35f, 0.70f },
+		{ [](const L10n& l) { return l.TagOrange; }, 0.95f, 0.50f, 0.10f },
+		{ [](const L10n& l) { return l.TagWhite; },  0.92f, 0.92f, 0.92f },
+	};
+
 	const char* DetectSystemLanguage()
 	{
 		LANGID lang = GetUserDefaultUILanguage();
@@ -1046,6 +1066,65 @@ namespace
 
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
+			}
+
+			// ── Commander Tag Enhancer UI ─────────────────────────────────────────
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			if (ImGui::CollapsingHeader(t.CmdrEnhancer, ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::TextDisabled("%s", t.CmdrEnhancerDesc);
+				ImGui::Spacing();
+
+				bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
+				if (ImGui::Checkbox(t.EnableEnhancer, &enhancerActive)) {
+					CurrentSettings.CommanderTagMode = enhancerActive ? 1 : 0;
+					changed = true;
+					saveNeeded = true;
+				}
+
+				if (enhancerActive)
+				{
+					ImGui::SameLine(0, 20.0f);
+					if (ImGui::Checkbox(t.SmartEnhancer, &CurrentSettings.SmartEnhancer)) {
+						changed = true;
+						saveNeeded = true;
+					}
+					if (ImGui::IsItemHovered()) {
+						ImGui::SetTooltip("%s", t.SmartEnhancerDesc);
+					}
+
+					ImGui::Spacing();
+					bool isDe = (t.Enabled[0] == 'A');
+					ImGui::SetNextItemWidth(240.0f);
+					if (ImGui::SliderFloat(isDe ? "Toleranz##enhancer_tol" : "Tolerance##enhancer_tol",
+					                       &CurrentSettings.EnhancerTolerance, 0.04f, 0.20f, "%.3f")) {
+						changed = true;
+					}
+					if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+					ImGui::Spacing();
+					ImGui::TextUnformatted(isDe ? "Tag Referenz-Farben (Sampling-Vorschau):" : "Tag Reference Colors (Sample preview):");
+					ImGui::Spacing();
+
+					// 8 Reference Swatches in 2 rows of 4
+					for (int i = 0; i < 8; ++i)
+					{
+						if (i > 0 && (i % 4) != 0) ImGui::SameLine(0, 12.0f);
+						ImGui::BeginGroup();
+						ImVec2 p = ImGui::GetCursorScreenPos();
+						ImVec2 sz(18.0f, 18.0f);
+						ImU32 col = IM_COL32((int)(kGw2TagRefs[i].r * 255), (int)(kGw2TagRefs[i].g * 255), (int)(kGw2TagRefs[i].b * 255), 255);
+						ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), col, 4.0f);
+						ImGui::GetWindowDrawList()->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), IM_COL32(200, 200, 200, 120), 4.0f);
+						ImGui::Dummy(sz);
+						ImGui::SameLine(0, 5.0f);
+						ImGui::TextUnformatted(kGw2TagRefs[i].labelFunc(t));
+						ImGui::EndGroup();
+					}
+				}
 			}
 
 			ImGui::Spacing();

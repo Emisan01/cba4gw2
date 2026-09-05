@@ -75,6 +75,7 @@ namespace cba
 			else if (key == "EnableHybrid")  s.EnableHybridMode = (value == "1");
 			else if (key == "DebugMode")     s.DebugMode = (value == "1");
 			else if (key == "CommanderTagMode")  s.CommanderTagMode = safeStoi(value, 0);
+			else if (key == "SmartEnhancer")     s.SmartEnhancer = (value == "1");
 			else if (key == "EnhancerHue")       s.EnhancerHue = safeStof(value, 60.0f);
 			else if (key == "EnhancerTol")       s.EnhancerTolerance = safeStof(value, 0.12f);
 			else if (key == "UiOpacity")         s.UiOpacity = safeStof(value, 1.0f);
@@ -104,6 +105,7 @@ namespace cba
 		file << "EnableHybrid=" << (EnableHybridMode ? "1" : "0") << "\n";
 		file << "DebugMode=" << (DebugMode ? "1" : "0") << "\n";
 		file << "CommanderTagMode=" << CommanderTagMode << "\n";
+		file << "SmartEnhancer=" << (SmartEnhancer ? "1" : "0") << "\n";
 		file << "EnhancerHue=" << EnhancerHue << "\n";
 		file << "EnhancerTol=" << EnhancerTolerance << "\n";
 		file << "UiOpacity=" << UiOpacity << "\n";
