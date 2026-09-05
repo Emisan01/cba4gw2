@@ -1746,7 +1746,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Name = "cba4gw2";
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 0;
-	AddonDef.Version.Build = 1;
+	AddonDef.Version.Build = 2;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "Emisan01";
 	AddonDef.Description =
