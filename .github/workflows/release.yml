@@ -15,56 +15,25 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.x
-
-      - name: Restore dependencies
-        run: dotnet restore ColorblindAssist.csproj
-
-      - name: Publish portable build
-        run: dotnet publish ColorblindAssist.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/ColorblindAssist-win-x64
-
-      - name: Publish slim build
-        run: dotnet publish ColorblindAssist.csproj --configuration Release --runtime win-x64 --self-contained false --property:PublishSingleFile=true --output artifacts/ColorblindAssist-slim-win-x64
-
       - name: Build Nexus plugin
         run: |
           cmake -S plugins/nexus -B plugins/nexus/build -A x64
           cmake --build plugins/nexus/build --config Release
 
-      - name: Sign release binaries (optional)
-        if: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' }}
-        shell: pwsh
-        env:
-          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
-          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
-        run: |
-          $certificatePath = Join-Path $env:RUNNER_TEMP 'colorblindassist-signing.pfx'
-          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64))
-          $signTool = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
-          if ($null -eq $signTool) { throw 'SignTool was not found on the GitHub runner.' }
-          Get-ChildItem artifacts -Filter *.exe -Recurse | ForEach-Object {
-            & $signTool.FullName sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f $certificatePath /p $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD $_.FullName
-            if ($LASTEXITCODE -ne 0) { throw "Signing failed for $($_.FullName)." }
-          }
-
       - name: Package builds
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path artifacts/nexus-plugin | Out-Null
-          Copy-Item plugins/nexus/build/bin/Release/cba.dll artifacts/nexus-plugin/
-          Copy-Item plugins/nexus/README.md artifacts/nexus-plugin/
-          Compress-Archive -Path artifacts/ColorblindAssist-win-x64/* -DestinationPath artifacts/ColorblindAssist-portable-includes-runtime-win-x64.zip
-          Compress-Archive -Path artifacts/ColorblindAssist-slim-win-x64/* -DestinationPath artifacts/ColorblindAssist-slim-requires-runtime-win-x64.zip
-          Compress-Archive -Path artifacts/nexus-plugin/* -DestinationPath artifacts/ColorblindAssist-nexus-plugin-win-x64.zip
+          New-Item -ItemType Directory -Force -Path artifacts/cba4gw2-nexus-plugin | Out-Null
+          Copy-Item plugins/nexus/build/bin/Release/cba.dll artifacts/cba4gw2-nexus-plugin/
+          Copy-Item README.md artifacts/cba4gw2-nexus-plugin/
+          Copy-Item plugins/nexus/README.md artifacts/cba4gw2-nexus-plugin/
+          Compress-Archive -Path artifacts/cba4gw2-nexus-plugin/* -DestinationPath artifacts/cba4gw2-nexus-plugin-win-x64.zip
+          Copy-Item plugins/nexus/build/bin/Release/cba.dll artifacts/cba.dll
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/ColorblindAssist-portable-includes-runtime-win-x64.zip
-            artifacts/ColorblindAssist-slim-requires-runtime-win-x64.zip
-            artifacts/ColorblindAssist-nexus-plugin-win-x64.zip
+            artifacts/cba4gw2-nexus-plugin-win-x64.zip
+            artifacts/cba.dll
           generate_release_notes: true
