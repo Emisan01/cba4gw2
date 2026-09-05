@@ -380,9 +380,18 @@ namespace
 
 	void UpdateTagEnhancerConflicts()
 	{
+		static bool s_lastActive = false;
+		static float s_lastTolerance = -1.0f;
+		static std::vector<TargetColor> s_lastTargets;
+
 		if (CurrentSettings.CommanderTagMode == 0)
 		{
-			GetHybridScanner().SetHighlighterParams(false, {}, CurrentSettings.EnhancerTolerance);
+			if (s_lastActive)
+			{
+				GetHybridScanner().SetHighlighterParams(false, {}, CurrentSettings.EnhancerTolerance);
+				s_lastActive = false;
+				s_lastTargets.clear();
+			}
 			for (auto& st : s_tagConflictStates) st = {};
 			return;
 		}
@@ -515,9 +524,28 @@ namespace
 			tc.repB = (uint8_t)(std::clamp(bestB * 255.0f, 0.0f, 255.0f));
 			targetColors.push_back(tc);
 		}
+		// 4e: Pass target color list to HybridScanner only when genuinely modified (Step 6 Performance)
+		bool paramsChanged = (!s_lastActive) || (CurrentSettings.EnhancerTolerance != s_lastTolerance) || (targetColors.size() != s_lastTargets.size());
+		if (!paramsChanged)
+		{
+			for (size_t k = 0; k < targetColors.size(); ++k)
+			{
+				if (targetColors[k].r != s_lastTargets[k].r || targetColors[k].g != s_lastTargets[k].g || targetColors[k].b != s_lastTargets[k].b ||
+					targetColors[k].repR != s_lastTargets[k].repR || targetColors[k].repG != s_lastTargets[k].repG || targetColors[k].repB != s_lastTargets[k].repB)
+				{
+					paramsChanged = true;
+					break;
+				}
+			}
+		}
 
-		// 4e: Pass target color list to HybridScanner
-		GetHybridScanner().SetHighlighterParams(true, targetColors, CurrentSettings.EnhancerTolerance);
+		if (paramsChanged)
+		{
+			s_lastActive = true;
+			s_lastTolerance = CurrentSettings.EnhancerTolerance;
+			s_lastTargets = targetColors;
+			GetHybridScanner().SetHighlighterParams(true, targetColors, CurrentSettings.EnhancerTolerance);
+		}
 	}
 
 	// Rebuilds the MAGCOLOREFFECT from CurrentSettings and either applies or
