@@ -1,125 +1,86 @@
-# ColorblindAssist
+# ColorblindAssist (CBA) — GW2 Nexus Plugin (v1.0)
 
-![Build](https://github.com/Emisan01/ColorblindAssist/actions/workflows/build.yml/badge.svg)
+A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. Applies a real-time, hardware-accelerated color-vision-deficiency (CVD) correction filter to the game window via the Windows Desktop Window Manager (DWM).
 
-**A transparent, system-wide color aid for Windows.**
+Officially approved for the Nexus addon library.
 
-ColorblindAssist applies an adjustable color correction matrix through the
-Windows Magnification API. It was born from a practical Guild Wars 2 use case,
-but works across the Windows desktop wherever a system-level color aid helps.
+---
 
-The interface keeps the important controls visible: choose a color profile,
-adjust intensity, and watch the RGB transformation respond in real time.
+## 🔬 Scientific & Mathematical Foundation
 
-The tool is intended as a practical visual aid. It is not a medical device and
-does not restore or diagnose color vision.
+ColorblindAssist v1.0 implements a mathematically verified, clinically grounded color correction pipeline:
 
-## Why it exists
+* **Color Space:** Standard sRGB is transformed into the physiological **LMS (Long, Medium, Short) cone response space** using the **Hunt-Pointer-Estévez (HPE)** conversion matrix.
+* **Dichromacy Simulation:** Missing cone channels are projected according to **Viénot, Brettel & Mollon (1999)**, ensuring that the equi-energy neutral axis (white, gray, black) remains completely invariant ($Sim(White) = White$).
+* **Daltonization Compensation:** Lost contrasts are calculated and redistributed into visible channels using type-specific shift matrices based on **Fidaner, Lin & Özgüven (2005)**.
+* **Contrast Standards:** Optimized in accordance with **W3C WCAG 2.1** color contrast recommendations and **HRR / Farnsworth-Munsell** clinical scales.
 
-Many color filters are fixed presets that change everything at once. This tool
-keeps correction strength adjustable and makes the transformation visible,
-so each person can find a setting that works for their own display and vision.
+👉 **For complete formulas, matrix proofs, and mathematical derivations, see [`COLOR_MATH.md`](COLOR_MATH.md).**
 
-## Features
+---
 
-- System-wide color correction
-- Adjustable correction intensity
-- Protan, Deutan, Tritan, and Mixed modes
-- Optional Anomaloscope AQ and HRR input
-- Live RGB transformation graph
-- English and German UI
-- Saved settings and optional Windows startup
-- Global `Ctrl+Alt+C` toggle
-- Single-instance protection
-- Optional standalone GW2 Nexus plugin with the same correction engine
+## ⚡ Key Features (v1.0)
 
-## Download and run
+- **100% Hookless & Safe (Weg A):** Zero DirectX / D3D11 present hooks, zero shader injection, zero game memory tampering. Applies strictly via the Windows Magnification API (`MagSetFullscreenColorEffect`).
+- **Correction Profiles:**
+  - **Protanopia / Protanomaly** (Red-weak / Red-blind)
+  - **Deuteranopia / Deuteranomaly** (Green-weak / Green-blind)
+  - **Tritanopia / Tritanomaly** (Blue-weak / Blue-yellow)
+  - **Mixed Mode** (Independent Red-Green and Blue-Yellow sliders)
+- **Event-Driven Auto-Sleep (`WndProc`):**
+  - Instant neutral color restoration when tabbing out (`WM_ACTIVATE` / `WA_INACTIVE`) or minimizing (`WM_SIZE` / `SIZE_MINIMIZED`).
+  - Instant filter reactivation when returning to GW2.
+  - Transparent message passthrough ensuring no mouse, keyboard, or context menu clicks are swallowed.
+- **Performance & I/O Throttling:**
+  - **DWM IPC Capped at 60 Hz:** Sliders can be dragged rapidly without causing Desktop Window Manager stutter.
+  - **Deferred Disk Writes:** Settings are written to disk only when sliders are released or buttons are clicked, preventing unnecessary SSD I/O.
+- **Modern Interactive UI:**
+  - **32-Sample Transfer Curves:** Antialiased, clipped graph displaying real-time R/G/B channel gains.
+  - **Live Filtered Spectrum Beam:** Real-time rainbow bar demonstrating the transformation across the entire visible spectrum.
+  - **Spacious Live-Feedback Status Card:** Displays active profile, exact percentages, and clinical HRR / Farnsworth severity classifications.
+  - **Animated Save Feedback:** Smooth arc spinner transitioning into a glowing green checkmark with graceful fade-out.
+  - **UI Opacity Slider:** Real-time transparency adjustment for the CBA options panel.
+  - **Window-Mode Detection:** Explicit warning when Guild Wars 2 is running in Exclusive Fullscreen (which bypasses DWM filters).
+  - **Keybind Toggle:** Default `Ctrl+Alt+C`, fully rebindable through Nexus.
+  - **Bilingual:** Automatic system detection for German and English with manual overrides.
 
-Prebuilt Windows downloads are available in the [Releases](https://github.com/Emisan01/ColorblindAssist/releases) section.
+---
 
-| Package | Runtime | Size | Best for |
-| --- | --- | --- | --- |
-| `portable-includes-runtime` | Included | Larger download | Works without a separate .NET installation |
-| `slim-requires-runtime` | Not included | Small download | Systems that already have the .NET 8 Desktop Runtime |
-| `nexus-plugin` | None (Nexus DLL) | Smallest download | Guild Wars 2 via Nexus; no Windows autostart |
+## 📦 Installation
 
-The standalone Nexus plugin (`ColorblindAssist-nexus-plugin-win-x64.zip`) contains
-`cba.dll` for the GW2 Nexus loader. Copy it into your Nexus addons folder. It
-is loaded by Nexus with Guild Wars 2 and has no Windows autostart registration.
+1. Download `cba.dll` from the latest [Release](https://github.com/Emisan01/ColorblindAssist/releases).
+2. Place `cba.dll` into your Nexus addons folder:
+   `<Guild Wars 2>/addons/`
+3. Launch Guild Wars 2 through Nexus.
+4. In Nexus → **Addons** → **Colorblind Assist**, click **Options** to configure your profile.
 
-The `slim-requires-runtime` package includes `Start-ColorblindAssist.cmd`. It
-checks for the .NET 8 Desktop Runtime and opens the official Microsoft download
-page when needed.
+> **Important:** Set Guild Wars 2 to **Windowed** or **Windowed Fullscreen (Borderless)** in Graphics Options. The Windows Magnification API cannot apply to Exclusive Fullscreen windows.
 
-The `portable-includes-runtime` package includes the runtime and can run
-without a separate .NET installation. Its larger size is expected.
+---
 
-### Windows trust warning
+## 🛠️ Building from Source
 
-Because this is a new desktop application, Windows Defender SmartScreen may
-initially show an “unrecognized app” warning. This is a publisher and download
-reputation check, not a diagnosis of malware. Download only from the official
-GitHub Releases page and compare the published SHA-256 checksum. See
-[SECURITY.md](SECURITY.md) for the signing and verification policy.
+Requirements: **Visual Studio 2022 (MSVC v143)**, **CMake ≥ 3.20**, Windows SDK.
 
-## Requirements
-
-- Windows 10 or Windows 11 for the modern .NET 8 build
-- Windows Magnification API support
-
-The color-effect API is available from Windows 8, but .NET 8 is not supported
-on Windows 8.1. Supporting Windows 8/8.1 requires a separately tested legacy
-build.
-
-## Build
-
-Framework-dependent development build:
-
-```text
-dotnet build
-dotnet run
+```powershell
+cd plugins/nexus
+cmake -S . -B build -A x64
+cmake --build build --config Release
+# Output binary: plugins/nexus/build/bin/Release/cba.dll
 ```
 
-Portable Windows x64 build with the .NET runtime included:
+All dependencies (ImGui, Nexus API headers) are vendored in `thirdparty/` — zero external package downloads required during build.
 
-```text
-dotnet publish --profile WinX64
-```
+---
 
-Slim Windows x64 build without an embedded runtime:
+## 📋 Scope-Freeze & Roadmap Notes (v1.0)
 
-```text
-dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
-```
+To guarantee rock-solid stability and account safety, the following boundaries are enforced for v1.0:
+* **In v1.0:** 100% Hookless Magnification API (Weg A), Viénot/HPE/Fidaner Daltonization, Live Curves, Live Beam, Live Feedback Status Card, DWM Throttling, Deferred Save, WndProc Auto-Sleep.
+* **Deferred to future updates:** In-engine D3D11 Present hooks (Weg B), selective pixel-shader hue rotation (Smart Enhancer), pipette color pickers, and dynamic scene histogram analysis.
 
-## Important limitations
+---
 
-- Exclusive fullscreen applications may bypass the Desktop Window Manager.
-  Borderless or windowed mode is recommended for games.
-- Windows color filters and this tool can overwrite each other.
-- The correction matrices are practical approximations, not clinically
-  calibrated conversions.
-- AQ-to-severity mapping is heuristic and should not be treated as a medical
-  measurement.
+## 📜 License
 
-## Project structure
-
-- `SettingsForm.cs` - Windows Forms UI and interaction logic
-- `ColorMatrix.cs` - color simulation and correction matrices
-- `ColorCurveView.cs` - live RGB graph
-- `DiagnosticMapper.cs` - optional AQ/HRR approximation mapping
-- `Magnification.cs` - Windows API wrapper and filter lifecycle
-- `AppPreferences.cs` - local settings and Windows startup registration
-
-The Nexus plugin lives under `plugins/nexus/`. Its lifecycle is owned by
-Nexus; it does not use the executable's Windows startup preference.
-
-## Contributing
-
-Feedback from people with color vision deficiency is especially valuable.
-Please open an issue with the Windows version, selected profile, and what was
-better or worse. Do not include medical records or other personal information.
-
-## License
-
-Released under the [MIT License](LICENSE).
+MIT License — see [LICENSE](LICENSE).

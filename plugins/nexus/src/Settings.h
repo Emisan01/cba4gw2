@@ -10,17 +10,29 @@ namespace cba
 	struct Settings
 	{
 		bool Enabled = false;
-		DeficiencyType Type = DeficiencyType::Deutan;
-		double Severity01 = 0.5;       // used for Protan/Deutan/Tritan
-		double MixedRgSeverity01 = 0.5; // used for Mixed
-		double MixedBySeverity01 = 0.5; // used for Mixed
+		DeficiencyType Type = DeficiencyType::Protan;
+		double Severity01 = 0.0;
+		double MixedRgSeverity01 = 0.0;
+		double MixedBySeverity01 = 0.0;
 		bool Mixed = false;
 		std::string ToggleKeybind = "CTRL+ALT+C"; // matches the exe's default
-		std::string Language = "de"; // "de" or "en"; keep German as the default base
+		int Language = 0; // 0 = Auto (System), 1 = English, 2 = German
 		std::string DiagnosisHint = ""; // freeform AQ/HRR diagnostic label for presets
+		bool EnableHybridMode = false; // toggles the experimental DXGI CPU readback layer
+		bool DebugMode = false; // toggles the developer metrics UI
+
+		// Commander Tag Enhancer
+		int CommanderTagMode = 0; // 0=Off, 1=On (Smart Enhancer)
+		float EnhancerHue = 60.0f; // 0-360 degrees
+		float EnhancerTolerance = 0.12f; // 0.04 - 0.20
+
+		float UiOpacity = 1.0f;
+		bool LoadOnStartup = false;
+		bool DetachedWindow = false;
+		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
 		// aAddonDir: the path returned by GetAddonDirectory("cba"), Nexus
-		// creates it for us the first time we ask for it.
+		// creates this automatically before AddonLoad.
 		static Settings Load(const std::string& aAddonDir);
 		void Save(const std::string& aAddonDir) const;
 	};

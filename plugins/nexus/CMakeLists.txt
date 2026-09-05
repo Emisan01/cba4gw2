@@ -11,6 +11,7 @@ add_library(cba SHARED
     src/Magnification.cpp
     src/Settings.cpp
     src/WindowMode.cpp
+    src/HybridScanner.cpp
     thirdparty/imgui/imgui.cpp
     thirdparty/imgui/imgui_draw.cpp
     thirdparty/imgui/imgui_tables.cpp

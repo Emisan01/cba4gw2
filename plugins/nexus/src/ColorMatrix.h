@@ -32,5 +32,17 @@ namespace cba
 		// Row/column 3 and 4 stay identity (alpha passthrough), same as the
 		// C# ToMagColorEffect() did.
 		MAGCOLOREFFECT ToMagColorEffect(const double aM3x3[3][3]);
+
+		// Physiological simulation (LMS/Brettel): shows how the colour appears to
+		// someone with the given deficiency at full anopia severity.
+		void SimulatePixel(double aR, double aG, double aB,
+		                   DeficiencyType aType,
+		                   double& aOutR, double& aOutG, double& aOutB);
+
+		// Applies a pre-computed 3×3 correction matrix to a single pixel.
+		// Used for the "with filter" preview row without touching the system effect.
+		void ApplyPixel(double aR, double aG, double aB,
+		                const double aMatrix[3][3],
+		                double& aOutR, double& aOutG, double& aOutB);
 	}
 }

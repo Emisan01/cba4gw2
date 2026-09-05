@@ -7,13 +7,20 @@ namespace cba
 		if (!aSwapChain)
 			return WindowMode::Unknown;
 
-		BOOL isFullscreen = FALSE;
-		HRESULT hr = aSwapChain->GetFullscreenState(&isFullscreen, nullptr);
+		__try
+		{
+			BOOL isFullscreen = FALSE;
+			HRESULT hr = aSwapChain->GetFullscreenState(&isFullscreen, nullptr);
 
-		if (FAILED(hr))
+			if (FAILED(hr))
+				return WindowMode::Unknown;
+
+			return isFullscreen ? WindowMode::ExclusiveFullscreen : WindowMode::Composited;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
 			return WindowMode::Unknown;
-
-		return isFullscreen ? WindowMode::ExclusiveFullscreen : WindowMode::Composited;
+		}
 	}
 
 	const char* ToDisplayString(WindowMode aMode)

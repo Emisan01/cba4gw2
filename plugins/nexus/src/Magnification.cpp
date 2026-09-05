@@ -41,22 +41,6 @@ namespace cba
 	namespace
 	{
 		ColorEffectController s_controller;
-		LPTOP_LEVEL_EXCEPTION_FILTER s_previousFilter = nullptr;
-
-		LONG WINAPI CrashGuardFilter(EXCEPTION_POINTERS* aExceptionInfo)
-		{
-			// Best-effort only. If we get here, the process is already
-			// unwinding after a genuine exception (SEH), which is a much
-			// friendlier scenario than a hard TerminateProcess or an access
-			// violation deep in GW2's own render thread with corrupted state.
-			// Still worth trying before we pass it on.
-			s_controller.Clear();
-
-			if (s_previousFilter)
-				return s_previousFilter(aExceptionInfo);
-
-			return EXCEPTION_CONTINUE_SEARCH;
-		}
 	}
 
 	ColorEffectController& GetColorEffectController()
@@ -66,12 +50,11 @@ namespace cba
 
 	void InstallCrashGuard()
 	{
-		s_previousFilter = SetUnhandledExceptionFilter(CrashGuardFilter);
+		// No-op: Do not hook SetUnhandledExceptionFilter in game processes
 	}
 
 	void RemoveCrashGuard()
 	{
-		SetUnhandledExceptionFilter(s_previousFilter);
-		s_previousFilter = nullptr;
+		// No-op
 	}
 }

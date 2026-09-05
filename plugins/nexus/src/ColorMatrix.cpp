@@ -5,35 +5,62 @@ namespace cba
 {
 	namespace
 	{
-		// Simplified RGB simulation matrices per type (full severity = anopia).
-		// Values taken verbatim from the exe's ColorMatrix.cs.
-		constexpr double SimProtan[3][3] =
-		{
-			{ 0.56667, 0.43333, 0.00000 },
-			{ 0.55833, 0.44167, 0.00000 },
-			{ 0.00000, 0.24167, 0.75833 }
+		// ── Hunt-Pointer-Estévez (HPE) RGB to LMS Matrix (Viénot et al. 1999) ─
+		constexpr double kRgbToLms[3][3] = {
+			{ 17.8824,   43.5161,   4.11935  },
+			{  3.45565,  27.1554,   3.86714  },
+			{  0.0299566, 0.184309,  1.46709  }
 		};
 
-		constexpr double SimDeutan[3][3] =
-		{
-			{ 0.62500, 0.37500, 0.00000 },
-			{ 0.70000, 0.30000, 0.00000 },
-			{ 0.00000, 0.30000, 0.70000 }
+		// ── Inverse Matrix: LMS to RGB ───────────────────────────────────────
+		constexpr double kLmsToRgb[3][3] = {
+			{  0.0809444479, -0.1305044092,  0.1167210664 },
+			{ -0.0102485335,  0.0540193266, -0.1136147082 },
+			{ -0.0003652969, -0.0041216147,  0.6935114049 }
 		};
 
-		constexpr double SimTritan[3][3] =
-		{
-			{ 0.95000, 0.05000, 0.00000 },
-			{ 0.00000, 0.43333, 0.56667 },
-			{ 0.00000, 0.47500, 0.52500 }
+		// ── CVD Dichromacy Projection in LMS Space (Viénot, Brettel & Mollon 1999)
+		// Preserves the equi-energy neutral axis (white remains white).
+		// Deuteranopia (M projection): M' = 0.494207 * L + 1.24827 * S
+		constexpr double kCvdDeutan[3][3] = {
+			{ 1.0,      0.0, 0.0     },
+			{ 0.494207, 0.0, 1.24827 },
+			{ 0.0,      0.0, 1.0     }
 		};
 
-		// Redistributes the lost color component through the remaining channels.
-		constexpr double ErrorRedistribution[3][3] =
-		{
+		// Protanopia (L projection): L' = 2.02344 * M - 2.52581 * S
+		constexpr double kCvdProtan[3][3] = {
+			{ 0.0, 2.02344, -2.52581 },
+			{ 0.0, 1.0,      0.0     },
+			{ 0.0, 0.0,      1.0     }
+		};
+
+		// Tritanopia (S projection): S' = -0.395913 * L + 0.801109 * M
+		constexpr double kCvdTritan[3][3] = {
+			{  1.0,       0.0,      0.0 },
+			{  0.0,       1.0,      0.0 },
+			{ -0.395913,  0.801109, 0.0 }
+		};
+
+		// ── Daltonization Shift Matrices (Fidaner et al. 2005) ────────────────
+		// Redistributes the lost color component (error) to visible channels.
+		// Protanopia (L-defect, red lost): shift red error into green and blue
+		constexpr double ShiftProtan[3][3] = {
 			{ 0.0, 0.0, 0.0 },
-			{ 0.7, 1.0, 0.0 },
-			{ 0.7, 0.0, 1.0 }
+			{ 0.7, 0.0, 0.0 },
+			{ 0.7, 0.0, 0.0 }
+		};
+		// Deuteranopia (M-defect, green lost): shift green error into red and blue
+		constexpr double ShiftDeutan[3][3] = {
+			{ 0.0, 0.7, 0.0 },
+			{ 0.0, 0.0, 0.0 },
+			{ 0.0, 0.7, 0.0 }
+		};
+		// Tritanopia (S-defect, blue lost): shift blue error into red and green
+		constexpr double ShiftTritan[3][3] = {
+			{ 0.0, 0.0, 0.7 },
+			{ 0.0, 0.0, 0.7 },
+			{ 0.0, 0.0, 0.0 }
 		};
 
 		constexpr double Identity3[3][3] =
@@ -50,17 +77,6 @@ namespace cba
 					aDst[i][j] = aSrc[i][j];
 		}
 
-		void SimulationMatrix(DeficiencyType aType, double aOut[3][3])
-		{
-			switch (aType)
-			{
-				case DeficiencyType::Protan: CopyMatrix(SimProtan, aOut); return;
-				case DeficiencyType::Deutan: CopyMatrix(SimDeutan, aOut); return;
-				case DeficiencyType::Tritan: CopyMatrix(SimTritan, aOut); return;
-				default:                     CopyMatrix(Identity3, aOut); return;
-			}
-		}
-
 		void Multiply(const double aA[3][3], const double aB[3][3], double aOut[3][3])
 		{
 			double result[3][3]{};
@@ -74,6 +90,19 @@ namespace cba
 				}
 			CopyMatrix(result, aOut);
 		}
+
+		void SimulationMatrix(DeficiencyType aType, double aOut[3][3])
+		{
+			// Computes: LmsToRgb * CvdSpace * RgbToLms
+			const double (*cvd)[3] =
+				(aType == DeficiencyType::Deutan) ? kCvdDeutan :
+				(aType == DeficiencyType::Protan) ? kCvdProtan : kCvdTritan;
+
+			double temp[3][3];
+			Multiply(cvd, kRgbToLms, temp);
+			Multiply(kLmsToRgb, temp, aOut);
+		}
+
 
 		void Add(const double aA[3][3], const double aB[3][3], double aOut[3][3])
 		{
@@ -100,27 +129,47 @@ namespace cba
 		{
 			return std::clamp(aV, 0.0, 1.0);
 		}
+
+		double ClampNeg1To1(double aV)
+		{
+			return std::clamp(aV, -1.0, 1.0);
+		}
+
+		// (Simulation is now fully consistent since both use the Brettel LMS matrices)
 	}
 
 	void ColorMatrix::CorrectionMatrix(DeficiencyType aType, double aSeverity01, double aOut3x3[3][3])
 	{
+		double clampedSev = Clamp01(aSeverity01);
+		if (clampedSev <= 0.0001)
+		{
+			CopyMatrix(Identity3, aOut3x3);
+			return;
+		}
+
 		double sim[3][3];
 		SimulationMatrix(aType, sim);
 
-		// M = I + Err - Err * Sim
+		const double (*shift)[3] =
+			(aType == DeficiencyType::Deutan) ? ShiftDeutan :
+			(aType == DeficiencyType::Protan) ? ShiftProtan : ShiftTritan;
+
+		// Out = In + (In - In*Sim) * Shift
+		// As column vectors: Out = In + Shift * (In - Sim*In) = (I + Shift - Shift*Sim) * In
+		// So Matrix M = I + Shift - Shift * Sim
 		double errTimesSim[3][3];
-		Multiply(ErrorRedistribution, sim, errTimesSim);
+		Multiply(shift, sim, errTimesSim);
 
 		double negErrTimesSim[3][3];
 		Negate(errTimesSim, negErrTimesSim);
 
 		double sum[3][3];
-		Add(Identity3, ErrorRedistribution, sum);
+		Add(Identity3, shift, sum);
 
 		double full[3][3];
 		Add(sum, negErrTimesSim, full);
 
-		Lerp(Identity3, full, Clamp01(aSeverity01), aOut3x3);
+		Lerp(Identity3, full, clampedSev, aOut3x3);
 	}
 
 	void ColorMatrix::MixedCorrectionMatrix(double aRgSeverity01, double aBySeverity01, double aOut3x3[3][3])
@@ -141,16 +190,55 @@ namespace cba
 		// same layout the C# MagColorEffect struct used.
 		MAGCOLOREFFECT effect{};
 		effect.transform[0][0] = (float)aM3x3[0][0];
-		effect.transform[0][1] = (float)aM3x3[0][1];
-		effect.transform[0][2] = (float)aM3x3[0][2];
-		effect.transform[1][0] = (float)aM3x3[1][0];
+		effect.transform[1][0] = (float)aM3x3[0][1];
+		effect.transform[2][0] = (float)aM3x3[0][2];
+		effect.transform[0][1] = (float)aM3x3[1][0];
 		effect.transform[1][1] = (float)aM3x3[1][1];
-		effect.transform[1][2] = (float)aM3x3[1][2];
-		effect.transform[2][0] = (float)aM3x3[2][0];
-		effect.transform[2][1] = (float)aM3x3[2][1];
+		effect.transform[2][1] = (float)aM3x3[1][2];
+		effect.transform[0][2] = (float)aM3x3[2][0];
+		effect.transform[1][2] = (float)aM3x3[2][1];
 		effect.transform[2][2] = (float)aM3x3[2][2];
 		effect.transform[3][3] = 1.0f;
 		effect.transform[4][4] = 1.0f;
 		return effect;
+	}
+
+	void ColorMatrix::SimulatePixel(double aR, double aG, double aB,
+	                                DeficiencyType aType,
+	                                double& aOutR, double& aOutG, double& aOutB)
+	{
+		// LMS-based physiological simulation (Brettel et al.).
+		// This shows what a person with the given deficiency actually perceives —
+		// full anopia severity, because we want to make the worst case visible.
+		const double (*cvd)[3] =
+			(aType == DeficiencyType::Deutan) ? kCvdDeutan :
+			(aType == DeficiencyType::Protan) ? kCvdProtan : kCvdTritan;
+
+		// RGB → LMS
+		double l = kRgbToLms[0][0]*aR + kRgbToLms[0][1]*aG + kRgbToLms[0][2]*aB;
+		double m = kRgbToLms[1][0]*aR + kRgbToLms[1][1]*aG + kRgbToLms[1][2]*aB;
+		double s = kRgbToLms[2][0]*aR + kRgbToLms[2][1]*aG + kRgbToLms[2][2]*aB;
+
+		// Apply CVD matrix in LMS space
+		double ls = cvd[0][0]*l + cvd[0][1]*m + cvd[0][2]*s;
+		double ms = cvd[1][0]*l + cvd[1][1]*m + cvd[1][2]*s;
+		double ss = cvd[2][0]*l + cvd[2][1]*m + cvd[2][2]*s;
+
+		// LMS → RGB
+		aOutR = Clamp01(kLmsToRgb[0][0]*ls + kLmsToRgb[0][1]*ms + kLmsToRgb[0][2]*ss);
+		aOutG = Clamp01(kLmsToRgb[1][0]*ls + kLmsToRgb[1][1]*ms + kLmsToRgb[1][2]*ss);
+		aOutB = Clamp01(kLmsToRgb[2][0]*ls + kLmsToRgb[2][1]*ms + kLmsToRgb[2][2]*ss);
+	}
+
+	void ColorMatrix::ApplyPixel(double aR, double aG, double aB,
+	                             const double aMatrix[3][3],
+	                             double& aOutR, double& aOutG, double& aOutB)
+	{
+		// Applies any pre-computed 3×3 correction matrix to a single pixel.
+		// Used in the UI to render the "with filter" commander-tag row without
+		// touching the system-wide Magnification effect.
+		aOutR = Clamp01(aMatrix[0][0]*aR + aMatrix[0][1]*aG + aMatrix[0][2]*aB);
+		aOutG = Clamp01(aMatrix[1][0]*aR + aMatrix[1][1]*aG + aMatrix[1][2]*aB);
+		aOutB = Clamp01(aMatrix[2][0]*aR + aMatrix[2][1]*aG + aMatrix[2][2]*aB);
 	}
 }
