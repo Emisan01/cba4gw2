@@ -26,6 +26,7 @@ namespace cba
 		bool SmartEnhancer = true; // true = auto conflict resolution based on CVD profile
 		float EnhancerHue = 60.0f; // 0-360 degrees
 		float EnhancerTolerance = 0.12f; // 0.04 - 0.20
+		float GammaGain = 1.0f; // Eye comfort brightness scaling (0.70 - 1.30)
 
 		struct EnhancerPreset
 		{

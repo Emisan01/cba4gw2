@@ -78,6 +78,7 @@ namespace cba
 			else if (key == "SmartEnhancer")     s.SmartEnhancer = (value == "1");
 			else if (key == "EnhancerHue")       s.EnhancerHue = safeStof(value, 60.0f);
 			else if (key == "EnhancerTol")       s.EnhancerTolerance = safeStof(value, 0.12f);
+			else if (key == "GammaGain")         s.GammaGain = safeStof(value, 1.0f);
 			else if (key == "UiOpacity")         s.UiOpacity = safeStof(value, 1.0f);
 			else if (key == "LoadOnStartup")     s.LoadOnStartup = (value == "1");
 			else if (key == "DetachedWindow")    s.DetachedWindow = (value == "1");
@@ -120,6 +121,7 @@ namespace cba
 		file << "SmartEnhancer=" << (SmartEnhancer ? "1" : "0") << "\n";
 		file << "EnhancerHue=" << EnhancerHue << "\n";
 		file << "EnhancerTol=" << EnhancerTolerance << "\n";
+		file << "GammaGain=" << GammaGain << "\n";
 		file << "UiOpacity=" << UiOpacity << "\n";
 		file << "LoadOnStartup=" << (LoadOnStartup ? "1" : "0") << "\n";
 		file << "DetachedWindow=" << (DetachedWindow ? "1" : "0") << "\n";
