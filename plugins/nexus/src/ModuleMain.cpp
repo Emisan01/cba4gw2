@@ -375,6 +375,7 @@ namespace
 		std::atomic<bool> s_deferredInitDone{false};
 		std::atomic<bool> s_focusMainWindow{false};
 		std::atomic<bool> s_focusGraphWindow{false};
+		std::atomic<bool> s_safeStartPending{false};
 
 		bool RoughlyEqual(const MAGCOLOREFFECT& a, const MAGCOLOREFFECT& b)
 		{
@@ -728,11 +729,8 @@ namespace
 
 		if (!CurrentSettings.Enabled)
 		{
-			if (s_hasApplied)
-			{
-				controller.Clear();
-				s_hasApplied = false;
-			}
+			controller.Clear();
+			s_hasApplied = false;
 			return;
 		}
 
@@ -746,11 +744,8 @@ namespace
 
 		if (!shouldBeActive)
 		{
-			if (s_hasApplied)
-			{
-				controller.Clear();
-				s_hasApplied = false;
-			}
+			controller.Clear();
+			s_hasApplied = false;
 			return;
 		}
 
@@ -873,24 +868,44 @@ namespace
 			case WM_KEYDOWN:
 			case WM_SYSKEYDOWN:
 			{
-				if (aWParam == 'C')
-				{
-					bool altDown = (GetKeyState(VK_MENU) & 0x8000) != 0;
-					bool ctrlDown = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-					bool shiftDown = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+				bool altDown = (GetKeyState(VK_MENU) & 0x8000) != 0;
+				bool ctrlDown = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+				bool shiftDown = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
-					if (altDown && !shiftDown && ctrlDown)
+				// NOT-AUS / Panic Disarm: Strg + Shift + Q
+				if (aWParam == 'Q' && ctrlDown && shiftDown)
+				{
+					CurrentSettings.Enabled = false;
+					CurrentSettings.Save(AddonDir);
+					{
+						std::lock_guard<std::mutex> lock(s_recomputeMutex);
+						GetColorEffectController().Clear();
+						s_hasApplied = false;
+					}
+					return aMsg;
+				}
+				// Main Window: Strg + Shift + C (or Ctrl + Alt + C)
+				else if (aWParam == 'C')
+				{
+					if ((ctrlDown && shiftDown) || (ctrlDown && altDown))
 					{
 						EnsureDeferredInitialized();
 						CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
 						if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 					}
-					else if (altDown && shiftDown && !ctrlDown)
+					else if (altDown && shiftDown && !ctrlDown) // legacy graph bind
 					{
 						EnsureDeferredInitialized();
 						CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
 						if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 					}
+				}
+				// Sensor Graph Window: Strg + Shift + S
+				else if (aWParam == 'S' && ctrlDown && shiftDown)
+				{
+					EnsureDeferredInitialized();
+					CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+					if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 				}
 				break;
 			}
@@ -902,7 +917,17 @@ namespace
 	{
 		if (aIsRelease) return;
 
-		if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
+		if (strcmp(aIdentifier, "CBA - Not-Aus") == 0 || strcmp(aIdentifier, "KB_CBA_PANIC") == 0)
+		{
+			CurrentSettings.Enabled = false;
+			CurrentSettings.Save(AddonDir);
+			{
+				std::lock_guard<std::mutex> lock(s_recomputeMutex);
+				GetColorEffectController().Clear();
+				s_hasApplied = false;
+			}
+		}
+		else if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
 		{
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
@@ -923,7 +948,7 @@ namespace
 		{
 			if (APIDefs->QuickAccess.Add)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (CTRL+ALT+C)");
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Not-Aus: Strg+Shift+Q)");
 			}
 		}
 		else
@@ -1936,82 +1961,196 @@ namespace
 			}
 
 			ImGui::Spacing();
-			float sw = calcSliderWidth();
 
 			if (CurrentSettings.Mixed) {
 				float rg = (float)CurrentSettings.MixedRgSeverity01;
 				float by = (float)CurrentSettings.MixedBySeverity01;
-				ImGui::SetNextItemWidth(sw);
-				if (ImGui::SliderFloat(t.RgStrength, &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+
+				ImGui::TextUnformatted(t.RgStrength);
+				float avail = ImGui::GetContentRegionAvail().x;
+				float btnW = 52.0f;
+				float sp = 6.0f;
+				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
+
+				ImGui::SetNextItemWidth(sW);
+				if (ImGui::SliderFloat("##rg_det", &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
 					CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.0f);
 					changed = true;
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-				ImGui::SameLine();
-				if (ImGui::Button("Reset##rg_det", ImVec2(55.0f, 0.0f))) { 
+				ImGui::SameLine(0, sp);
+				if (ImGui::Button("Reset##rg_det", ImVec2(btnW, 0.0f))) { 
 					CurrentSettings.MixedRgSeverity01 = 0.0f; 
 					changed = true; 
 					saveNeeded = true; 
 				}
 				
-				ImGui::SetNextItemWidth(sw);
-				if (ImGui::SliderFloat(t.ByStrength, &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+				ImGui::TextUnformatted(t.ByStrength);
+				ImGui::SetNextItemWidth(sW);
+				if (ImGui::SliderFloat("##by_det", &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
 					CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.0f);
 					changed = true;
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-				ImGui::SameLine();
-				if (ImGui::Button("Reset##by_det", ImVec2(55.0f, 0.0f))) { 
+				ImGui::SameLine(0, sp);
+				if (ImGui::Button("Reset##by_det", ImVec2(btnW, 0.0f))) { 
 					CurrentSettings.MixedBySeverity01 = 0.0f; 
 					changed = true; 
 					saveNeeded = true; 
 				}
 			} else {
 				float sev = (float)CurrentSettings.Severity01;
-				ImGui::SetNextItemWidth(sw);
-				if (ImGui::SliderFloat(t.Strength, &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+
+				ImGui::TextUnformatted(t.Strength);
+				float avail = ImGui::GetContentRegionAvail().x;
+				float btnW = 52.0f;
+				float sp = 6.0f;
+				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
+
+				ImGui::SetNextItemWidth(sW);
+				if (ImGui::SliderFloat("##sev_det", &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
 					CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.0f);
 					changed = true;
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-				ImGui::SameLine();
-				if (ImGui::Button("Reset##sev_det", ImVec2(55.0f, 0.0f))) { 
+				ImGui::SameLine(0, sp);
+				if (ImGui::Button("Reset##sev_det", ImVec2(btnW, 0.0f))) { 
 					CurrentSettings.Severity01 = 0.0f; 
 					changed = true; 
 					saveNeeded = true; 
 				}
 			}
 
-			// DIRECTLY UNDER COLOR MATRIX: Save Profile Button (No emoji glyph question marks!)
+			// ── 3-Slot Profile Management System ──────────────────────────────
 			ImGui::Spacing();
-			static auto s_mainSaveFeedbackTime = std::chrono::steady_clock::time_point{};
+			int usedCount = 0;
+			int firstEmptySlot = -1;
+			for (int i = 0; i < 3; ++i) {
+				if (CurrentSettings.Slots[i].Used) usedCount++;
+				else if (firstEmptySlot == -1) firstEmptySlot = i;
+			}
+
+			static int s_overwriteSlotIdx = 0;
+			static auto s_profileFeedbackTime = std::chrono::steady_clock::time_point{};
+			static std::string s_profileFeedbackMsg = "";
+
 			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
 			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
-			if (ImGui::Button(isDe ? "Profil speichern" : "Save Profile", ImVec2(125.0f, 26.0f))) {
-				CurrentSettings.Save(AddonDir);
-				s_mainSaveFeedbackTime = std::chrono::steady_clock::now();
-				changed = false;
+
+			if (usedCount < 3) {
+				char saveBtnText[64];
+				std::snprintf(saveBtnText, sizeof(saveBtnText), isDe ? "Profil speichern (in Slot %d)" : "Save Profile (to Slot %d)", firstEmptySlot + 1);
+				if (ImGui::Button(saveBtnText, ImVec2(185.0f, 26.0f))) {
+					int targetSlot = firstEmptySlot;
+					CurrentSettings.Slots[targetSlot].Used = true;
+					char defaultName[64];
+					if (CurrentSettings.Mixed) {
+						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
+							(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
+					} else {
+						const char* tn = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
+										 (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
+					}
+					CurrentSettings.Slots[targetSlot].Name = defaultName;
+					CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
+					CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
+					CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
+					CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
+					CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
+					CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+
+					CurrentSettings.Save(AddonDir);
+					s_profileFeedbackTime = std::chrono::steady_clock::now();
+					s_profileFeedbackMsg = isDe ? "[OK] Gespeichert in Slot " + std::to_string(targetSlot + 1) : "[OK] Saved to Slot " + std::to_string(targetSlot + 1);
+				}
+			} else {
+				if (ImGui::Button(isDe ? "Profil \xc3\xbc""berschreiben" : "Overwrite Profile", ImVec2(160.0f, 26.0f))) {
+					int targetSlot = std::clamp(s_overwriteSlotIdx, 0, 2);
+					CurrentSettings.Slots[targetSlot].Used = true;
+					char defaultName[64];
+					if (CurrentSettings.Mixed) {
+						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
+							(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
+					} else {
+						const char* tn = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
+										 (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
+					}
+					CurrentSettings.Slots[targetSlot].Name = defaultName;
+					CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
+					CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
+					CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
+					CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
+					CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
+					CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+
+					CurrentSettings.Save(AddonDir);
+					s_profileFeedbackTime = std::chrono::steady_clock::now();
+					s_profileFeedbackMsg = isDe ? "[OK] Slot " + std::to_string(targetSlot + 1) + " \xc3\xbc""berschrieben!" : "[OK] Slot " + std::to_string(targetSlot + 1) + " overwritten!";
+				}
+				ImGui::SameLine(0, 8.0f);
+				ImGui::RadioButton("Slot 1##ov1", &s_overwriteSlotIdx, 0); ImGui::SameLine();
+				ImGui::RadioButton("Slot 2##ov2", &s_overwriteSlotIdx, 1); ImGui::SameLine();
+				ImGui::RadioButton("Slot 3##ov3", &s_overwriteSlotIdx, 2);
 			}
 			ImGui::PopStyleColor(3);
 			ImGui::PopStyleVar();
 
-			if (s_mainSaveFeedbackTime.time_since_epoch().count() > 0) {
+			if (s_profileFeedbackTime.time_since_epoch().count() > 0) {
 				auto now = std::chrono::steady_clock::now();
-				float elapsed = std::chrono::duration<float>(now - s_mainSaveFeedbackTime).count();
+				float elapsed = std::chrono::duration<float>(now - s_profileFeedbackTime).count();
 				if (elapsed >= 0.0f && elapsed < 4.5f) {
 					float alpha = (elapsed > 3.0f) ? (4.5f - elapsed) / 1.5f : 1.0f;
 					alpha = std::clamp(alpha, 0.0f, 1.0f);
-					std::string savePath = AddonDir.empty() ? "settings.cfg" : (AddonDir + "\\settings.cfg");
+					std::string savePath = AddonDir.empty() ? "settings.ini" : (AddonDir + "\\settings.ini");
 
 					ImGui::SameLine(0, 10.0f);
-					ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", isDe ? "[OK] Gespeichert!" : "[OK] Saved!");
-					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", savePath.c_str());
-
+					ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", s_profileFeedbackMsg.c_str());
 					ImGui::TextColored(ImVec4(0.45f, 0.80f, 0.65f, alpha), isDe ? "  Pfad: %s" : "  Path: %s", savePath.c_str());
-					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", savePath.c_str());
 				}
+			}
+
+			// Render the 3 Slots with Load and Clear
+			ImGui::Spacing();
+			for (int sIdx = 0; sIdx < 3; ++sIdx) {
+				ImGui::PushID(sIdx + 300);
+				if (CurrentSettings.Slots[sIdx].Used) {
+					char nameBuf[64];
+					std::snprintf(nameBuf, sizeof(nameBuf), "%s", CurrentSettings.Slots[sIdx].Name.c_str());
+					float cardAvail = ImGui::GetContentRegionAvail().x;
+					float actionW = 86.0f;
+					float nameW = (cardAvail > 210.0f) ? (cardAvail - actionW - 8.0f) : 120.0f;
+
+					ImGui::SetNextItemWidth(nameW);
+					if (ImGui::InputText("##slot_name", nameBuf, sizeof(nameBuf))) {
+						CurrentSettings.Slots[sIdx].Name = nameBuf;
+						saveNeeded = true;
+					}
+					ImGui::SameLine(0, 4.0f);
+					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(52.0f, 0.0f))) {
+						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
+						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
+						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
+						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
+						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
+						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+						changed = true;
+						saveNeeded = true;
+					}
+					ImGui::SameLine(0, 4.0f);
+					if (ImGui::Button("X##clr_slot", ImVec2(22.0f, 0.0f))) {
+						CurrentSettings.Slots[sIdx].Used = false;
+						CurrentSettings.Slots[sIdx].Name = "";
+						saveNeeded = true;
+					}
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Slot leeren" : "Clear slot");
+				} else {
+					ImGui::TextDisabled("Slot %d: [%s]", sIdx + 1, isDe ? "Leer" : "Empty");
+				}
+				ImGui::PopID();
 			}
 
 			// Compact Live Feedback Badge
@@ -2109,9 +2248,10 @@ namespace
 				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.SmartEnhancerDesc);
 
 				ImGui::Spacing();
-				float sw = calcSliderWidth();
-				ImGui::SetNextItemWidth(sw);
-				if (ImGui::SliderFloat(isDe ? "Toleranz##enhancer_tol_det" : "Tolerance##enhancer_tol_det",
+				ImGui::TextUnformatted(isDe ? "Toleranz:" : "Tolerance:");
+				float availTol = ImGui::GetContentRegionAvail().x;
+				ImGui::SetNextItemWidth(availTol);
+				if (ImGui::SliderFloat("##enhancer_tol_det",
 				                       &CurrentSettings.EnhancerTolerance, 0.04f, 0.20f, "%.3f")) {
 					UpdateTagEnhancerConflicts();
 					changed = true;
@@ -2170,6 +2310,43 @@ namespace
 				                               : "Curve View (Loaded Preset / Color Profile):");
 				ImGui::Spacing();
 
+				// 3-Way Mode selector for MAIN window (independent of HUD window!)
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
+
+				auto mainGraphModeBtn = [&](const char* aName, int aModeVal, const char* aTip) {
+					bool active = (CurrentSettings.MainGraphMode == aModeVal);
+					if (active) {
+						ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.55f, 0.75f, 0.95f));
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.26f, 0.65f, 0.88f, 1.00f));
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.15f, 0.45f, 0.65f, 1.00f));
+					} else {
+						ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.22f, 0.28f, 0.85f));
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.30f, 0.38f, 0.95f));
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.14f, 0.18f, 0.24f, 1.00f));
+					}
+					if (ImGui::Button(aName, ImVec2(80.0f, 22.0f))) {
+						CurrentSettings.MainGraphMode = aModeVal;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(3);
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTip);
+				};
+
+				ImGui::TextDisabled("%s:", isDe ? "Ansicht" : "View");
+				ImGui::SameLine(0, 8.0f);
+				mainGraphModeBtn("Polygonal##main", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nSt\xc3\xbc""ckweise lineare Farbvektor-Projektion \xc3\xbc""ber die Hue-Winkel."
+				                                            : "1. Spectral Transfer Function (Piecewise-Linear / PWL)\nPiecewise linear color vector projection across hue angles.");
+				ImGui::SameLine();
+				mainGraphModeBtn("Harmonisch##main", 1, isDe ? "2. Harmonische Resonanz (Gau\xc3\x9f / Sinusoidale LMS-Kurven)\nFlie\xc3\x9f""ende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
+				                                             : "2. Harmonic Spectral Response (Gaussian / Smooth Spline)\nFlowing, continuous wave curves based on the human LMS cone model.");
+				ImGui::SameLine();
+				mainGraphModeBtn("Strahlen##main", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkan\xc3\xa4""le wie bei einem Gitterspektrometer."
+				                                           : "3. Linear Spectral Rays (Ray Scope / Dispersion Bars)\nPhysical ray-optics decomposition of channels like a diffraction spectrometer.");
+
+				ImGui::PopStyleVar(2);
+				ImGui::Spacing();
+
 				double mainCorrMat[3][3];
 				if (CurrentSettings.Mixed)
 					ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, mainCorrMat);
@@ -2181,7 +2358,7 @@ namespace
 				float graphH = 112.0f;
 
 				ImVec2 cpMain = ImGui::GetCursorScreenPos();
-				DrawSpectralGraphPanel(ImGui::GetWindowDrawList(), cpMain, graphW, graphH, mainCorrMat, /*isDetached=*/false, CurrentSettings.UiOpacity, CurrentSettings.GraphMode);
+				DrawSpectralGraphPanel(ImGui::GetWindowDrawList(), cpMain, graphW, graphH, mainCorrMat, /*isDetached=*/false, CurrentSettings.UiOpacity, CurrentSettings.MainGraphMode);
 				ImGui::InvisibleButton("##curve_panel_main", ImVec2(graphW, graphH));
 
 				// Color beam under curves
@@ -2326,18 +2503,42 @@ namespace
 			}
 
 			ImGui::Spacing();
-			float sw = calcSliderWidth();
-			ImGui::SetNextItemWidth(sw);
-			if (ImGui::SliderFloat(t.EyeComfortGammaSlider, &CurrentSettings.GammaGain, 0.70f, 1.30f, "%.2fx"))
+			ImGui::TextUnformatted(isDe ? "Helligkeit (Eye Comfort Gamma):" : "Brightness (Eye Comfort Gamma):");
+			float availGamma = ImGui::GetContentRegionAvail().x;
+			float btnWGamma = 52.0f;
+			float spGamma = 6.0f;
+			float sWGamma = (availGamma > (btnWGamma + spGamma + 60.0f)) ? (availGamma - btnWGamma - spGamma) : 180.0f;
+
+			ImGui::SetNextItemWidth(sWGamma);
+			if (ImGui::SliderFloat("##EyeComfortGammaSlider", &CurrentSettings.GammaGain, 0.70f, 1.30f, "%.2fx"))
 			{
+				CurrentSettings.AutoBrightness = false; // User manually set
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit())
 			{
 				saveNeeded = true;
 			}
+			ImGui::SameLine(0, spGamma);
+			if (ImGui::Button("Reset##gamma_main", ImVec2(btnWGamma, 0.0f)))
+			{
+				CurrentSettings.GammaGain = 1.0f;
+				CurrentSettings.AutoBrightness = false;
+				changed = true;
+				saveNeeded = true;
+			}
 
 			BrightnessRetentionResult retention = GetBrightnessRetention();
+			if (CurrentSettings.AutoBrightness)
+			{
+				if (std::abs(CurrentSettings.GammaGain - retention.recommendedGain) > 0.005f)
+				{
+					CurrentSettings.GammaGain = retention.recommendedGain;
+					changed = true;
+					saveNeeded = true;
+				}
+			}
+
 			ImGui::Spacing();
 			ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
 			ImGui::SameLine(0, 8.0f);
@@ -2345,6 +2546,16 @@ namespace
 			{
 				CurrentSettings.GammaGain = retention.recommendedGain;
 				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::SameLine(0, 8.0f);
+			if (ImGui::Checkbox(isDe ? "Auto-Helligkeit##main_auto" : "Auto-Brightness##main_auto", &CurrentSettings.AutoBrightness))
+			{
+				if (CurrentSettings.AutoBrightness)
+				{
+					CurrentSettings.GammaGain = retention.recommendedGain;
+					changed = true;
+				}
 				saveNeeded = true;
 			}
 			ImGui::Spacing();
@@ -2650,55 +2861,170 @@ namespace
 
 		ImGui::Spacing();
 
-		auto calcSliderWidthHUD = []() {
-			float avail = ImGui::GetContentRegionAvail().x;
-			return (avail > 140.0f) ? (avail - 65.0f) : 180.0f;
-		};
-		float sw = calcSliderWidthHUD();
-
 		if (CurrentSettings.Mixed) {
 			float rg = (float)CurrentSettings.MixedRgSeverity01;
 			float by = (float)CurrentSettings.MixedBySeverity01;
-			ImGui::SetNextItemWidth(sw);
-			if (ImGui::SliderFloat(t.RgStrength, &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+
+			ImGui::TextUnformatted(t.RgStrength);
+			float avail = ImGui::GetContentRegionAvail().x;
+			float btnW = 52.0f;
+			float sp = 6.0f;
+			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
+
+			ImGui::SetNextItemWidth(sW);
+			if (ImGui::SliderFloat("##rg_hud", &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
 				CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.0f);
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##rg_hud", ImVec2(55.0f, 0.0f))) { 
+			ImGui::SameLine(0, sp);
+			if (ImGui::Button("Reset##rg_hud", ImVec2(btnW, 0.0f))) { 
 				CurrentSettings.MixedRgSeverity01 = 0.0f; 
 				changed = true; 
 				saveNeeded = true; 
 			}
 			
-			ImGui::SetNextItemWidth(sw);
-			if (ImGui::SliderFloat(t.ByStrength, &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+			ImGui::TextUnformatted(t.ByStrength);
+			ImGui::SetNextItemWidth(sW);
+			if (ImGui::SliderFloat("##by_hud", &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
 				CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.0f);
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##by_hud", ImVec2(55.0f, 0.0f))) { 
+			ImGui::SameLine(0, sp);
+			if (ImGui::Button("Reset##by_hud", ImVec2(btnW, 0.0f))) { 
 				CurrentSettings.MixedBySeverity01 = 0.0f; 
 				changed = true; 
 				saveNeeded = true; 
 			}
 		} else {
 			float sev = (float)CurrentSettings.Severity01;
-			ImGui::SetNextItemWidth(sw);
-			if (ImGui::SliderFloat(t.Strength, &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+
+			ImGui::TextUnformatted(t.Strength);
+			float avail = ImGui::GetContentRegionAvail().x;
+			float btnW = 52.0f;
+			float sp = 6.0f;
+			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
+
+			ImGui::SetNextItemWidth(sW);
+			if (ImGui::SliderFloat("##sev_hud", &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
 				CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.0f);
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##sev_hud", ImVec2(55.0f, 0.0f))) { 
+			ImGui::SameLine(0, sp);
+			if (ImGui::Button("Reset##sev_hud", ImVec2(btnW, 0.0f))) { 
 				CurrentSettings.Severity01 = 0.0f; 
 				changed = true; 
 				saveNeeded = true; 
 			}
 		}
+
+		// ── Section: Eye Comfort / Helligkeits-Logik ────────────────────────
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		BrightnessRetentionResult retention = GetBrightnessRetention();
+
+		// Auto-Brightness real-time sync:
+		if (CurrentSettings.AutoBrightness)
+		{
+			if (std::abs(CurrentSettings.GammaGain - retention.recommendedGain) > 0.005f)
+			{
+				CurrentSettings.GammaGain = retention.recommendedGain;
+				changed = true;
+				saveNeeded = true;
+			}
+		}
+
+		// Highlighted calculation card
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.13f, 0.19f, 0.95f));
+		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.22f, 0.45f, 0.70f, 0.75f));
+		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 7.0f));
+
+		if (ImGui::BeginChild("##eye_comfort_hud_card", ImVec2(0.0f, 54.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+		{
+			ImGui::TextColored(ImVec4(0.35f, 0.80f, 1.00f, 1.00f), "%s", isDe ? "Helligkeits-Kompensation (Eye Comfort)" : "Brightness Compensation (Eye Comfort)");
+			ImGui::Spacing();
+
+			ImGui::TextUnformatted(isDe ? "Luminanz-Retention:" : "Luminance Retention:");
+			ImGui::SameLine(0, 6.0f);
+			ImGui::TextColored(ImVec4(0.30f, 0.95f, 0.55f, 1.0f), "%.1f%%", retention.retentionRatio * 100.0f);
+
+			ImGui::SameLine(0, 14.0f);
+			ImGui::TextUnformatted(isDe ? "Empfehlung:" : "Target:");
+			ImGui::SameLine(0, 6.0f);
+			ImGui::TextColored(ImVec4(1.00f, 0.85f, 0.35f, 1.0f), "%.2fx", retention.recommendedGain);
+
+			ImGui::EndChild();
+		}
+		ImGui::PopStyleVar(2);
+		ImGui::PopStyleColor(2);
+
+		ImGui::Spacing();
+
+		// Action buttons & Continuous Auto toggle
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.16f, 0.46f, 0.68f, 0.90f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.58f, 0.82f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.36f, 0.56f, 1.00f));
+
+		if (ImGui::Button(isDe ? "Automatische Werte setzen" : "Apply Recommended Values", ImVec2(185.0f, 26.0f)))
+		{
+			CurrentSettings.GammaGain = retention.recommendedGain;
+			changed = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(3);
+		ImGui::PopStyleVar();
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt den GammaGain einmalig auf den berechneten Optimalwert (%.2fx)."
+			                       : "Applies the calculated optimal gain (%.2fx) once.", retention.recommendedGain);
+		}
+
+		ImGui::SameLine(0, 10.0f);
+		if (ImGui::Checkbox(isDe ? "Vollautomatisch anpassen##hud_auto" : "Dynamic Auto-Adjust##hud_auto", &CurrentSettings.AutoBrightness))
+		{
+			if (CurrentSettings.AutoBrightness)
+			{
+				CurrentSettings.GammaGain = retention.recommendedGain;
+				changed = true;
+			}
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Wenn aktiv: Passt die Helligkeit bei jeder \xc3\x84nderung der Farb-Regler ohne Best\xc3\xa4tigung dynamisch und vollautomatisch an."
+			                       : "When active: Dynamically syncs brightness to retention in real time without confirmation.");
+		}
+
+		// Sleek manual slider for GammaGain
+		ImGui::Spacing();
+		float availHUD = ImGui::GetContentRegionAvail().x;
+		float btnWHUD = 52.0f;
+		float spHUD = 6.0f;
+		float sliderWHUD = (availHUD > (btnWHUD + spHUD + 60.0f)) ? (availHUD - btnWHUD - spHUD) : 180.0f;
+
+		ImGui::TextDisabled("%s (%.2fx):", isDe ? "Manuelle Helligkeit" : "Manual Brightness", CurrentSettings.GammaGain);
+		ImGui::SetNextItemWidth(sliderWHUD);
+		if (ImGui::SliderFloat("##GammaSliderHUD", &CurrentSettings.GammaGain, 0.70f, 1.30f, "%.2fx"))
+		{
+			CurrentSettings.AutoBrightness = false; // User manually intervened
+			changed = true;
+		}
+		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+		ImGui::SameLine(0, spHUD);
+		if (ImGui::Button("Reset##gamma_hud", ImVec2(btnWHUD, 0.0f)))
+		{
+			CurrentSettings.GammaGain = 1.0f;
+			CurrentSettings.AutoBrightness = false;
+			changed = true;
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Setzt Helligkeit auf 1.00x zur\xc3\xbc" "ck" : "Resets brightness to 1.00x");
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);
@@ -2744,8 +3070,114 @@ namespace
 		RenderEmbeddedOptions();
 	}
 
+	void RenderSafeStartDialog()
+	{
+		if (!s_safeStartPending.load() || !ImGui::GetCurrentContext()) return;
+
+		bool isDe = (CurrentSettings.Language == 2 || CurrentSettings.Language == 0);
+		ImGui::SetNextWindowSize(ImVec2(480.0f, 0.0f), ImGuiCond_Always);
+		ImVec2 disp = ImGui::GetIO().DisplaySize;
+		ImVec2 center(disp.x * 0.5f, disp.y * 0.5f);
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize;
+		bool open = true;
+		if (ImGui::Begin(isDe ? "cba4gw2 - Sicherheitsstart & Profilauswahl###CBA_SafeStart" : "cba4gw2 - Safe-Start & Profile Gate###CBA_SafeStart", &open, flags))
+		{
+			if (CurrentSettings.SafeModeTriggered)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.78f, 0.25f, 1.0f));
+				ImGui::TextUnformatted(isDe ? "[!] CBA Safe-Mode aktiv!" : "[!] CBA Safe-Mode Active!");
+				ImGui::PopStyleColor();
+				ImGui::Spacing();
+				ImGui::TextWrapped(isDe 
+					? "Das Spiel wurde beim letzten Mal unplanm\xc3\xa4\xc3\x9fig beendet oder es gab einen Absturz. Um Blendungen zu vermeiden, bleibt der Filter vorerst neutral (AUS)."
+					: "The game exited unexpectedly or crashed last session. To prevent blinding visual effects, the filter starts disarmed (OFF).");
+				ImGui::Spacing();
+			}
+			else
+			{
+				ImGui::TextColored(ImVec4(0.35f, 0.75f, 1.0f, 1.0f), "%s", isDe ? "Willkommen bei cba4gw2!" : "Welcome to cba4gw2!");
+				ImGui::Spacing();
+				ImGui::TextWrapped(isDe
+					? "W\xc3\xa4hle, wie das Addon f\xc3\xbcr diese Sitzung gestartet werden soll:"
+					: "Choose how the addon should be initialized for this session:");
+				ImGui::Spacing();
+			}
+
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			// Option 1: Start with saved settings
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.12f, 0.48f, 0.28f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.62f, 0.36f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.38f, 0.20f, 1.00f));
+			if (ImGui::Button(isDe ? "  Gespeicherte Settings aktivieren  " : "  Activate Saved Settings  ", ImVec2(-FLT_MIN, 34.0f)))
+			{
+				CurrentSettings.Enabled = true;
+				s_safeStartPending.store(false);
+				CurrentSettings.Save(AddonDir);
+				Recompute(/*aForce=*/true);
+			}
+			ImGui::PopStyleColor(3);
+
+			ImGui::Spacing();
+
+			// Option 2: Open setup with filter OFF
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.32f, 0.48f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.42f, 0.62f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.24f, 0.38f, 1.00f));
+			if (ImGui::Button(isDe ? "  Setup \xc3\xb6""ffnen (Filter bleibt AUS)  " : "  Open Setup (Filter remains OFF)  ", ImVec2(-FLT_MIN, 32.0f)))
+			{
+				CurrentSettings.Enabled = false;
+				CurrentSettings.ShowMainWindow = true;
+				s_focusMainWindow = true;
+				s_safeStartPending.store(false);
+				Recompute(/*aForce=*/true);
+			}
+			ImGui::PopStyleColor(3);
+
+			ImGui::Spacing();
+
+			// Option 3: Reset to factory defaults
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.36f, 0.22f, 0.22f, 0.85f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.48f, 0.28f, 0.28f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.24f, 0.15f, 0.15f, 1.00f));
+			if (ImGui::Button(isDe ? "  Auf Werkseinstellung (Neutral) zur\xc3\xbc""cksetzen  " : "  Reset to Factory Neutral Defaults  ", ImVec2(-FLT_MIN, 28.0f)))
+			{
+				CurrentSettings.Enabled = false;
+				CurrentSettings.Severity01 = 0.0;
+				CurrentSettings.Mixed = false;
+				CurrentSettings.MixedRgSeverity01 = 0.0;
+				CurrentSettings.MixedBySeverity01 = 0.0;
+				CurrentSettings.GammaGain = 1.0f;
+				CurrentSettings.Save(AddonDir);
+				s_safeStartPending.store(false);
+				Recompute(/*aForce=*/true);
+			}
+			ImGui::PopStyleColor(3);
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			if (ImGui::Checkbox(isDe ? "Zuk\xc3\xbc""nftig direkt starten (ohne Gate)" : "Always start directly (skip this gate)", &CurrentSettings.AlwaysDirectStart))
+			{
+				CurrentSettings.Save(AddonDir);
+			}
+
+			ImGui::End();
+		}
+		if (!open)
+		{
+			s_safeStartPending.store(false);
+		}
+	}
+
 	void AddonRenderWindow()
 	{
+		RenderSafeStartDialog();
+
 		// ── Deferred Warmup Gate ────────────────────────────────────────────────
 		// Give GW2, D3D11 swapchains, ArcDPS, FastLoad and NVIDIA Overlay
 		// 30 frames of stable rendering before touching DWM magnification.
@@ -2904,8 +3336,16 @@ namespace
 			GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
 			UpdateTagEnhancerConflicts();
 
-			// Startup policy: Filter only active on startup if LoadOnStartup is explicitly enabled.
-			if (!CurrentSettings.LoadOnStartup)
+			// Session Breadcrumb crash guard: mark session running
+			Settings::MarkRunning(AddonDir);
+
+			// Safe-Start Gate: If previous crash happened or AlwaysDirectStart is false, hold at safe gate
+			if (CurrentSettings.SafeModeTriggered || !CurrentSettings.AlwaysDirectStart)
+			{
+				s_safeStartPending.store(true);
+				CurrentSettings.Enabled = false; // Filter starts disarmed
+			}
+			else if (!CurrentSettings.LoadOnStartup)
 			{
 				CurrentSettings.Enabled = false;
 			}
@@ -2933,8 +3373,9 @@ namespace
 			// QuickAccess toolbar icon & window toggle keybinds (Clean, left-aligned names in Nexus!)
 			if (APIDefs->InputBinds.RegisterWithString)
 			{
-				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+ALT+C");
-				APIDefs->InputBinds.RegisterWithString("CBA - Sensor Graph", ProcessKeybind, "SHIFT+ALT+C");
+				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+SHIFT+C");
+				APIDefs->InputBinds.RegisterWithString("CBA - Sensor Graph", ProcessKeybind, "CTRL+SHIFT+S");
+				APIDefs->InputBinds.RegisterWithString("CBA - Not-Aus", ProcessKeybind, "CTRL+SHIFT+Q");
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{
@@ -2942,7 +3383,7 @@ namespace
 			}
 			if (APIDefs->QuickAccess.Add && CurrentSettings.ShowQuickAccessIcon)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (CTRL+ALT+C)");
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Not-Aus: Strg+Shift+Q)");
 			}
 
 			// Start state watchdog thread (monitors focus transitions every 50ms)
@@ -2959,6 +3400,9 @@ namespace
 	{
 		try
 		{
+			// Session Breadcrumb: mark graceful exit
+			Settings::MarkCleanExit(AddonDir);
+
 			s_showC64Credits.store(false);
 			StopC64Audio();
 
@@ -2979,6 +3423,7 @@ namespace
 				{
 					APIDefs->InputBinds.Deregister("CBA - Main Window");
 					APIDefs->InputBinds.Deregister("CBA - Sensor Graph");
+					APIDefs->InputBinds.Deregister("CBA - Not-Aus");
 					APIDefs->InputBinds.Deregister("KB_CBA_WINDOW");
 				}
 				if (APIDefs->WndProc.Deregister)

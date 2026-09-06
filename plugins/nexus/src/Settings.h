@@ -42,7 +42,12 @@ namespace cba
 		};
 
 		float UiOpacity = 1.0f;
-		int GraphMode = 0; // 0 = Polygonal (PWL), 1 = Harmonisch (Gauss/LMS), 2 = Strahlen (Ray Scope)
+		int GraphMode = 0; // 0 = Polygonal (PWL), 1 = Harmonisch (Gauss/LMS), 2 = Strahlen (Ray Scope) - HUD / Detached
+		int MainGraphMode = 0; // Independent Graph Mode for Main Window
+		bool AutoBrightness = false; // When true, GammaGain follows recommended retention dynamically
+		bool AlwaysDirectStart = false; // When true, skips Safe-Start gate
+		bool CleanExit = true; // Set to 0 at runtime, set to 1 on graceful exit
+		bool SafeModeTriggered = false; // Runtime flag: true if previous run crashed
 		bool LoadOnStartup = false;
 		bool ShowMainWindow = false;
 		bool ShowGraphWindow = false;
@@ -50,9 +55,25 @@ namespace cba
 		bool ShowQuickAccessIcon = true;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
+		// 3 User-Saved Color Correction Profiles
+		struct ProfileSlot
+		{
+			bool Used = false;
+			std::string Name = "";
+			DeficiencyType Type = DeficiencyType::Protan;
+			double Severity01 = 0.0;
+			bool Mixed = false;
+			double MixedRg01 = 0.0;
+			double MixedBy01 = 0.0;
+			float GammaGain = 1.0f;
+		};
+		ProfileSlot Slots[3]{};
+
 		// aAddonDir: the path returned by GetAddonDirectory("cba"), Nexus
 		// creates this automatically before AddonLoad.
 		static Settings Load(const std::string& aAddonDir);
 		void Save(const std::string& aAddonDir) const;
+		static void MarkRunning(const std::string& aAddonDir);
+		static void MarkCleanExit(const std::string& aAddonDir);
 	};
 }
