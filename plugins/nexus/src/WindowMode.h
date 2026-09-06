@@ -1,6 +1,6 @@
 #pragma once
 #include <windows.h>
-#include <dxgi.h>
+#include <dxgi1_6.h>
 
 namespace cba
 {
@@ -18,4 +18,7 @@ namespace cba
 	WindowMode DetectWindowMode(IDXGISwapChain* aSwapChain);
 
 	const char* ToDisplayString(WindowMode aMode);
+
+	// Queries IDXGIOutput6::GetDesc1() to detect if the GW2 swapchain's output display is running in HDR mode.
+	bool DetectHdrColorSpace(IDXGISwapChain* aSwapChain);
 }

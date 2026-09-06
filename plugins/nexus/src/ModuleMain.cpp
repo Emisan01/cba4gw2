@@ -131,6 +131,13 @@ namespace
 		const char* DebugModeCheckbox;
 		const char* MethodologyTitle;
 		const char* MethodologyDesc;
+
+		// Eye Comfort Section
+		const char* EyeComfortHeader;
+		const char* EyeComfortGammaSlider;
+		const char* EyeComfortRetention;
+		const char* EyeComfortApply;
+		const char* EyeComfortHdrTooltip;
 	};
 
 	// 8 GW2 Commander Tag Reference Colors (Red, Green, Purple, Yellow, Blue, Pink, Orange, White)
@@ -213,7 +220,14 @@ namespace
 			"Hintergrund-Modus: Filter bleibt auch bei Fokusverlust aktiv (pausiert nur bei Minimieren).",
 			"Entwickler- & Debug-Modus (Performance Watchdog)",
 			"Methodik & Referenzen:",
-			"  \xe2\x80\xa2 Daltonisierung: Fidaner et al. (2005)   \xe2\x80\xa2 LMS-Dichromasie: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Farbraum   \xe2\x80\xa2 W3C WCAG 2.1 Farbkontrast"
+			"  \xe2\x80\xa2 Daltonisierung: Fidaner et al. (2005)   \xe2\x80\xa2 LMS-Dichromasie: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Farbraum   \xe2\x80\xa2 W3C WCAG 2.1 Farbkontrast",
+
+			// Eye Comfort Section
+			"Eye Comfort",
+			"Helligkeit (Gamma-Gain)",
+			"Helligkeitserhalt: %.1f%%  (Empfohlen: %.2fx)",
+			"Empfehlung \xc3\xbc\x62\x65rnehmen",
+			"beeinflusst nur die Anzeige-Berechnung, nicht die Farbkorrektur selbst"
 		};
 
 		static const L10n en{
@@ -265,7 +279,14 @@ namespace
 			"Background Mode: Filter remains active when focus is lost (only pauses when minimized).",
 			"Developer & Debug Mode (Performance Watchdog)",
 			"Methodology & References:",
-			"  \xe2\x80\xa2 Daltonization: Fidaner et al. (2005)   \xe2\x80\xa2 LMS Dichromacy: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Color Space   \xe2\x80\xa2 W3C WCAG 2.1 Color Contrast"
+			"  \xe2\x80\xa2 Daltonization: Fidaner et al. (2005)   \xe2\x80\xa2 LMS Dichromacy: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Color Space   \xe2\x80\xa2 W3C WCAG 2.1 Color Contrast",
+
+			// Eye Comfort Section
+			"Eye Comfort",
+			"Brightness (Gamma Gain)",
+			"Brightness Retention: %.1f%%  (Recommended: %.2fx)",
+			"Apply Recommendation",
+			"affects display calculation only, not color correction itself"
 		};
 
 		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
@@ -1527,6 +1548,67 @@ namespace
 					{
 						ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurück" : "Resets Commander Tag Enhancer to Off / Neutral");
 					}
+				}
+			}
+
+			// ── Eye Comfort UI ────────────────────────────────────────────────────
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			if (ImGui::CollapsingHeader(t.EyeComfortHeader, ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				bool isDe = (t.Enabled[0] == 'A');
+
+				// HDR detection status indicator (cached on panel open, no polling)
+				static int s_lastHdrCheckFrame = -1;
+				static bool s_cachedHdrDetected = false;
+				int curFrame = ImGui::GetFrameCount();
+				if (curFrame != s_lastHdrCheckFrame + 1)
+				{
+					IDXGISwapChain* sc = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
+					s_cachedHdrDetected = DetectHdrColorSpace(sc);
+				}
+				s_lastHdrCheckFrame = curFrame;
+
+				// HDR Status Line with circular indicator
+				ImVec2 dotPos = ImGui::GetCursorScreenPos();
+				float dotRadius = 4.0f;
+				ImU32 dotColor = s_cachedHdrDetected ? IM_COL32(50, 210, 50, 255) : IM_COL32(135, 140, 145, 200);
+				ImVec2 dotCenter(dotPos.x + dotRadius + 2.0f, dotPos.y + ImGui::GetTextLineHeight() * 0.5f);
+				ImGui::GetWindowDrawList()->AddCircleFilled(dotCenter, dotRadius, dotColor);
+				ImGui::Dummy(ImVec2(dotRadius * 2.0f + 4.0f, ImGui::GetTextLineHeight()));
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("HDR: %s\n(%s)", s_cachedHdrDetected ? (isDe ? "Aktiv" : "Active") : (isDe ? "Inaktiv (SDR)" : "Inactive (SDR)"), t.EyeComfortHdrTooltip);
+				}
+				ImGui::SameLine(0, 6.0f);
+				ImGui::TextDisabled("HDR: %s", s_cachedHdrDetected ? (isDe ? "Erkannt" : "Detected") : (isDe ? "Aus (SDR)" : "Off (SDR)"));
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("HDR: %s\n(%s)", s_cachedHdrDetected ? (isDe ? "Aktiv" : "Active") : (isDe ? "Inaktiv (SDR)" : "Inactive (SDR)"), t.EyeComfortHdrTooltip);
+				}
+
+				ImGui::Spacing();
+				ImGui::SetNextItemWidth(240.0f);
+				if (ImGui::SliderFloat(t.EyeComfortGammaSlider, &CurrentSettings.GammaGain, 0.70f, 1.30f, "%.2fx"))
+				{
+					changed = true;
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit())
+				{
+					saveNeeded = true;
+				}
+
+				BrightnessRetentionResult retention = GetBrightnessRetention();
+				ImGui::Spacing();
+				ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
+				ImGui::SameLine(0, 10.0f);
+				if (ImGui::Button(t.EyeComfortApply))
+				{
+					CurrentSettings.GammaGain = retention.recommendedGain;
+					changed = true;
+					saveNeeded = true;
 				}
 			}
 
