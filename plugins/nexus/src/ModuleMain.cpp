@@ -20,6 +20,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <filesystem>
 
 using namespace cba;
 
@@ -1799,6 +1800,11 @@ namespace
 
 			const char* dir = (APIDefs->Paths.GetAddonDirectory) ? APIDefs->Paths.GetAddonDirectory("cba") : nullptr;
 			AddonDir = dir ? dir : "";
+			if (!AddonDir.empty())
+			{
+				std::error_code ec;
+				std::filesystem::create_directories(AddonDir, ec);
+			}
 			CurrentSettings = Settings::Load(AddonDir);
 
 			// Initialize hybrid background scanner

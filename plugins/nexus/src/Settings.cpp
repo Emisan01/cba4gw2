@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <filesystem>
 
 namespace cba
 {
@@ -103,6 +104,12 @@ namespace cba
 
 	void Settings::Save(const std::string& aAddonDir) const
 	{
+		if (!aAddonDir.empty())
+		{
+			std::error_code ec;
+			std::filesystem::create_directories(aAddonDir, ec);
+		}
+
 		std::ofstream file(ConfigPath(aAddonDir), std::ios::trunc);
 		if (!file.is_open())
 			return;
