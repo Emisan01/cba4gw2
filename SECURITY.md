@@ -2,7 +2,7 @@
 
 ## SmartScreen
 
-ColorblindAssist is distributed as a new Windows desktop application. A new
+cba4gw2 (Color Balance Assist) is distributed as a native GW2 Nexus plugin. A new
 or unsigned download can trigger the Windows Defender SmartScreen message
 `Windows protected your PC` because Microsoft has not established reputation
 for the publisher or the exact file hash yet.

@@ -20,11 +20,11 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
 ## ⚡ Key Features (v1.0)
 
 - **100% Hookless & Safe (Weg A):** Zero DirectX / D3D11 present hooks, zero shader injection, zero game memory tampering. Applies strictly via the Windows Magnification API (`MagSetFullscreenColorEffect`).
-- **Correction Profiles:**
-  - **Protanopia / Protanomaly** (Red-weak / Red-blind)
-  - **Deuteranopia / Deuteranomaly** (Green-weak / Green-blind)
-  - **Tritanopia / Tritanomaly** (Blue-weak / Blue-yellow)
-  - **Mixed Mode** (Independent Red-Green and Blue-Yellow sliders)
+- **Color Balance Profiles:**
+  - **Protan** (Rot-Fokus / Red Contrast Focus)
+  - **Deutan** (Grün-Fokus / Green Contrast Focus)
+  - **Tritan** (Blau-Fokus / Blue Contrast Focus)
+  - **Mixed Mode** (Unabhängige Rot-Grün- und Blau-Gelb-Farbbalance)
 - **Event-Driven Auto-Sleep (`WndProc`):**
   - Instant neutral color restoration when tabbing out (`WM_ACTIVATE` / `WA_INACTIVE`) or minimizing (`WM_SIZE` / `SIZE_MINIMIZED`).
   - Instant filter reactivation when returning to GW2.

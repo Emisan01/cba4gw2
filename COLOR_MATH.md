@@ -1,12 +1,12 @@
-# Mathematische & Wissenschaftliche Dokumentation: ColorblindAssist
+# Mathematische & Wissenschaftliche Dokumentation: Color Balance Assist (cba4gw2)
 
-Diese Dokumentation beschreibt die vollständige mathematische Herleitung, die wissenschaftlichen Referenzen und die softwaretechnische Umsetzung der Farblogik in **ColorblindAssist (CBA) v1.0**.
+Diese Dokumentation beschreibt die vollständige mathematische Herleitung, die wissenschaftlichen Referenzen und die softwaretechnische Umsetzung der Farblogik in **Color Balance Assist (cba4gw2) v1.0**.
 
 ---
 
 ## 1. Übersicht & Zielsetzung
 
-ColorblindAssist führt eine hardwarebeschleunigte **Echtzeit-Daltonisierung** auf dem gesamten Bildschirminhalt von Guild Wars 2 durch.
+Color Balance Assist führt eine hardwarebeschleunigte **Echtzeit-Farbbalance-Optimierung** auf dem gesamten Bildschirminhalt von Guild Wars 2 durch.
 Ziel ist es nicht, die Farben beliebig zu verfremden, sondern **verlorene Kontraste messbar in für den jeweiligen Nutzertyp sichtbare Farbkanäle umzuverteilen**, während neutrale Farbtöne (Weiß, Grau, Schwarz) unverändert bleiben.
 
 Die Pipeline basiert auf drei wissenschaftlichen Säulen:
@@ -51,10 +51,10 @@ $$\mathbf{M}_{LMS \to RGB} = \begin{pmatrix}
 
 ## 3. Physiologische Dichromasie-Simulation (Viénot, Brettel & Mollon 1999)
 
-Ein Mensch mit Farbsehschwäche sieht bei weißem Licht nicht schwarz oder rot; das Gehirn verarbeitet das verbleibende Signal entlang der Neutralachse.
+Ein Mensch mit individueller Farbwahrnehmung sieht bei weißem Licht nicht schwarz oder rot; das Gehirn verarbeitet das verbleibende Signal entlang der Neutralachse.
 Echte Dichromasie wird daher **nicht durch Nullsetzen eines Zapfens**, sondern durch **Projektion des fehlenden Zapfens auf die Ebene der verbleibenden Zapfen** modelliert:
 
-### A. Deuteranopie ($M$-Zapfen defekt / Grünschwäche)
+### A. Deuteranopie ($M$-Zapfen / Grün-Fokus)
 Der $M$-Zapfen wird als Linearkombination aus $L$ und $S$ geschätzt:
 $$M' = 0{,}494207 \cdot L + 1{,}24827 \cdot S$$
 
@@ -64,7 +64,7 @@ $$\mathbf{CVD}_{Deutan} = \begin{pmatrix}
 0{,}0 & 0{,}0 & 1{,}0 
 \end{pmatrix}$$
 
-### B. Protanopie ($L$-Zapfen defekt / Rotschwäche)
+### B. Protanopie ($L$-Zapfen / Rot-Fokus)
 Der $L$-Zapfen wird als Linearkombination aus $M$ und $S$ geschätzt:
 $$L' = 2{,}02344 \cdot M - 2{,}52581 \cdot S$$
 
@@ -74,7 +74,7 @@ $$\mathbf{CVD}_{Protan} = \begin{pmatrix}
 0{,}0 & 0{,}0 & 1{,}0 
 \end{pmatrix}$$
 
-### C. Tritanopie ($S$-Zapfen defekt / Blau-Gelb-Schwäche)
+### C. Tritanopie ($S$-Zapfen / Blau-Fokus)
 Der $S$-Zapfen wird als Linearkombination aus $L$ und $M$ geschätzt:
 $$S' = -0{,}395913 \cdot L + 0{,}801109 \cdot M$$
 
@@ -129,9 +129,9 @@ $$\mathbf{M}(s) = (1 - s) \cdot \mathbf{I} + s \cdot \mathbf{M}_{full}$$
 
 ---
 
-## 5. Gemischte Farbsehschwäche (Mixed Mode)
+## 5. Gemischte Farbanpassung (Mixed Mode)
 
-Für Nutzer mit kombinierter Rot-Grün- und Blau-Gelb-Schwäche werden zwei unabhängige Achsen kombiniert:
+Für Nutzer mit kombinierter Rot-Grün- und Blau-Gelb-Farbbalance werden zwei unabhängige Achsen kombiniert:
 $$\mathbf{M}_{mixed} = \mathbf{M}_{Tritan}(s_{BY}) \cdot \mathbf{M}_{Deutan}(s_{RG})$$
 
 ---

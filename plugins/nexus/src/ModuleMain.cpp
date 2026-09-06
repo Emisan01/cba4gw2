@@ -238,7 +238,7 @@ namespace
 	{
 		static const L10n de{
 			"Aktiv",
-			"Korrekturprofil",
+			"Farbabgleich-Profil",
 			"Protan",
 			"Deutan",
 			"Tritan",
@@ -249,13 +249,13 @@ namespace
 			"Fenstermodus",
 			"Screenshots: GW2-intern wirkt vor dem Filter. PrintScreen / Win+PrintScreen und die meisten Display-Captures sehen den Filter.",
 			"Sprache",
-			"AQ/HRR Diagnose",
-			"Freitext fuer Diagnose-Presets oder eine genauere Zuordnung.",
+			"AQ/HRR Referenzwerte",
+			"Kalibrierungs- und Benchmarkwerte fuer praezise Farbanpassung.",
 			"Hybrid Modus (Beta)",
 			"Kinematic Fader: Blendet das Overlay bei schnellen Kamerabewegungen automatisch sanft aus.\nLiest den GW2 Render-Buffer im Hintergrund, um WCAG-Fehler zu erkennen.",
 			"Spektral-Farbkanalverlauf (R/G/B)",
-			"Diagnose Profil-Referenz (AQ/HRR):",
-			"Hinweis: Trage hier z.B. Farnsworth-Munsell Scores, HRR-Ergebnisse\n(wie 'Deutan Mild') oder andere Referenzen ein, um dieses\nFarb-Profil eindeutig zuzuordnen.",
+			"Profil-Referenzwerte (AQ/HRR):",
+			"Hinweis: Trage hier z.B. Farnsworth-Munsell Scores, HRR-Werte oder AQ-Indizes ein, um das Farbprofil exakt zu kalibrieren.",
 			"Commander Tag Enhancer (Symbol-Unterscheidung)",
 			"Ersetzt bestimmte GW2-Symbole durch extrem kontrastreiche Signalfarben.",
 			"Enhancer Aktivieren",
@@ -272,14 +272,14 @@ namespace
 
 			"Auto",
 			"Smart-Enhancer: Symbole automatisch anpassen",
-			"Passt Commander-Tags und Wegmarker automatisch an die oben gewaehlte Farbsehschwaeche an.",
+			"Passt Commander-Tags und Wegmarker automatisch an das oben gewaehlte Farbprofil an.",
 
 			// Bottom Section
 			" Beim Spielstart laden (Load on Startup)",
 			"Aktiviert: Der gespeicherte Filterzustand wird beim Starten von GW2 geladen.\nDeaktiviert: Der Filter startet bei Spielstart immer inaktiv/neutral (kein ungewollter Farbstich).",
 			"Profil-Zusammenfassung (Live-Feedback):",
 			"Werte:",
-			"Einstufung:",
+			"Farbabgleich:",
 			" Filter auch im Hintergrund aktiv lassen (z. B. bei Klick in Browser / 2. Monitor)",
 			"Standard (Deaktiviert): Sobald GW2 den Fokus verliert (z. B. Klick in den Browser auf Monitor 2 oder Alt-Tab), pausiert der Filter sofort, damit andere Programme nicht beeinflusst werden.\n\nAktiviert: Laesst den Filter auch weiterlaufen, wenn ein anderes Fenster aktiv ist.\nHinweis: Bei Minimieren von GW2 pausiert der Filter in jedem Fall sofort.",
 			"Fokus-Waechter: Filter ist exklusiv an GW2 gebunden und pausiert bei Alt-Tab/Klick auf 2. Monitor.",
@@ -308,19 +308,19 @@ namespace
 			"Danksagung an die Community, Unterstuetzer & Raider",
 
 			// Section Headers
-			"1. Farbprofil & Korrektur",
+			"1. Farbprofil & Balance",
 			"2. Commander-Tag Enhancer",
 			"3. Kontrast-Kombinationen (Ueberlappende Farbfelder)",
 			"4. Eye Comfort (Helligkeit)",
 			"5. Spiel- & Fenstermodus",
 			"6. Hybrid Modus (Beta)",
 			"7. Filter-Labor & Experimentierfeld",
-			"8. Ueber, Diagnose & Credits"
+			"8. Ueber CBA, Referenzen & Credits"
 		};
 
 		static const L10n en{
 			"Enabled",
-			"Correction profile",
+			"Color Balance Profile",
 			"Protan",
 			"Deutan",
 			"Tritan",
@@ -331,13 +331,13 @@ namespace
 			"Window mode",
 			"Screenshots: GW2's internal capture sees the scene before the filter. PrintScreen / Win+PrintScreen and most display captures see the filter.",
 			"Language",
-			"AQ/HRR diagnosis",
-			"Free text for diagnosis presets or more precise mapping.",
+			"AQ/HRR Reference Values",
+			"Calibration and benchmark values for precise color balancing.",
 			"Hybrid Mode (Beta)",
 			"Kinematic Fader: Automatically fades out the overlay during fast camera movements.\nReads the GW2 render buffer in the background to show WCAG errors.",
 			"Color Profile Graph: Transfer function of R/G/B channels",
-			"Diagnostic Profile Reference (AQ/HRR):",
-			"Hint: Enter Farnsworth-Munsell Scores, HRR results\n(like 'Deutan Mild') or other references here to uniquely\nassign this color profile.",
+			"Profile Reference Values (AQ/HRR):",
+			"Hint: Enter Farnsworth-Munsell scores, HRR values, or AQ indices to calibrate this color profile.",
 			"Commander Tag Enhancer",
 			"Replaces specific GW2 symbols with high-contrast signal colors.",
 			"Enable Enhancer",
@@ -354,14 +354,14 @@ namespace
 
 			"Auto",
 			"Smart-Enhancer: Adjust symbols automatically",
-			"Automatically adjusts Commander Tags and waymarkers based on the selected color blindness type above.",
+			"Automatically adjusts Commander Tags and waymarkers based on the selected color profile above.",
 
 			// Bottom Section
 			" Load on Startup",
 			"Enabled: Saved filter profile is restored when Guild Wars 2 launches.\nDisabled: Filter starts inactive/neutral at launch to prevent unintended color shifts.",
 			"Profile Summary (Live Feedback):",
 			"Values:",
-			"Classification:",
+			"Color Balance:",
 			" Keep filter active in background (e.g. browser / 2nd monitor)",
 			"Default (Disabled): As soon as GW2 loses focus (e.g. clicking browser on 2nd monitor or Alt-Tab), the filter pauses immediately to avoid tinting other applications.\n\nEnabled: Keeps the filter active even when another window has focus.\nNote: Minimizing GW2 always pauses the filter immediately.",
 			"Focus Watchdog: Filter is bound exclusively to GW2 and pauses on Alt-Tab / 2nd monitor focus.",
@@ -390,14 +390,14 @@ namespace
 			"Credits to community, supporters & raiders",
 
 			// Section Headers
-			"1. Color Profile & Correction",
+			"1. Color Profile & Balance",
 			"2. Commander Tag Enhancer",
 			"3. Contrast Combinations (Overlapping Swatches)",
 			"4. Eye Comfort (Brightness)",
 			"5. Game & Window Mode",
 			"6. Hybrid Mode (Beta)",
 			"7. Filter Lab & Experiment Field",
-			"8. About, Diagnostics & Credits"
+			"8. About CBA, References & Credits"
 		};
 
 		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
@@ -1192,7 +1192,7 @@ namespace
 				ImGui::SetScrollY(s_scrollPos);
 
 				ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.35f, 1.0f), "========================================================");
-				ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.35f, 1.0f), "          COLORBLIND ASSIST FOR GUILD WARS 2            ");
+				ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.35f, 1.0f), "        COLOR BALANCE ASSIST FOR GUILD WARS 2           ");
 				ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.35f, 1.0f), "                    CBA4GW2 v1.0.2                      ");
 				ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.35f, 1.0f), "========================================================");
 				ImGui::Spacing();
@@ -1223,7 +1223,7 @@ namespace
 				ImGui::Text("  * To all Commanders who lead epic Zergs through WvW!");
 				ImGui::Text("  * To all Raiders who master Dhuum, Qadim, Samarog & Cerus!");
 				ImGui::Text("  * To all Fractal runners and Strike Mission squads!");
-				ImGui::Text("  * And to every single Colorblind Player out there:");
+				ImGui::Text("  * And to every player who values clear contrast and balance:");
 				ImGui::TextColored(ImVec4(0.40f, 1.00f, 0.50f, 1.0f), "    May your greens and reds never blend,");
 				ImGui::TextColored(ImVec4(0.40f, 1.00f, 0.50f, 1.0f), "    may commander tags shine bright in every zerg,");
 				ImGui::TextColored(ImVec4(0.40f, 1.00f, 0.50f, 1.0f), "    and may your drops forever be Precursor Gold!");
@@ -3105,29 +3105,29 @@ namespace
 				bool isNeutral = false;
 
 				if (CurrentSettings.Mixed) {
-					profileName = isDe ? "Gemischt (Mixed)" : "Mixed Deficiency";
+					profileName = isDe ? "Gemischt (Mixed)" : "Mixed Balance";
 					char buf[96];
 					std::snprintf(buf, sizeof(buf), "RG: %.0f%% | BY: %.0f%%", 
 						CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
 					severityDesc = buf;
 					double avgSev = (CurrentSettings.MixedRgSeverity01 + CurrentSettings.MixedBySeverity01) * 0.5;
 					if (avgSev <= 0.005) {
-						clinicalGrade = isDe ? "Neutral (100% Original)" : "Neutral (100% Original)";
+						clinicalGrade = isDe ? "Neutral (Originalfarben)" : "Neutral (Original Colors)";
 						isNeutral = true;
 					} else if (avgSev <= 0.35) {
-						clinicalGrade = isDe ? "Milde Kompensation" : "Mild Compensation";
+						clinicalGrade = isDe ? "Stufe 1 (Sanfte Balance)" : "Level 1 (Subtle Balance)";
 					} else if (avgSev <= 0.70) {
-						clinicalGrade = isDe ? "Mittlere Kompensation" : "Moderate Compensation";
+						clinicalGrade = isDe ? "Stufe 2 (Ausgeglichen)" : "Level 2 (Balanced)";
 					} else {
-						clinicalGrade = isDe ? "Starke Kompensation" : "Strong Compensation";
+						clinicalGrade = isDe ? "Stufe 3 (Fokus-Kontrast)" : "Level 3 (Focus Contrast)";
 					}
 				} else {
 					if (CurrentSettings.Type == DeficiencyType::Protan) {
-						profileName = isDe ? "Protanopie (Rot)" : "Protanopia (Red)";
+						profileName = isDe ? "Protan (Rot-Fokus)" : "Protan (Red Focus)";
 					} else if (CurrentSettings.Type == DeficiencyType::Deutan) {
-						profileName = isDe ? "Deuteranopie (Gruen)" : "Deuteranopia (Green)";
+						profileName = isDe ? "Deutan (Gruen-Fokus)" : "Deutan (Green Focus)";
 					} else {
-						profileName = isDe ? "Tritanopie (Blau)" : "Tritanopia (Blue)";
+						profileName = isDe ? "Tritan (Blau-Fokus)" : "Tritan (Blue Focus)";
 					}
 
 					char buf[64];
@@ -3135,14 +3135,14 @@ namespace
 					severityDesc = buf;
 
 					if (CurrentSettings.Severity01 <= 0.005) {
-						clinicalGrade = isDe ? "Neutral (100% Original)" : "Neutral (100% Original)";
+						clinicalGrade = isDe ? "Neutral (Originalfarben)" : "Neutral (Original Colors)";
 						isNeutral = true;
 					} else if (CurrentSettings.Severity01 <= 0.35) {
-						clinicalGrade = isDe ? "Leicht (HRR Mild)" : "Mild (HRR Mild)";
+						clinicalGrade = isDe ? "Stufe 1 (Sanfte Balance)" : "Level 1 (Subtle Balance)";
 					} else if (CurrentSettings.Severity01 <= 0.70) {
-						clinicalGrade = isDe ? "Maessig (HRR Moderate)" : "Moderate (HRR Mod)";
+						clinicalGrade = isDe ? "Stufe 2 (Ausgeglichen)" : "Level 2 (Balanced)";
 					} else {
-						clinicalGrade = isDe ? "Stark (HRR Severe)" : "Severe (HRR Severe)";
+						clinicalGrade = isDe ? "Stufe 3 (Fokus-Kontrast)" : "Level 3 (Focus Contrast)";
 					}
 				}
 
@@ -3164,6 +3164,31 @@ namespace
 				}
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
+
+				// Eingabefeld fuer persoenliche Kalibrier- / Referenzwerte (AQ / HRR)
+				ImGui::Spacing();
+				const char* defaultHint = CurrentSettings.Mixed ? "RG: 50% | BY: 50%" :
+					(CurrentSettings.Type == DeficiencyType::Protan ? "AQ: 0.35 | HRR: 8/10" :
+					(CurrentSettings.Type == DeficiencyType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
+
+				ImGui::TextDisabled("%s:", isDe ? "Referenzwerte / Kalibrierung (AQ / HRR)" : "Reference Values / Calibration (AQ / HRR)");
+				char diagBuf[128]{};
+				std::snprintf(diagBuf, sizeof(diagBuf), "%s", CurrentSettings.DiagnosisHint.c_str());
+
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				if (ImGui::InputTextWithHint("##ref_values_input", defaultHint, diagBuf, sizeof(diagBuf)))
+				{
+					CurrentSettings.DiagnosisHint = diagBuf;
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe 
+						? "Optionales Eingabefeld fuer persoenliche Kalibrier- oder Benchmarkwerte (z.B. Nagel-AQ, HRR-Plates).\nTypische Standardwerte fuer dieses Profil: %s"
+						: "Optional input field for personal calibration or test benchmark scores (e.g. Nagel AQ, HRR plates).\nTypical default values for this profile: %s",
+						defaultHint);
+				}
 			}
 			endSection();
 		}
@@ -3185,8 +3210,8 @@ namespace
 				if (s_tagConflictStates[i].inConflict) shiftedCount++;
 			}
 			ImGui::SameLine(0, 14.0f);
-			const char* curDefName = CurrentSettings.Type == DeficiencyType::Protan ? (isDe ? "Protanopie" : "Protanopia") 
-				: (CurrentSettings.Type == DeficiencyType::Deutan ? (isDe ? "Deuteranopie" : "Deuteranopia") : (isDe ? "Tritanopie" : "Tritanopia"));
+			const char* curDefName = CurrentSettings.Type == DeficiencyType::Protan ? (isDe ? "Protan (Rot)" : "Protan (Red)") 
+				: (CurrentSettings.Type == DeficiencyType::Deutan ? (isDe ? "Deutan (Gruen)" : "Deutan (Green)") : (isDe ? "Tritan (Blau)" : "Tritan (Blue)"));
 			ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "%s - %d von 9 Farben verschoben" : "%s - %d of 9 colors shifted", curDefName, shiftedCount);
 
 			if (enhancerActive)
@@ -3218,11 +3243,11 @@ namespace
 					}
 					ImGui::PopStyleColor(4);
 				};
-				presetBtn(isDe ? "Protanopie" : "Protanopia", DeficiencyType::Protan);
+				presetBtn(isDe ? "Protan (Rot)" : "Protan (Red)", DeficiencyType::Protan);
 				ImGui::SameLine(0, 6.0f);
-				presetBtn(isDe ? "Deuteranopie" : "Deuteranopia", DeficiencyType::Deutan);
+				presetBtn(isDe ? "Deutan (Gruen)" : "Deutan (Green)", DeficiencyType::Deutan);
 				ImGui::SameLine(0, 6.0f);
-				presetBtn(isDe ? "Tritanopie" : "Tritanopia", DeficiencyType::Tritan);
+				presetBtn(isDe ? "Tritan (Blau)" : "Tritan (Blue)", DeficiencyType::Tritan);
 				ImGui::PopStyleVar();
 
 				ImGui::Spacing();
@@ -4073,6 +4098,8 @@ namespace
 
 		ImGui::Spacing();
 
+		float impactPct = (retention.retentionRatio - 1.0f) * 100.0f;
+
 		// Action buttons & Continuous Auto toggle
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
 		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
@@ -4080,7 +4107,11 @@ namespace
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 
-		if (ImGui::Button(isDe ? "Optimalwert anwenden##hud_apply" : "Apply Target Value##hud_apply", ImVec2(isDe ? 175.0f : 160.0f, 24.0f)))
+		char applyBtnLabel[64];
+		std::snprintf(applyBtnLabel, sizeof(applyBtnLabel), isDe ? "Optimalwert (%.2fx)##hud_apply" : "Apply Target (%.2fx)##hud_apply", retention.recommendedGain);
+		float btnWHUDApply = isDe ? 155.0f : 145.0f;
+
+		if (ImGui::Button(applyBtnLabel, ImVec2(btnWHUDApply, 24.0f)))
 		{
 			CurrentSettings.GammaGain = retention.recommendedGain;
 			changed = true;
@@ -4090,12 +4121,22 @@ namespace
 		ImGui::PopStyleVar();
 		if (ImGui::IsItemHovered())
 		{
-			ImGui::SetTooltip(isDe ? "Setzt den GammaGain einmalig auf den berechneten Optimalwert (%.2fx)."
-			                       : "Applies the calculated optimal gain (%.2fx) once.", retention.recommendedGain);
+			ImGui::SetTooltip(isDe ? "Setzt den GammaGain einmalig auf den berechneten Optimalwert (%.2fx).\nProfil-Impact auf Helligkeit: %+.1f%% (Retention: %.1f%%)"
+			                       : "Applies the calculated optimal gain (%.2fx) once.\nProfile impact on brightness: %+.1f%% (Retention: %.1f%%)",
+			                       retention.recommendedGain, impactPct, retention.retentionRatio * 100.0f);
+		}
+
+		// Errechneter Gegenwert / Impact in dezentem Grau rechts neben dem Button
+		ImGui::SameLine(0, 8.0f);
+		ImGui::TextDisabled(isDe ? "Impact: %+.1f%%" : "Impact: %+.1f%%", impactPct);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Errechnete Luminanz-Verschiebung durch das aktive Farbprofil (%+.1f%%).\nDer Optimalwert gleicht diesen Helligkeitsverlust praezise aus."
+			                       : "Calculated luminance shift caused by active color profile (%+.1f%%).\nThe target value accurately compensates this difference.", impactPct);
 		}
 
 		ImGui::SameLine(0, 10.0f);
-		if (ImGui::Checkbox(isDe ? "Vollautomatisch anpassen##hud_auto" : "Dynamic Auto-Adjust##hud_auto", &CurrentSettings.AutoBrightness))
+		if (ImGui::Checkbox(isDe ? "Auto-Sync##hud_auto" : "Auto-Sync##hud_auto", &CurrentSettings.AutoBrightness))
 		{
 			if (CurrentSettings.AutoBrightness)
 			{
@@ -4106,8 +4147,8 @@ namespace
 		}
 		if (ImGui::IsItemHovered())
 		{
-			ImGui::SetTooltip(isDe ? "Wenn aktiv: Passt die Helligkeit bei jeder Aenderung der Farb-Regler ohne Bestaetigung dynamisch und vollautomatisch an."
-			                       : "When active: Dynamically syncs brightness to retention in real time without confirmation.");
+			ImGui::SetTooltip(isDe ? "Wenn aktiv: Passt die Helligkeit bei jeder Profil-Aenderung dynamisch und vollautomatisch an."
+			                       : "When active: Dynamically synchronizes brightness compensation in real time.");
 		}
 
 		// Sleek manual slider for GammaGain
