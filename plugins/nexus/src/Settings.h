@@ -44,6 +44,7 @@ namespace cba
 		float UiOpacity = 1.0f;
 		bool LoadOnStartup = false;
 		bool DetachedWindow = false;
+		bool ShowQuickAccessIcon = true;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
 		// aAddonDir: the path returned by GetAddonDirectory("cba"), Nexus

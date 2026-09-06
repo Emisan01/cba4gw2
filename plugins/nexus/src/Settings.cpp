@@ -84,6 +84,7 @@ namespace cba
 			else if (key == "UiOpacity")         s.UiOpacity = std::clamp(safeStof(value, 1.0f), 0.20f, 1.0f);
 			else if (key == "LoadOnStartup")     s.LoadOnStartup = (value == "1");
 			else if (key == "DetachedWindow")    s.DetachedWindow = (value == "1");
+			else if (key == "ShowQuickAccess")   s.ShowQuickAccessIcon = (value == "1");
 			else if (key == "SystemWide")        s.SystemWide = (value == "1");
 			else if (key.rfind("Preset", 0) == 0 && key.size() >= 10)
 			{
@@ -133,6 +134,7 @@ namespace cba
 		file << "UiOpacity=" << UiOpacity << "\n";
 		file << "LoadOnStartup=" << (LoadOnStartup ? "1" : "0") << "\n";
 		file << "DetachedWindow=" << (DetachedWindow ? "1" : "0") << "\n";
+		file << "ShowQuickAccess=" << (ShowQuickAccessIcon ? "1" : "0") << "\n";
 		file << "SystemWide=" << (SystemWide ? "1" : "0") << "\n";
 
 		for (int i = 0; i < 3; ++i)
