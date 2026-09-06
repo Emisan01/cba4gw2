@@ -241,7 +241,7 @@ namespace
 			"Hintergrund-Modus: Filter bleibt auch bei Fokusverlust aktiv (pausiert nur bei Minimieren).",
 			"Entwickler- & Debug-Modus (Performance Watchdog)",
 			"Methodik & Referenzen:",
-			"  \xe2\x80\xa2 Daltonisierung: Fidaner et al. (2005)   \xe2\x80\xa2 LMS-Dichromasie: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Farbraum   \xe2\x80\xa2 W3C WCAG 2.1 Farbkontrast",
+			"  - Daltonisierung: Fidaner et al. (2005)   - LMS-Dichromasie: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  - Hunt-Pointer-Est\xc3\xa9vez (HPE) Farbraum   - W3C WCAG 2.1 Farbkontrast",
 
 			// Eye Comfort Section
 			"Eye Comfort",
@@ -252,13 +252,13 @@ namespace
 
 			// Windows, QuickAccess & Community Credits
 			"Hauptfenster",
-			"\xc3\x96\x66\x66net das CBA Hauptfenster mit allen Profil- und Farbeinstellungen (CTRL+ALT+C)",
+			"Oeffnet oder schliesst das CBA Hauptfenster (CTRL+ALT+C)",
 			"Sensor-Graph",
-			"\xc3\x96\x66\x66net das separate, transparente Sensor- & Graph-HUD (SHIFT+ALT+C)",
-			" CBA-Icon in Nexus-Leiste anzeigen (QuickAccess)",
+			"Oeffnet oder schliesst das Sensor- & Graph-HUD (SHIFT+ALT+C)",
+			"Show CBA icon",
 			"Blendet das CBA-Icon in der oberen Nexus-Schnellstartleiste ein oder aus.",
 			"Kompaktmodus: Einstellungen und Sensor-Graphen laufen in eigenen Fenstern.",
-			"Mit Liebe f\xc3\xbcr die Tyria-Community entwickelt \xe2\x99\xa5 Barrierefreiheit f\xc3\xbcr alle Raid- & Open-World-Spieler",
+			"Crafted with love for the Tyrian community - A Color Balance Assist and Enhancer for GW2",
 			"Credits <3",
 			"Danksagung an die Community, Unterst\xc3\xbctzer & Raider",
 
@@ -268,7 +268,7 @@ namespace
 			"3. Eye Comfort (Helligkeit)",
 			"4. Spiel- & Fenstermodus",
 			"5. Hybrid Modus (Beta)",
-			"6. Entwickler & Diagnose"
+			"6. Uber, Diagnose & Credits"
 		};
 
 		static const L10n en{
@@ -320,7 +320,7 @@ namespace
 			"Background Mode: Filter remains active when focus is lost (only pauses when minimized).",
 			"Developer & Debug Mode (Performance Watchdog)",
 			"Methodology & References:",
-			"  \xe2\x80\xa2 Daltonization: Fidaner et al. (2005)   \xe2\x80\xa2 LMS Dichromacy: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  \xe2\x80\xa2 Hunt-Pointer-Est\xc3\xa9vez (HPE) Color Space   \xe2\x80\xa2 W3C WCAG 2.1 Color Contrast",
+			"  - Daltonization: Fidaner et al. (2005)   - LMS Dichromacy: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  - Hunt-Pointer-Est\xc3\xa9vez (HPE) Color Space   - W3C WCAG 2.1 Color Contrast",
 
 			// Eye Comfort Section
 			"Eye Comfort",
@@ -331,13 +331,13 @@ namespace
 
 			// Windows, QuickAccess & Community Credits
 			"Main Window",
-			"Opens the CBA Main Window with all profile and color controls (CTRL+ALT+C)",
+			"Opens or closes the CBA Main Window (CTRL+ALT+C)",
 			"Sensor Graph",
-			"Opens the separate, transparent sensor & graph HUD (SHIFT+ALT+C)",
-			" Show CBA icon in Nexus bar (QuickAccess)",
+			"Opens or closes the Sensor & Graph HUD (SHIFT+ALT+C)",
+			"Show CBA icon",
 			"Toggles the CBA icon in the top Nexus QuickAccess toolbar.",
 			"Compact Mode: Controls and sensor graphs run in dedicated floating windows.",
-			"Crafted with love for the Tyrian community \xe2\x99\xa5 Raid & Open World Accessibility",
+			"Crafted with love for the Tyrian community - A Color Balance Assist and Enhancer for GW2",
 			"Credits <3",
 			"Credits & appreciation for the community & raiders",
 
@@ -347,7 +347,7 @@ namespace
 			"3. Eye Comfort (Brightness)",
 			"4. Game & Window Mode",
 			"5. Hybrid Mode (Beta)",
-			"6. Developer & Diagnostics"
+			"6. About, Diagnostics & Credits"
 		};
 
 		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
@@ -373,6 +373,8 @@ namespace
 		std::atomic<bool> s_resetGraphWindowPos{false};
 		std::atomic<bool> s_resetDetachedWindowPos{false};
 		std::atomic<bool> s_deferredInitDone{false};
+		std::atomic<bool> s_focusMainWindow{false};
+		std::atomic<bool> s_focusGraphWindow{false};
 
 		bool RoughlyEqual(const MAGCOLOREFFECT& a, const MAGCOLOREFFECT& b)
 		{
@@ -877,18 +879,17 @@ namespace
 					bool ctrlDown = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
 					bool shiftDown = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
-					if (altDown && !shiftDown)
+					if (altDown && !shiftDown && ctrlDown)
 					{
-						if (ctrlDown)
-						{
-							CurrentSettings.Enabled = !CurrentSettings.Enabled;
-							CurrentSettings.Save(AddonDir);
-							Recompute(/*aForce=*/true);
-						}
-						else
-						{
-							CurrentSettings.DetachedWindow = !CurrentSettings.DetachedWindow;
-						}
+						EnsureDeferredInitialized();
+						CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+						if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
+					}
+					else if (altDown && shiftDown && !ctrlDown)
+					{
+						EnsureDeferredInitialized();
+						CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+						if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 					}
 				}
 				break;
@@ -905,11 +906,13 @@ namespace
 		{
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+			if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 		}
 		else if (strcmp(aIdentifier, "CBA - Sensor Graph") == 0 || strcmp(aIdentifier, "KB_CBA_GRAPH") == 0)
 		{
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 		}
 	}
 
@@ -1382,17 +1385,28 @@ namespace
 		style.Colors[ImGuiCol_Header] = ImVec4(0.3f, 0.6f, 0.9f, 1.0f);
 		style.ItemSpacing = ImVec2(8, 5);
 
-		// ── Row 1: [ 🗗 Hauptfenster ] | [ 📈 Sensor-Graph ] | [ ON / OFF ] | [ Language Combo ] ──
+		// ── Row 1: [ Hauptfenster ] | [ Sensor-Graph ] | [ ON / OFF ] | [ Language Combo ] | [ Reset Windows ] ──
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
 
-		// Button 1: Main Window
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.38f, 0.62f, 0.92f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.48f, 0.75f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.30f, 0.52f, 1.00f));
-		if (ImGui::Button(isDe ? "\xf0\x9f\x97\x97 Hauptfenster" : "\xf0\x9f\x97\x97 Main Window", ImVec2(126.0f, 26.0f)))
+		// Button 1: Main Window (Toggle, Blue if closed, Green if open)
+		bool mainOpen = CurrentSettings.ShowMainWindow;
+		if (mainOpen) {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f, 0.52f, 0.32f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.64f, 0.40f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.42f, 0.25f, 1.00f));
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.42f, 0.65f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.52f, 0.78f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.32f, 0.52f, 1.00f));
+		}
+		if (ImGui::Button(t.OpenMainWindow, ImVec2(110.0f, 26.0f)))
 		{
 			EnsureDeferredInitialized();
-			CurrentSettings.ShowMainWindow = true;
+			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+			if (CurrentSettings.ShowMainWindow)
+			{
+				s_focusMainWindow = true;
+			}
 			saveNeeded = true;
 		}
 		ImGui::PopStyleColor(3);
@@ -1400,20 +1414,31 @@ namespace
 
 		ImGui::SameLine();
 
-		// Button 2: Sensor Graph HUD
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.92f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
-		if (ImGui::Button(isDe ? "\xf0\x9f\x93\x88 Sensor-Graph" : "\xf0\x9f\x93\x88 Sensor Graph", ImVec2(126.0f, 26.0f)))
+		// Button 2: Sensor Graph HUD (Toggle, Cyan if closed, Green if open)
+		bool graphOpen = CurrentSettings.ShowGraphWindow;
+		if (graphOpen) {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f, 0.52f, 0.32f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.64f, 0.40f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.42f, 0.25f, 1.00f));
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
+		}
+		if (ImGui::Button(t.OpenSensorGraph, ImVec2(110.0f, 26.0f)))
 		{
 			EnsureDeferredInitialized();
-			CurrentSettings.ShowGraphWindow = true;
+			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+			if (CurrentSettings.ShowGraphWindow)
+			{
+				s_focusGraphWindow = true;
+			}
 			saveNeeded = true;
 		}
 		ImGui::PopStyleColor(3);
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
 
-		ImGui::SameLine(0, 10.0f);
+		ImGui::SameLine(0, 8.0f);
 
 		// Button 3: Master ON / OFF toggle
 		{
@@ -1440,7 +1465,7 @@ namespace
 				                             : (isDe ? "Filter inaktiv — Klicke zum Einschalten" : "Filter inactive — click to enable"));
 		}
 
-		ImGui::SameLine(0, 10.0f);
+		ImGui::SameLine(0, 8.0f);
 
 		// Item 4: Language dropdown combo
 		int langComboIdx = 0;
@@ -1454,7 +1479,7 @@ namespace
 			"Deutsch"
 		};
 
-		ImGui::SetNextItemWidth(120.0f);
+		ImGui::SetNextItemWidth(110.0f);
 		if (ImGui::Combo("##LangComboEmb", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
 		{
 			if (langComboIdx == 0) CurrentSettings.Language = 1;
@@ -1464,7 +1489,27 @@ namespace
 			saveNeeded = true;
 		}
 
+		ImGui::SameLine(0, 8.0f);
+
+		// Item 5: Reset Windows (One button to reset and bring both windows to visible coordinates!)
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.28f, 0.30f, 0.35f, 0.85f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.38f, 0.40f, 0.48f, 0.95f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.20f, 0.22f, 0.28f, 1.00f));
+		if (ImGui::Button("Reset Windows", ImVec2(105.0f, 26.0f)))
+		{
+			s_resetMainWindowPos = true;
+			s_resetGraphWindowPos = true;
+			CurrentSettings.ShowMainWindow = true;
+			s_focusMainWindow = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(3);
 		ImGui::PopStyleVar(); // FrameRounding
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt Position und Gr\xc3\xb6\xc3\x9f" "e beider Fenster zur\xc3\xbc" "ck und bringt sie in den Vordergrund."
+			                       : "Resets position and size of both windows and brings them to the foreground.");
+		}
 
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -1487,27 +1532,6 @@ namespace
 			saveNeeded = true;
 		}
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
-
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		// ── Community Footnote & Artistic Credits Button ───────────────────────
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.60f, 0.70f, 0.85f));
-		ImGui::TextWrapped("%s", t.CommunityFootnote);
-		ImGui::PopStyleColor();
-
-		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.20f, 0.35f, 0.75f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.28f, 0.50f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.14f, 0.26f, 1.00f));
-		if (ImGui::Button(t.C64Button, ImVec2(120.0f, 24.0f)))
-		{
-			s_showC64Credits.store(true);
-			StartC64Audio();
-		}
-		ImGui::PopStyleColor(3);
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.C64Tooltip);
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);
@@ -1542,17 +1566,25 @@ namespace
 		float widgetAlpha = std::clamp(0.75f + 0.25f * clampedOpacity, 0.75f, 1.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, widgetAlpha);
 
-		// ── Header Bar: Title, Live Status Dot, Open Graph HUD, Reset GUI, Opacity ──
+		// ── Header Bar: Title, Live Status Dot, Open Graph HUD, Reset, Opacity ──
 		ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "cba4gw2");
 		ImGui::SameLine();
 		DrawFilterStatusIndicator(true);
 
 		ImGui::SameLine(0, 8.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.90f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
-		if (ImGui::Button(isDe ? "\xf0\x9f\x93\x88 Graph" : "\xf0\x9f\x93\x88 Graph")) {
-			CurrentSettings.ShowGraphWindow = true;
+		bool graphOpen = CurrentSettings.ShowGraphWindow;
+		if (graphOpen) {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f, 0.52f, 0.32f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.64f, 0.40f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.42f, 0.25f, 1.00f));
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.90f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
+		}
+		if (ImGui::Button("Sensor-Graph##main_top", ImVec2(96.0f, 0.0f))) {
+			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 			saveNeeded = true;
 		}
 		ImGui::PopStyleColor(3);
@@ -1560,8 +1592,8 @@ namespace
 			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
 		}
 
-		ImGui::SameLine(0, 8.0f);
-		if (ImGui::Button("Reset GUI##main")) {
+		ImGui::SameLine(0, 6.0f);
+		if (ImGui::Button("Reset##main")) {
 			s_resetMainWindowPos = true;
 		}
 		if (ImGui::IsItemHovered()) {
@@ -1569,7 +1601,7 @@ namespace
 		}
 
 		ImGui::SameLine();
-		ImGui::SetNextItemWidth(60.0f);
+		ImGui::SetNextItemWidth(55.0f);
 		if (ImGui::SliderFloat("##OpacityMain", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
 			CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.20f, 1.00f);
 			changed = true;
@@ -1714,14 +1746,14 @@ namespace
 				}
 			}
 
-			// DIRECTLY UNDER COLOR MATRIX: Save Profile Button!
+			// DIRECTLY UNDER COLOR MATRIX: Save Profile Button (No emoji glyph question marks!)
 			ImGui::Spacing();
 			static auto s_mainSaveFeedbackTime = std::chrono::steady_clock::time_point{};
 			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
 			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
-			if (ImGui::Button(isDe ? "\xf0\x9f\x92\xbe Profil speichern" : "\xf0\x9f\x92\xbe Save Profile", ImVec2(135.0f, 26.0f))) {
+			if (ImGui::Button(isDe ? "Profil speichern" : "Save Profile", ImVec2(125.0f, 26.0f))) {
 				CurrentSettings.Save(AddonDir);
 				s_mainSaveFeedbackTime = std::chrono::steady_clock::now();
 				changed = false;
@@ -1796,7 +1828,7 @@ namespace
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 6));
 
 				if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(0.0f, 58.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "\xe2\x80\xa2 %s \xe2\x80\x94 %s", profileName.c_str(), severityDesc.c_str());
+					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "- %s - %s", profileName.c_str(), severityDesc.c_str());
 					ImGui::Spacing();
 					ImGui::TextColored(
 						!isNeutral ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.65f, 0.72f, 0.82f, 0.90f),
@@ -2049,7 +2081,7 @@ namespace
 			ImGui::Spacing();
 		}
 
-		// ── Section 6: Entwickler & Diagnose ──────────────────────────────────
+		// ── Section 6: Über, Diagnose & Credits (Everything clean in one collapsible section) ──
 		if (ImGui::CollapsingHeader(t.HeaderSection6))
 		{
 			if (ImGui::Checkbox(t.DebugModeCheckbox, &CurrentSettings.DebugMode)) {
@@ -2062,27 +2094,27 @@ namespace
 			ImGui::TextWrapped("%s", t.MethodologyDesc);
 			ImGui::PopStyleColor();
 			ImGui::Spacing();
+
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.20f, 0.35f, 0.75f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.28f, 0.50f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.14f, 0.26f, 1.00f));
+			if (ImGui::Button(t.C64Button, ImVec2(120.0f, 24.0f)))
+			{
+				s_showC64Credits.store(true);
+				StartC64Audio();
+			}
+			ImGui::PopStyleColor(3);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.C64Tooltip);
+			ImGui::Spacing();
 		}
 
-		// ── Community Footnote & Artistic Credits ─────────────────────────────
+		// ── Community Footnote at the very bottom (No unicode glyph bugs!) ───
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.60f, 0.70f, 0.85f));
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.50f, 0.58f, 0.68f, 0.85f));
 		ImGui::TextWrapped("%s", t.CommunityFootnote);
 		ImGui::PopStyleColor();
-
-		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.20f, 0.35f, 0.75f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.28f, 0.50f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.14f, 0.26f, 1.00f));
-		if (ImGui::Button(t.C64Button, ImVec2(120.0f, 24.0f)))
-		{
-			s_showC64Credits.store(true);
-			StartC64Audio();
-		}
-		ImGui::PopStyleColor(3);
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.C64Tooltip);
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);
@@ -2105,12 +2137,25 @@ namespace
 		ImGui::PushID("CBA_GraphHUD");
 
 		// Header Bar: Title, Open Main Window, Reset GUI, Opacity
-		ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.95f, 1.0f), isDe ? "\xf0\x9f\x93\x88 Spektralgraph" : "\xf0\x9f\x93\x88 Spectral Graph");
+		ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.95f, 1.0f), isDe ? "Spektralgraph" : "Spectral Graph");
 		ImGui::SameLine(0, 8.0f);
-		if (ImGui::Button(isDe ? "\xf0\x9f\x97\x97 Hauptfenster" : "\xf0\x9f\x97\x97 Main Window"))
-		{
-			CurrentSettings.ShowMainWindow = true;
+
+		bool mainOpen = CurrentSettings.ShowMainWindow;
+		if (mainOpen) {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f, 0.52f, 0.32f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.64f, 0.40f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.42f, 0.25f, 1.00f));
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.42f, 0.65f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.52f, 0.78f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.32f, 0.52f, 1.00f));
 		}
+		if (ImGui::Button(t.OpenMainWindow, ImVec2(96.0f, 0.0f)))
+		{
+			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+			if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
+		}
+		ImGui::PopStyleColor(3);
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenMainWindowTooltip);
 
 		ImGui::SameLine(0, 6.0f);
@@ -2284,6 +2329,12 @@ namespace
 		// ── Window 1: CBA Main Window ─────────────────────────────────────────
 		if (CurrentSettings.ShowMainWindow && ImGui::GetCurrentContext())
 		{
+			if (s_focusMainWindow)
+			{
+				ImGui::SetNextWindowFocus();
+				s_focusMainWindow = false;
+			}
+
 			float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
 			ImGui::SetNextWindowBgAlpha(clampedOpacity);
 			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.06f, 0.08f, 0.12f, clampedOpacity * 0.85f));
@@ -2318,6 +2369,12 @@ namespace
 		// ── Window 2: Sensor & Spectral Graph HUD Window ─────────────────────
 		if (CurrentSettings.ShowGraphWindow && ImGui::GetCurrentContext())
 		{
+			if (s_focusGraphWindow)
+			{
+				ImGui::SetNextWindowFocus();
+				s_focusGraphWindow = false;
+			}
+
 			float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
 			ImGui::SetNextWindowBgAlpha(clampedOpacity * 0.45f);
 			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.06f, 0.10f, clampedOpacity * 0.45f));
