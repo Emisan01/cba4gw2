@@ -49,7 +49,8 @@ namespace cba
 			if (FAILED(hr))
 				return false;
 
-			return (desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+			return (desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 ||
+			        desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{

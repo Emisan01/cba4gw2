@@ -417,7 +417,9 @@ namespace
 			return;
 		}
 
-		DeficiencyType defType = CurrentSettings.Mixed ? DeficiencyType::Deutan : CurrentSettings.Type;
+		DeficiencyType defType = CurrentSettings.Mixed 
+			? (CurrentSettings.MixedBySeverity01 > CurrentSettings.MixedRgSeverity01 ? DeficiencyType::Tritan : DeficiencyType::Deutan)
+			: CurrentSettings.Type;
 		double sev = CurrentSettings.Mixed 
 			? (CurrentSettings.MixedRgSeverity01 > CurrentSettings.MixedBySeverity01 ? CurrentSettings.MixedRgSeverity01 : CurrentSettings.MixedBySeverity01)
 			: CurrentSettings.Severity01;
@@ -1727,7 +1729,7 @@ namespace
 		}
 
 		// ── Hybrid Scanner Frame Capture & Overlay ──────────────────────────────
-		if (CurrentSettings.EnableHybridMode && s_deferredInitDone.load())
+		if ((CurrentSettings.EnableHybridMode || CurrentSettings.CommanderTagMode != 0) && s_deferredInitDone.load())
 		{
 			IDXGISwapChain* swapChain = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
 			if (swapChain)

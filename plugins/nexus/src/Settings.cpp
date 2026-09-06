@@ -1,6 +1,7 @@
 #include "Settings.h"
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 namespace cba
 {
@@ -77,9 +78,9 @@ namespace cba
 			else if (key == "CommanderTagMode")  s.CommanderTagMode = safeStoi(value, 0);
 			else if (key == "SmartEnhancer")     s.SmartEnhancer = (value == "1");
 			else if (key == "EnhancerHue")       s.EnhancerHue = safeStof(value, 60.0f);
-			else if (key == "EnhancerTol")       s.EnhancerTolerance = safeStof(value, 0.12f);
-			else if (key == "GammaGain")         s.GammaGain = safeStof(value, 1.0f);
-			else if (key == "UiOpacity")         s.UiOpacity = safeStof(value, 1.0f);
+			else if (key == "EnhancerTol")       s.EnhancerTolerance = std::clamp(safeStof(value, 0.12f), 0.04f, 0.20f);
+			else if (key == "GammaGain")         s.GammaGain = std::clamp(safeStof(value, 1.0f), 0.70f, 1.30f);
+			else if (key == "UiOpacity")         s.UiOpacity = std::clamp(safeStof(value, 1.0f), 0.20f, 1.0f);
 			else if (key == "LoadOnStartup")     s.LoadOnStartup = (value == "1");
 			else if (key == "DetachedWindow")    s.DetachedWindow = (value == "1");
 			else if (key == "SystemWide")        s.SystemWide = (value == "1");
