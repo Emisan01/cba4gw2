@@ -548,6 +548,82 @@ namespace
 		}
 	}
 
+	struct BrightnessRetentionResult
+	{
+		float retentionRatio = 1.0f;  // e.g. 0.92f (92%)
+		float recommendedGain = 1.0f; // clamp(1.0f / retentionRatio, 0.70f, 1.30f)
+	};
+
+	// Computes brightness retention of the active correction profile over a 13-color reference palette
+	// (8 GW2 tag colors + 5 ambient environment colors).
+	BrightnessRetentionResult GetBrightnessRetention()
+	{
+		// 5 placeholder ambient colors (Erdbraun, Laub, Himmel, Stein, Sonnenlicht)
+		// TODO: kalibrieren
+		static const struct { float r, g, b; } kAmbientColors[5] = {
+			{ 0.45f, 0.32f, 0.20f }, // Erdbraun    (TODO: kalibrieren)
+			{ 0.22f, 0.48f, 0.20f }, // Laub         (TODO: kalibrieren)
+			{ 0.35f, 0.60f, 0.85f }, // Himmel       (TODO: kalibrieren)
+			{ 0.52f, 0.52f, 0.52f }, // Stein        (TODO: kalibrieren)
+			{ 0.95f, 0.90f, 0.70f }  // Sonnenlicht  (TODO: kalibrieren)
+		};
+
+		double m3x3[3][3];
+		if (CurrentSettings.Mixed)
+		{
+			ColorMatrix::MixedCorrectionMatrix(
+				CurrentSettings.MixedRgSeverity01,
+				CurrentSettings.MixedBySeverity01,
+				m3x3);
+		}
+		else
+		{
+			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, m3x3);
+		}
+
+		float sumOrig = 0.0f;
+		float sumTrans = 0.0f;
+
+		auto processColor = [&](float r, float g, float b) {
+			float origLuma = RelativeLuma(r, g, b);
+			sumOrig += origLuma;
+
+			float trR = (float)(m3x3[0][0] * r + m3x3[0][1] * g + m3x3[0][2] * b);
+			float trG = (float)(m3x3[1][0] * r + m3x3[1][1] * g + m3x3[1][2] * b);
+			float trB = (float)(m3x3[2][0] * r + m3x3[2][1] * g + m3x3[2][2] * b);
+
+			trR = std::clamp(trR, 0.0f, 1.0f);
+			trG = std::clamp(trG, 0.0f, 1.0f);
+			trB = std::clamp(trB, 0.0f, 1.0f);
+
+			float transLuma = RelativeLuma(trR, trG, trB);
+			sumTrans += transLuma;
+		};
+
+		for (int i = 0; i < 8; ++i)
+		{
+			processColor(kGw2TagRefs[i].r, kGw2TagRefs[i].g, kGw2TagRefs[i].b);
+		}
+		for (int i = 0; i < 5; ++i)
+		{
+			processColor(kAmbientColors[i].r, kAmbientColors[i].g, kAmbientColors[i].b);
+		}
+
+		BrightnessRetentionResult res{};
+		if (sumOrig > 1e-4f)
+		{
+			res.retentionRatio = sumTrans / sumOrig;
+		}
+		else
+		{
+			res.retentionRatio = 1.0f;
+		}
+
+		float inv = (res.retentionRatio > 1e-4f) ? (1.0f / res.retentionRatio) : 1.0f;
+		res.recommendedGain = std::clamp(inv, 0.70f, 1.30f);
+		return res;
+	}
+
 	// Rebuilds the MAGCOLOREFFECT from CurrentSettings and either applies or
 	// clears it. Live math is computed immediately; DWM calls are throttled.
 	void Recompute(bool aForce = false)
