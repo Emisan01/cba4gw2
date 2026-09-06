@@ -81,7 +81,8 @@ namespace cba
 			else if (key == "EnhancerHue")       s.EnhancerHue = safeStof(value, 60.0f);
 			else if (key == "EnhancerTol")       s.EnhancerTolerance = std::clamp(safeStof(value, 0.12f), 0.04f, 0.20f);
 			else if (key == "GammaGain")         s.GammaGain = std::clamp(safeStof(value, 1.0f), 0.70f, 1.30f);
-			else if (key == "UiOpacity")         s.UiOpacity = std::clamp(safeStof(value, 1.0f), 0.20f, 1.0f);
+			else if (key == "UiOpacity")         s.UiOpacity = std::clamp(safeStof(value, 1.0f), 0.10f, 1.00f);
+			else if (key == "GraphMode")         s.GraphMode = std::clamp(safeStoi(value, 0), 0, 2);
 			else if (key == "LoadOnStartup")     s.LoadOnStartup = (value == "1");
 			else if (key == "ShowMainWindow")   s.ShowMainWindow = (value == "1");
 			else if (key == "ShowGraphWindow")  s.ShowGraphWindow = (value == "1");
@@ -139,6 +140,7 @@ namespace cba
 		file << "EnhancerTol=" << EnhancerTolerance << "\n";
 		file << "GammaGain=" << GammaGain << "\n";
 		file << "UiOpacity=" << UiOpacity << "\n";
+		file << "GraphMode=" << GraphMode << "\n";
 		file << "LoadOnStartup=" << (LoadOnStartup ? "1" : "0") << "\n";
 		file << "ShowMainWindow=" << (ShowMainWindow ? "1" : "0") << "\n";
 		file << "ShowGraphWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";

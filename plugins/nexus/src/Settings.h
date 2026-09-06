@@ -42,6 +42,7 @@ namespace cba
 		};
 
 		float UiOpacity = 1.0f;
+		int GraphMode = 0; // 0 = Polygonal (PWL), 1 = Harmonisch (Gauss/LMS), 2 = Strahlen (Ray Scope)
 		bool LoadOnStartup = false;
 		bool ShowMainWindow = false;
 		bool ShowGraphWindow = false;

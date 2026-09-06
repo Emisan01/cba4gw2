@@ -1360,6 +1360,245 @@ namespace
 		aDraw->PopClipRect();
 	}
 
+	// ── Mode 2: Harmonische Resonanz (Gauß / Sinusoidale LMS-Wellen) ──────────
+	// Basiert auf stetig differenzierbaren LMS-Zapfen-Absorptionsspektren (CIE Standard Observer / Stockman & Sharpe).
+	// Erzeugt weiche, fließende, organische Wellenkurven (genau wie in den UI-Mockups).
+	static void DrawHarmonicCurvePanel(ImDrawList* aDraw, ImVec2 aOrigin, float aW, float aH,
+	                                   const double aM[3][3], bool aIsDetached, float aOpacity)
+	{
+		const float pad = 8.0f;
+		const float labelSpaceLeft = 28.0f;
+		const float labelSpaceBottom = 20.0f;
+		const float badgeSpaceRight = 6.0f;
+
+		const float plotX = aOrigin.x + pad + labelSpaceLeft;
+		const float plotY = aOrigin.y + pad + 4.0f;
+		const float plotW = aW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
+		const float plotH = aH - pad * 2 - labelSpaceBottom - 4.0f;
+
+		float panelA = aIsDetached ? std::clamp(aOpacity * 0.18f, 0.02f, 0.70f) : 0.92f;
+		int bgAlpha = (int)(panelA * 255.0f);
+		int borderAlpha = aIsDetached ? (int)(aOpacity * 130.0f) : 150;
+
+		aDraw->AddRectFilled(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(12, 15, 22, bgAlpha), 6.0f);
+		aDraw->AddRect(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(65, 85, 125, borderAlpha), 6.0f, 0, 1.2f);
+
+		int gridAlpha = aIsDetached ? (int)(aOpacity * 45.0f) : 65;
+		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 1.4f, 0.45f, 1.0f) * 210.0f) : 210;
+
+		// Horizontal grid lines (0%, 50%, 100%)
+		for (int k = 0; k <= 2; ++k) {
+			float frac = k / 2.0f;
+			float yg = plotY + plotH * (1.0f - frac);
+			if (k > 0 && k < 2) {
+				aDraw->AddLine(ImVec2(plotX, yg), ImVec2(plotX + plotW, yg), IM_COL32(50, 65, 95, gridAlpha));
+			}
+			char buf[16];
+			std::snprintf(buf, sizeof(buf), "%d%%", (int)(frac * 100.0f));
+			aDraw->AddText(ImVec2(plotX - 26.0f, yg - 6.0f), IM_COL32(125, 140, 175, textAlpha), buf);
+		}
+
+		// Vertical landmarks
+		struct SpecMark { float u; const char* name; ImU32 col; };
+		static const SpecMark kMarks[] = {
+			{ 0.000f, "R", IM_COL32(255, 80, 80, 255) },
+			{ 0.167f, "Y", IM_COL32(255, 230, 70, 255) },
+			{ 0.333f, "G", IM_COL32(70, 240, 110, 255) },
+			{ 0.500f, "C", IM_COL32(60, 220, 240, 255) },
+			{ 0.667f, "B", IM_COL32(80, 170, 255, 255) },
+			{ 0.833f, "M", IM_COL32(240, 90, 230, 255) },
+			{ 1.000f, "R", IM_COL32(255, 80, 80, 255) }
+		};
+		for (const auto& m : kMarks) {
+			float xg = plotX + plotW * m.u;
+			if (m.u > 0.01f && m.u < 0.99f) {
+				aDraw->AddLine(ImVec2(xg, plotY), ImVec2(xg, plotY + plotH), IM_COL32(50, 65, 95, gridAlpha));
+			}
+			aDraw->AddText(ImVec2(xg - 4.0f, plotY + plotH + 4.0f), m.col, m.name);
+		}
+
+		aDraw->AddRect(ImVec2(plotX, plotY), ImVec2(plotX + plotW, plotY + plotH), IM_COL32(70, 90, 130, borderAlpha), 0.0f, 0, 1.0f);
+		aDraw->PushClipRect(ImVec2(plotX - 0.5f, plotY - 0.5f), ImVec2(plotX + plotW + 0.5f, plotY + plotH + 0.5f), true);
+
+		constexpr int kSteps = 64;
+		static const ImU32 kChanCol[3] = {
+			IM_COL32(255, 75, 75, 255),
+			IM_COL32(65, 240, 110, 255),
+			IM_COL32(75, 170, 255, 255)
+		};
+		static const ImU32 kChanGlow[3] = {
+			IM_COL32(255, 75, 75, 50),
+			IM_COL32(65, 240, 110, 50),
+			IM_COL32(75, 170, 255, 50)
+		};
+
+		// Continuous Gaussian / Sine-Squared Harmonic Waves (LMS-Lappen)
+		auto sampleHarmonicLMS = [](float u, float& r0, float& g0, float& b0) {
+			float db = (u - 0.22f);
+			b0 = std::exp(-(db * db) / 0.035f);
+
+			float dg = (u - 0.50f);
+			g0 = std::exp(-(dg * dg) / 0.040f);
+
+			float dr1 = (u - 0.78f);
+			float dr2 = (u - 0.02f);
+			r0 = std::exp(-(dr1 * dr1) / 0.045f) + 0.25f * std::exp(-(dr2 * dr2) / 0.012f);
+
+			r0 = std::clamp(r0, 0.0f, 1.0f);
+			g0 = std::clamp(g0, 0.0f, 1.0f);
+			b0 = std::clamp(b0, 0.0f, 1.0f);
+		};
+
+		ImVec2 prevPts[3];
+		for (int step = 0; step <= kSteps; ++step) {
+			float u = (float)step / (float)kSteps;
+			float r0, g0, b0;
+			sampleHarmonicLMS(u, r0, g0, b0);
+
+			double cr = std::clamp(aM[0][0]*r0 + aM[0][1]*g0 + aM[0][2]*b0, 0.0, 1.0);
+			double cg = std::clamp(aM[1][0]*r0 + aM[1][1]*g0 + aM[1][2]*b0, 0.0, 1.0);
+			double cb = std::clamp(aM[2][0]*r0 + aM[2][1]*g0 + aM[2][2]*b0, 0.0, 1.0);
+
+			float curX = plotX + u * plotW;
+			ImVec2 curPts[3] = {
+				ImVec2(curX, plotY + plotH - (float)cr * plotH),
+				ImVec2(curX, plotY + plotH - (float)cg * plotH),
+				ImVec2(curX, plotY + plotH - (float)cb * plotH)
+			};
+
+			if (step > 0) {
+				for (int ch = 0; ch < 3; ++ch) {
+					aDraw->AddLine(prevPts[ch], curPts[ch], kChanGlow[ch], 4.5f);
+					aDraw->AddLine(prevPts[ch], curPts[ch], kChanCol[ch], 2.2f);
+				}
+			}
+
+			for (int ch = 0; ch < 3; ++ch) {
+				prevPts[ch] = curPts[ch];
+			}
+		}
+
+		aDraw->PopClipRect();
+	}
+
+	// ── Mode 3: Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope) ─────
+	// Optisch-physikalisches Prinzip eines Beugungsgitter-Spektrometers.
+	// Fächert das Spektrum in diskrete, leuchtende Strahlenvektoren mit Lichtspitzen auf.
+	static void DrawRayCurvePanel(ImDrawList* aDraw, ImVec2 aOrigin, float aW, float aH,
+	                              const double aM[3][3], bool aIsDetached, float aOpacity)
+	{
+		const float pad = 8.0f;
+		const float labelSpaceLeft = 28.0f;
+		const float labelSpaceBottom = 20.0f;
+		const float badgeSpaceRight = 6.0f;
+
+		const float plotX = aOrigin.x + pad + labelSpaceLeft;
+		const float plotY = aOrigin.y + pad + 4.0f;
+		const float plotW = aW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
+		const float plotH = aH - pad * 2 - labelSpaceBottom - 4.0f;
+
+		float panelA = aIsDetached ? std::clamp(aOpacity * 0.18f, 0.02f, 0.70f) : 0.92f;
+		int bgAlpha = (int)(panelA * 255.0f);
+		int borderAlpha = aIsDetached ? (int)(aOpacity * 130.0f) : 150;
+
+		aDraw->AddRectFilled(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(12, 15, 22, bgAlpha), 6.0f);
+		aDraw->AddRect(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(65, 85, 125, borderAlpha), 6.0f, 0, 1.2f);
+
+		int gridAlpha = aIsDetached ? (int)(aOpacity * 45.0f) : 65;
+		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 1.4f, 0.45f, 1.0f) * 210.0f) : 210;
+
+		// Horizontal grid lines
+		for (int k = 0; k <= 2; ++k) {
+			float frac = k / 2.0f;
+			float yg = plotY + plotH * (1.0f - frac);
+			if (k > 0 && k < 2) {
+				aDraw->AddLine(ImVec2(plotX, yg), ImVec2(plotX + plotW, yg), IM_COL32(50, 65, 95, gridAlpha));
+			}
+			char buf[16];
+			std::snprintf(buf, sizeof(buf), "%d%%", (int)(frac * 100.0f));
+			aDraw->AddText(ImVec2(plotX - 26.0f, yg - 6.0f), IM_COL32(125, 140, 175, textAlpha), buf);
+		}
+
+		// Vertical landmarks
+		struct SpecMark { float u; const char* name; ImU32 col; };
+		static const SpecMark kMarks[] = {
+			{ 0.000f, "R", IM_COL32(255, 80, 80, 255) },
+			{ 0.167f, "Y", IM_COL32(255, 230, 70, 255) },
+			{ 0.333f, "G", IM_COL32(70, 240, 110, 255) },
+			{ 0.500f, "C", IM_COL32(60, 220, 240, 255) },
+			{ 0.667f, "B", IM_COL32(80, 170, 255, 255) },
+			{ 0.833f, "M", IM_COL32(240, 90, 230, 255) },
+			{ 1.000f, "R", IM_COL32(255, 80, 80, 255) }
+		};
+		for (const auto& m : kMarks) {
+			float xg = plotX + plotW * m.u;
+			if (m.u > 0.01f && m.u < 0.99f) {
+				aDraw->AddLine(ImVec2(xg, plotY), ImVec2(xg, plotY + plotH), IM_COL32(50, 65, 95, gridAlpha));
+			}
+			aDraw->AddText(ImVec2(xg - 4.0f, plotY + plotH + 4.0f), m.col, m.name);
+		}
+
+		aDraw->AddRect(ImVec2(plotX, plotY), ImVec2(plotX + plotW, plotY + plotH), IM_COL32(70, 90, 130, borderAlpha), 0.0f, 0, 1.0f);
+		aDraw->PushClipRect(ImVec2(plotX - 0.5f, plotY - 0.5f), ImVec2(plotX + plotW + 0.5f, plotY + plotH + 0.5f), true);
+
+		auto sampleSpectrumRGB = [](float u, float& r0, float& g0, float& b0) {
+			float h = u * 6.0f;
+			float x = 1.0f - std::abs(std::fmod(h, 2.0f) - 1.0f);
+			if (h < 1.0f)      { r0 = 1.0f; g0 = x;    b0 = 0.0f; }
+			else if (h < 2.0f) { r0 = x;    g0 = 1.0f; b0 = 0.0f; }
+			else if (h < 3.0f) { r0 = 0.0f; g0 = 1.0f; b0 = x;    }
+			else if (h < 4.0f) { r0 = 0.0f; g0 = x;    b0 = 1.0f; }
+			else if (h < 5.0f) { r0 = x;    g0 = 0.0f; b0 = 1.0f; }
+			else               { r0 = 1.0f; g0 = 0.0f; b0 = x;    }
+		};
+
+		// 32 Discrete Spectral Rays across spectrum
+		constexpr int kRays = 32;
+		for (int i = 0; i <= kRays; ++i) {
+			float u = (float)i / (float)kRays;
+			float r0, g0, b0;
+			sampleSpectrumRGB(u, r0, g0, b0);
+
+			double cr = std::clamp(aM[0][0]*r0 + aM[0][1]*g0 + aM[0][2]*b0, 0.0, 1.0);
+			double cg = std::clamp(aM[1][0]*r0 + aM[1][1]*g0 + aM[1][2]*b0, 0.0, 1.0);
+			double cb = std::clamp(aM[2][0]*r0 + aM[2][1]*g0 + aM[2][2]*b0, 0.0, 1.0);
+
+			float curX = plotX + u * plotW;
+			float baselineY = plotY + plotH;
+
+			float yr = baselineY - (float)cr * plotH;
+			float yg = baselineY - (float)cg * plotH;
+			float yb = baselineY - (float)cb * plotH;
+
+			// Red Ray with glowing pin
+			aDraw->AddLine(ImVec2(curX - 1.5f, baselineY), ImVec2(curX - 1.5f, yr), IM_COL32(255, 75, 75, 140), 1.2f);
+			aDraw->AddCircleFilled(ImVec2(curX - 1.5f, yr), 2.2f, IM_COL32(255, 95, 95, 230));
+
+			// Green Ray with glowing pin
+			aDraw->AddLine(ImVec2(curX, baselineY), ImVec2(curX, yg), IM_COL32(65, 240, 110, 140), 1.2f);
+			aDraw->AddCircleFilled(ImVec2(curX, yg), 2.2f, IM_COL32(85, 255, 130, 230));
+
+			// Blue Ray with glowing pin
+			aDraw->AddLine(ImVec2(curX + 1.5f, baselineY), ImVec2(curX + 1.5f, yb), IM_COL32(75, 170, 255, 140), 1.2f);
+			aDraw->AddCircleFilled(ImVec2(curX + 1.5f, yb), 2.2f, IM_COL32(95, 190, 255, 230));
+		}
+
+		aDraw->PopClipRect();
+	}
+
+	// ── Spectral Graph Dispatcher ─────────────────────────────────────────────
+	static void DrawSpectralGraphPanel(ImDrawList* aDraw, ImVec2 aOrigin, float aW, float aH,
+	                                   const double aM[3][3], bool aIsDetached, float aOpacity, int aMode)
+	{
+		if (aMode == 1) {
+			DrawHarmonicCurvePanel(aDraw, aOrigin, aW, aH, aM, aIsDetached, aOpacity);
+		} else if (aMode == 2) {
+			DrawRayCurvePanel(aDraw, aOrigin, aW, aH, aM, aIsDetached, aOpacity);
+		} else {
+			DrawCurvePanel(aDraw, aOrigin, aW, aH, aM, aIsDetached, aOpacity);
+		}
+	}
+
 	void RenderEmbeddedOptions()
 	{
 		if (!ImGui::GetCurrentContext()) return;
@@ -1761,11 +2000,17 @@ namespace
 			if (s_mainSaveFeedbackTime.time_since_epoch().count() > 0) {
 				auto now = std::chrono::steady_clock::now();
 				float elapsed = std::chrono::duration<float>(now - s_mainSaveFeedbackTime).count();
-				if (elapsed >= 0.0f && elapsed < 3.0f) {
-					float alpha = (elapsed > 1.8f) ? (3.0f - elapsed) / 1.2f : 1.0f;
+				if (elapsed >= 0.0f && elapsed < 4.5f) {
+					float alpha = (elapsed > 3.0f) ? (4.5f - elapsed) / 1.5f : 1.0f;
 					alpha = std::clamp(alpha, 0.0f, 1.0f);
+					std::string savePath = AddonDir.empty() ? "settings.cfg" : (AddonDir + "\\settings.cfg");
+
 					ImGui::SameLine(0, 10.0f);
 					ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", isDe ? "[OK] Gespeichert!" : "[OK] Saved!");
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", savePath.c_str());
+
+					ImGui::TextColored(ImVec4(0.45f, 0.80f, 0.65f, alpha), isDe ? "  Pfad: %s" : "  Path: %s", savePath.c_str());
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", savePath.c_str());
 				}
 			}
 
@@ -1874,36 +2119,109 @@ namespace
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 				ImGui::Spacing();
-				ImGui::TextDisabled("%s", isDe ? "Tag-Farben (Vorschau & Konflikt-Check):" : "Tag Colors (Preview & Conflict Check):");
+				ImGui::TextDisabled("%s", isDe ? "Tag-Farben — betroffen (wird verschoben) vs. sicher (unangetastet):"
+				                               : "Tag Colors — affected (shifted) vs. safe (untouched):");
 				ImGui::Spacing();
 
-				// 8 Reference Swatches in 2 rows of 4 (fits cleanly in 350px window)
+				// Clean horizontal row of circular tag swatches (Mockup Style)
+				const float circleRadius = 11.0f;
+				const float circleSpacing = 8.0f;
+				ImDrawList* dlTags = ImGui::GetWindowDrawList();
+
 				for (int i = 0; i < 8; ++i)
 				{
-					if (i > 0 && (i % 4) != 0) ImGui::SameLine(0, 8.0f);
-					ImGui::BeginGroup();
+					if (i > 0) ImGui::SameLine(0, circleSpacing);
 					ImVec2 p = ImGui::GetCursorScreenPos();
-					ImVec2 sz(16.0f, 16.0f);
+					ImVec2 center(p.x + circleRadius, p.y + circleRadius);
 					ImU32 col = IM_COL32((int)(kGw2TagRefs[i].r * 255), (int)(kGw2TagRefs[i].g * 255), (int)(kGw2TagRefs[i].b * 255), 255);
-					ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), col, 3.0f);
 
 					bool conflict = s_tagConflictStates[i].inConflict;
-					ImU32 borderCol = conflict ? IM_COL32(255, 70, 70, 240) : IM_COL32(200, 200, 200, 120);
-					ImGui::GetWindowDrawList()->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), borderCol, 3.0f, 0, conflict ? 2.0f : 1.0f);
 
-					ImGui::Dummy(sz);
-					if (ImGui::IsItemHovered())
-					{
-						if (conflict)
-							ImGui::SetTooltip(isDe ? "Konflikt erkannt! Auto-Farbverschiebung aktiv." : "Conflict detected! Auto-hue shift active.");
-						else
-							ImGui::SetTooltip(isDe ? "Kein Konflikt für diese Farbe." : "No conflict for this color.");
+					// Draw smooth circular swatch
+					dlTags->AddCircleFilled(center, circleRadius, col);
+
+					if (conflict) {
+						// Glowing orange-red halo for shifted tag
+						dlTags->AddCircle(center, circleRadius + 2.0f, IM_COL32(255, 80, 50, 240), 0, 2.0f);
+						dlTags->AddCircleFilled(ImVec2(center.x + 8.0f, center.y - 7.0f), 3.5f, IM_COL32(255, 60, 50, 255));
+					} else {
+						// Subtle clean ring for untouched safe tag
+						dlTags->AddCircle(center, circleRadius, IM_COL32(220, 230, 245, 140), 0, 1.2f);
+						dlTags->AddCircleFilled(ImVec2(center.x + 8.0f, center.y - 7.0f), 3.0f, IM_COL32(70, 220, 110, 220));
 					}
 
-					ImGui::SameLine(0, 4.0f);
-					ImGui::TextUnformatted(kGw2TagRefs[i].labelFunc(t));
-					ImGui::EndGroup();
+					ImGui::Dummy(ImVec2(circleRadius * 2.0f + 2.0f, circleRadius * 2.0f + 2.0f));
+					if (ImGui::IsItemHovered())
+					{
+						const char* tagLabel = kGw2TagRefs[i].labelFunc(t);
+						if (conflict)
+							ImGui::SetTooltip(isDe ? "%s: Konflikt erkannt -> Auto-Verschiebung aktiv" 
+							                       : "%s: Conflict detected -> Auto-shift active", tagLabel);
+						else
+							ImGui::SetTooltip(isDe ? "%s: Kein Konflikt -> Farbe bleibt unber\xc3\xbchrt" 
+							                       : "%s: No conflict -> Color remains untouched", tagLabel);
+					}
 				}
+
+				// ── Kurvenansicht (geladenes Preset / aktives Profil) im Hauptfenster ──
+				ImGui::Spacing();
+				ImGui::Spacing();
+				ImGui::TextDisabled("%s", isDe ? "Kurvenansicht (geladenes Preset / Farbprofil):" 
+				                               : "Curve View (Loaded Preset / Color Profile):");
+				ImGui::Spacing();
+
+				double mainCorrMat[3][3];
+				if (CurrentSettings.Mixed)
+					ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, mainCorrMat);
+				else
+					ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, mainCorrMat);
+
+				float availW = ImGui::GetContentRegionAvail().x;
+				float graphW = (availW > 260.0f) ? availW : 260.0f;
+				float graphH = 112.0f;
+
+				ImVec2 cpMain = ImGui::GetCursorScreenPos();
+				DrawSpectralGraphPanel(ImGui::GetWindowDrawList(), cpMain, graphW, graphH, mainCorrMat, /*isDetached=*/false, CurrentSettings.UiOpacity, CurrentSettings.GraphMode);
+				ImGui::InvisibleButton("##curve_panel_main", ImVec2(graphW, graphH));
+
+				// Color beam under curves
+				const float pad = 8.0f;
+				const float labelSpaceLeft = 28.0f;
+				const float badgeSpaceRight = 6.0f;
+				float plotX = cpMain.x + pad + labelSpaceLeft;
+				float plotW = graphW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
+				float beamH = 10.0f;
+
+				ImVec2 beamPos = ImGui::GetCursorScreenPos();
+				beamPos.x = plotX;
+				ImDrawList* dlMain = ImGui::GetWindowDrawList();
+
+				constexpr int kBeamSteps = 48;
+				for (int b = 0; b < kBeamSteps; ++b) {
+					float u0 = (float)b / kBeamSteps;
+					float u1 = (float)(b + 1) / kBeamSteps;
+					float uMid = (u0 + u1) * 0.5f;
+					float h = uMid * 6.0f;
+					float x = 1.0f - std::abs(std::fmod(h, 2.0f) - 1.0f);
+					float r0 = 0.0f, g0 = 0.0f, b0 = 0.0f;
+					if (h < 1.0f)      { r0 = 1.0f; g0 = x;    b0 = 0.0f; }
+					else if (h < 2.0f) { r0 = x;    g0 = 1.0f; b0 = 0.0f; }
+					else if (h < 3.0f) { r0 = 0.0f; g0 = 1.0f; b0 = x;    }
+					else if (h < 4.0f) { r0 = 0.0f; g0 = x;    b0 = 1.0f; }
+					else if (h < 5.0f) { r0 = x;    g0 = 0.0f; b0 = 1.0f; }
+					else               { r0 = 1.0f; g0 = 0.0f; b0 = x;    }
+
+					double cr = std::clamp(mainCorrMat[0][0]*r0 + mainCorrMat[0][1]*g0 + mainCorrMat[0][2]*b0, 0.0, 1.0);
+					double cg = std::clamp(mainCorrMat[1][0]*r0 + mainCorrMat[1][1]*g0 + mainCorrMat[1][2]*b0, 0.0, 1.0);
+					double cb = std::clamp(mainCorrMat[2][0]*r0 + mainCorrMat[2][1]*g0 + mainCorrMat[2][2]*b0, 0.0, 1.0);
+
+					int beamAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 210.0f, 40.0f, 255.0f));
+					ImU32 col = IM_COL32((int)(cr*255), (int)(cg*255), (int)(cb*255), beamAlpha);
+					dlMain->AddRectFilled(ImVec2(plotX + u0 * plotW, beamPos.y), ImVec2(plotX + u1 * plotW, beamPos.y + beamH), col, (b == 0 || b == kBeamSteps - 1) ? 2.0f : 0.0f);
+				}
+				int borderAlpha = (int)(CurrentSettings.UiOpacity * 130.0f);
+				dlMain->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 2.0f);
+				ImGui::Dummy(ImVec2(graphW, beamH));
 
 				// Presets
 				ImGui::Spacing();
@@ -2203,6 +2521,43 @@ namespace
 
 		ImGui::Spacing();
 
+		// ── 3-Way Graph Visualization Mode Selector ─────────────────────────
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
+
+		auto graphModeBtn = [&](const char* aName, int aModeVal, const char* aTip) {
+			bool active = (CurrentSettings.GraphMode == aModeVal);
+			if (active) {
+				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.55f, 0.75f, 0.95f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.26f, 0.65f, 0.88f, 1.00f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.15f, 0.45f, 0.65f, 1.00f));
+			} else {
+				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.22f, 0.28f, 0.85f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.30f, 0.38f, 0.95f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.14f, 0.18f, 0.24f, 1.00f));
+			}
+			if (ImGui::Button(aName, ImVec2(80.0f, 22.0f))) {
+				CurrentSettings.GraphMode = aModeVal;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(3);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTip);
+		};
+
+		ImGui::TextDisabled("%s:", isDe ? "Ansicht" : "View");
+		ImGui::SameLine(0, 8.0f);
+		graphModeBtn("Polygonal", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nSt\xc3\xbc" "ckweise lineare Farbvektor-Projektion \xc3\xbc" "ber die Hue-Winkel."
+		                                  : "1. Spectral Transfer Function (Piecewise-Linear / PWL)\nPiecewise linear color vector projection across hue angles.");
+		ImGui::SameLine();
+		graphModeBtn("Harmonisch", 1, isDe ? "2. Harmonische Resonanz (Gau\xc3\x9f / Sinusoidale LMS-Kurven)\nFlie\xc3\x9f" "ende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
+		                                   : "2. Harmonic Spectral Response (Gaussian / Smooth Spline)\nFlowing, continuous wave curves based on the human LMS cone model.");
+		ImGui::SameLine();
+		graphModeBtn("Strahlen", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkan\xc3\xa4le wie bei einem Gitterspektrometer."
+		                                 : "3. Linear Spectral Rays (Ray Scope / Dispersion Bars)\nPhysical ray-optics decomposition of channels like a diffraction spectrometer.");
+
+		ImGui::PopStyleVar(2);
+		ImGui::Spacing();
+
 		// Correction curves
 		double corrMat[3][3];
 		if (CurrentSettings.Mixed)
@@ -2217,7 +2572,7 @@ namespace
 		float graphH = 120.0f;
 
 		ImVec2 cp = ImGui::GetCursorScreenPos();
-		DrawCurvePanel(ImGui::GetWindowDrawList(), cp, graphW, graphH, corrMat, /*isDetached=*/true, CurrentSettings.UiOpacity);
+		DrawSpectralGraphPanel(ImGui::GetWindowDrawList(), cp, graphW, graphH, corrMat, /*isDetached=*/true, CurrentSettings.UiOpacity, CurrentSettings.GraphMode);
 		ImGui::InvisibleButton("##curve_panel_hud", ImVec2(graphW, graphH));
 
 		// Live filtered color beam preview (Strahl-Anzeiger)
