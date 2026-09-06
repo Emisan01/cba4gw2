@@ -603,6 +603,15 @@ namespace
 			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, m3x3);
 		}
 
+		// Eye Comfort: Linear brightness scaling (GammaGain, range 0.70 - 1.30)
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				m3x3[r][c] *= CurrentSettings.GammaGain;
+			}
+		}
+
 		MAGCOLOREFFECT effect = ColorMatrix::ToMagColorEffect(m3x3);
 		ApplyThrottled(effect, aForce);
 	}
