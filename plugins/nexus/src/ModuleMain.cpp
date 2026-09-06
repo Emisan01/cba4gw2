@@ -151,6 +151,14 @@ namespace
 		const char* CommunityFootnote;
 		const char* C64Button;
 		const char* C64Tooltip;
+
+		// Collapsible Section Headers for Main Window
+		const char* HeaderSection1;
+		const char* HeaderSection2;
+		const char* HeaderSection3;
+		const char* HeaderSection4;
+		const char* HeaderSection5;
+		const char* HeaderSection6;
 	};
 
 	// 8 GW2 Commander Tag Reference Colors (Red, Green, Purple, Yellow, Blue, Pink, Orange, White)
@@ -252,7 +260,15 @@ namespace
 			"Kompaktmodus: Einstellungen und Sensor-Graphen laufen in eigenen Fenstern.",
 			"Mit Liebe f\xc3\xbcr die Tyria-Community entwickelt \xe2\x99\xa5 Barrierefreiheit f\xc3\xbcr alle Raid- & Open-World-Spieler",
 			"Credits <3",
-			"Danksagung an die Community, Unterst\xc3\xbctzer & Raider"
+			"Danksagung an die Community, Unterst\xc3\xbctzer & Raider",
+
+			// Section Headers
+			"1. Farbprofil & Korrektur",
+			"2. Commander-Tag Enhancer",
+			"3. Eye Comfort (Helligkeit)",
+			"4. Spiel- & Fenstermodus",
+			"5. Hybrid Modus (Beta)",
+			"6. Entwickler & Diagnose"
 		};
 
 		static const L10n en{
@@ -323,7 +339,15 @@ namespace
 			"Compact Mode: Controls and sensor graphs run in dedicated floating windows.",
 			"Crafted with love for the Tyrian community \xe2\x99\xa5 Raid & Open World Accessibility",
 			"Credits <3",
-			"Credits & appreciation for the community & raiders"
+			"Credits & appreciation for the community & raiders",
+
+			// Section Headers
+			"1. Color Profile & Correction",
+			"2. Commander Tag Enhancer",
+			"3. Eye Comfort (Brightness)",
+			"4. Game & Window Mode",
+			"5. Hybrid Mode (Beta)",
+			"6. Developer & Diagnostics"
 		};
 
 		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
@@ -1508,7 +1532,9 @@ namespace
 		ImGuiStyle& style = ImGui::GetStyle();
 		style.FrameRounding = 4.0f;
 		style.WindowRounding = 6.0f;
-		style.Colors[ImGuiCol_Header] = ImVec4(0.3f, 0.6f, 0.9f, 1.0f);
+		style.Colors[ImGuiCol_Header] = ImVec4(0.24f, 0.44f, 0.68f, 0.85f);
+		style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.32f, 0.54f, 0.82f, 0.95f);
+		style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.18f, 0.36f, 0.58f, 1.00f);
 		style.ItemSpacing = ImVec2(8, 5);
 
 		// Keep widget content crisp
@@ -1516,32 +1542,16 @@ namespace
 		float widgetAlpha = std::clamp(0.75f + 0.25f * clampedOpacity, 0.75f, 1.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, widgetAlpha);
 
-		// ── Header Bar: Title, Live Status Dot, Reset GUI, Opacity, Sensor-Graph HUD Button ──
+		// ── Header Bar: Title, Live Status Dot, Open Graph HUD, Reset GUI, Opacity ──
 		ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "cba4gw2");
 		ImGui::SameLine();
 		DrawFilterStatusIndicator(true);
-
-		ImGui::SameLine(0, 10.0f);
-		if (ImGui::Button("Reset GUI##main")) {
-			s_resetMainWindowPos = true;
-		}
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Setzt Position und Gr\xc3\xb6\xc3\x9f" "e des Hauptfensters zur\xc3\xbc" "ck.");
-		}
-
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(75.0f);
-		if (ImGui::SliderFloat("Opacity##main", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
-			CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.20f, 1.00f);
-			changed = true;
-		}
-		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 		ImGui::SameLine(0, 8.0f);
 		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.90f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
-		if (ImGui::Button(isDe ? "\xf0\x9f\x93\x88 Sensor-Graph" : "\xf0\x9f\x93\x88 Sensor Graph")) {
+		if (ImGui::Button(isDe ? "\xf0\x9f\x93\x88 Graph" : "\xf0\x9f\x93\x88 Graph")) {
 			CurrentSettings.ShowGraphWindow = true;
 			saveNeeded = true;
 		}
@@ -1550,276 +1560,283 @@ namespace
 			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
 		}
 
-		// ── Primary Controls (Enable ON/OFF, Language) ────────────────────────
-		ImGui::Spacing();
-		{
-			bool wasEnabled = CurrentSettings.Enabled;
-			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(10.0f, 4.0f));
-			if (wasEnabled) {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.50f, 0.21f, 0.92f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.64f, 0.28f, 0.97f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.38f, 0.16f, 1.00f));
-			} else {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.26f, 0.26f, 0.28f, 0.78f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.36f, 0.38f, 0.88f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.18f, 0.20f, 1.00f));
-			}
-			if (ImGui::Button(wasEnabled ? "ON " : "OFF", ImVec2(52.0f, 26.0f))) {
-				CurrentSettings.Enabled = !CurrentSettings.Enabled;
-				changed    = true;
-				saveNeeded = true;
-			}
-			ImGui::PopStyleColor(3);
-			ImGui::PopStyleVar(2);
-			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip(wasEnabled ? "Filter aktiv — Klicke zum Ausschalten" : "Filter inaktiv — Klicke zum Einschalten");
+		ImGui::SameLine(0, 8.0f);
+		if (ImGui::Button("Reset GUI##main")) {
+			s_resetMainWindowPos = true;
 		}
-		
-		ImGui::SameLine(0, 10.0f);
-		ImGui::TextDisabled(" | ");
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("Setzt Position und Gr\xc3\xb6\xc3\x9f" "e des Hauptfensters zur\xc3\xbc" "ck.");
+		}
+
 		ImGui::SameLine();
+		ImGui::SetNextItemWidth(60.0f);
+		if (ImGui::SliderFloat("##OpacityMain", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
+			CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.20f, 1.00f);
+			changed = true;
+		}
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Fenster-Transparenz / Opacity");
+		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
-		int langComboIdx = 0;
-		if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
-		else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
-		else langComboIdx = 0;                                     // English (1)
+		ImGui::Spacing();
 
-		const char* langComboItems[] = {
-			"English",
-			"System (Windows)",
-			"Deutsch"
+		// Helper lambda for dynamic slider width in narrow windows (~350px)
+		auto calcSliderWidth = []() {
+			float avail = ImGui::GetContentRegionAvail().x;
+			return (avail > 140.0f) ? (avail - 65.0f) : 180.0f;
 		};
 
-		ImGui::SetNextItemWidth(125.0f);
-		if (ImGui::Combo("##LangComboMain", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
+		// ── Section 1: Farbprofil & Korrektur (Default Open) ─────────────────
+		if (ImGui::CollapsingHeader(t.HeaderSection1, ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			if (langComboIdx == 0) CurrentSettings.Language = 1;
-			else if (langComboIdx == 1) CurrentSettings.Language = 0;
-			else if (langComboIdx == 2) CurrentSettings.Language = 2;
-			changed = true;
-			saveNeeded = true;
-		}
+			// Row 1: Big ON/OFF button + Language Combo
+			{
+				bool wasEnabled = CurrentSettings.Enabled;
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(10.0f, 4.0f));
+				if (wasEnabled) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.50f, 0.21f, 0.92f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.64f, 0.28f, 0.97f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.38f, 0.16f, 1.00f));
+				} else {
+					ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.26f, 0.26f, 0.28f, 0.78f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.36f, 0.38f, 0.88f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.18f, 0.20f, 1.00f));
+				}
+				if (ImGui::Button(wasEnabled ? "ON " : "OFF", ImVec2(52.0f, 26.0f))) {
+					CurrentSettings.Enabled = !CurrentSettings.Enabled;
+					changed    = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(3);
+				ImGui::PopStyleVar(2);
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip(wasEnabled ? "Filter aktiv — Klicke zum Ausschalten" : "Filter inaktiv — Klicke zum Einschalten");
+			}
 
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
+			ImGui::SameLine(0, 10.0f);
+			ImGui::TextDisabled("|");
+			ImGui::SameLine();
 
-		// ── Correction Profile Selection ──────────────────────────────────────
-		ImGui::TextUnformatted(t.CorrectionProfile);
-		ImGui::Spacing();
+			int langComboIdx = 0;
+			if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
+			else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
+			else langComboIdx = 0;                                     // English (1)
 
-		auto typeBtn = [&](const char* aLabel, bool aActive, DeficiencyType aType) {
-			if (ImGui::RadioButton(aLabel, aActive)) {
-				if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
-					CurrentSettings.Mixed = false;
-					CurrentSettings.Type  = aType;
-					CurrentSettings.Severity01 = 0.0;
+			const char* langComboItems[] = {
+				"English",
+				"System (Windows)",
+				"Deutsch"
+			};
+
+			ImGui::SetNextItemWidth(120.0f);
+			if (ImGui::Combo("##LangComboMain", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
+			{
+				if (langComboIdx == 0) CurrentSettings.Language = 1;
+				else if (langComboIdx == 1) CurrentSettings.Language = 0;
+				else if (langComboIdx == 2) CurrentSettings.Language = 2;
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.Language);
+
+			ImGui::Spacing();
+
+			// Radio buttons for deficiency types
+			auto typeBtn = [&](const char* aLabel, bool aActive, DeficiencyType aType) {
+				if (ImGui::RadioButton(aLabel, aActive)) {
+					if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
+						CurrentSettings.Mixed = false;
+						CurrentSettings.Type  = aType;
+						CurrentSettings.Severity01 = 0.0;
+						changed = true;
+					}
+				}
+			};
+			typeBtn(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Protan, DeficiencyType::Protan);
+			ImGui::SameLine();
+			typeBtn(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Deutan, DeficiencyType::Deutan);
+			ImGui::SameLine();
+			typeBtn(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Tritan, DeficiencyType::Tritan);
+			ImGui::SameLine();
+			if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
+				if (!CurrentSettings.Mixed) {
+					CurrentSettings.Mixed = true;
+					CurrentSettings.MixedRgSeverity01 = 0.0;
+					CurrentSettings.MixedBySeverity01 = 0.0;
 					changed = true;
 				}
 			}
-		};
-		typeBtn(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Protan, DeficiencyType::Protan);
-		ImGui::SameLine();
-		typeBtn(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Deutan, DeficiencyType::Deutan);
-		ImGui::SameLine();
-		typeBtn(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Tritan, DeficiencyType::Tritan);
-		ImGui::SameLine();
-		if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
-			if (!CurrentSettings.Mixed) {
-				CurrentSettings.Mixed = true;
-				CurrentSettings.MixedRgSeverity01 = 0.0;
-				CurrentSettings.MixedBySeverity01 = 0.0;
-				changed = true;
-			}
-		}
 
-		ImGui::Spacing();
-		if (CurrentSettings.Mixed) {
-			float rg = (float)CurrentSettings.MixedRgSeverity01;
-			float by = (float)CurrentSettings.MixedBySeverity01;
-			ImGui::SetNextItemWidth(240.0f);
-			if (ImGui::SliderFloat(t.RgStrength, &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.0f);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##rg_det")) { 
-				CurrentSettings.MixedRgSeverity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-			
-			ImGui::SetNextItemWidth(240.0f);
-			if (ImGui::SliderFloat(t.ByStrength, &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.0f);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##by_det")) { 
-				CurrentSettings.MixedBySeverity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-		} else {
-			float sev = (float)CurrentSettings.Severity01;
-			ImGui::SetNextItemWidth(240.0f);
-			if (ImGui::SliderFloat(t.Strength, &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.0f);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##sev_det")) { 
-				CurrentSettings.Severity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-		}
-
-		// ── DIRECTLY AT / RIGHT UNDER THE COLOR MATRIX: Save Profile button! ──
-		ImGui::Spacing();
-		static auto s_mainSaveFeedbackTime = std::chrono::steady_clock::time_point{};
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
-		if (ImGui::Button(isDe ? "Profil Speichern" : "Save Profile", ImVec2(130.0f, 26.0f))) {
-			CurrentSettings.Save(AddonDir);
-			s_mainSaveFeedbackTime = std::chrono::steady_clock::now();
-			changed = false;
-		}
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar();
-
-		if (s_mainSaveFeedbackTime.time_since_epoch().count() > 0) {
-			auto now = std::chrono::steady_clock::now();
-			float elapsed = std::chrono::duration<float>(now - s_mainSaveFeedbackTime).count();
-			if (elapsed >= 0.0f && elapsed < 3.0f) {
-				float alpha = (elapsed > 1.8f) ? (3.0f - elapsed) / 1.2f : 1.0f;
-				alpha = std::clamp(alpha, 0.0f, 1.0f);
-				ImGui::SameLine(0, 10.0f);
-				ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", isDe ? "[OK] Gespeichert!" : "[OK] Saved!");
-			}
-		}
-
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		ImGui::Spacing();
-		ImGui::Spacing();
-
-		// ── Profil-Status & Live-Feedback Card ────────────────────────────────
-		ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "%s", t.ProfileSummaryTitle);
-		ImGui::Spacing();
-
-		{
-			std::string profileName;
-			std::string severityDesc;
-			std::string clinicalGrade;
-			bool isNeutral = false;
+			ImGui::Spacing();
+			float sw = calcSliderWidth();
 
 			if (CurrentSettings.Mixed) {
-				profileName = isDe ? "Gemischte Farbsehschw\xc3\xa4\x63he (Mixed)" : "Mixed Color Deficiency (Dual-Axis)";
-				char buf[96];
-				std::snprintf(buf, sizeof(buf), isDe ? "Rot-Gr\xc3\xbc\x6e: %.1f%%   |   Blau-Gelb: %.1f%%" : "Red-Green: %.1f%%   |   Blue-Yellow: %.1f%%", 
-					CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
-				severityDesc = buf;
-				double avgSev = (CurrentSettings.MixedRgSeverity01 + CurrentSettings.MixedBySeverity01) * 0.5;
-				if (avgSev <= 0.005) {
-					clinicalGrade = isDe ? "Neutral (Filter inaktiv / 100% Originalfarben)" : "Neutral (Filter inactive / 100% original colors)";
-					isNeutral = true;
-				} else if (avgSev <= 0.35) {
-					clinicalGrade = isDe ? "Milde Kompensation" : "Mild Compensation";
-				} else if (avgSev <= 0.70) {
-					clinicalGrade = isDe ? "Mittlere Kompensation" : "Moderate Compensation";
-				} else {
-					clinicalGrade = isDe ? "Starke Kompensation (hohe Farbtrennung)" : "Strong Compensation (High separation)";
+				float rg = (float)CurrentSettings.MixedRgSeverity01;
+				float by = (float)CurrentSettings.MixedBySeverity01;
+				ImGui::SetNextItemWidth(sw);
+				if (ImGui::SliderFloat(t.RgStrength, &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.0f);
+					changed = true;
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+				ImGui::SameLine();
+				if (ImGui::Button("Reset##rg_det", ImVec2(55.0f, 0.0f))) { 
+					CurrentSettings.MixedRgSeverity01 = 0.0f; 
+					changed = true; 
+					saveNeeded = true; 
+				}
+				
+				ImGui::SetNextItemWidth(sw);
+				if (ImGui::SliderFloat(t.ByStrength, &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.0f);
+					changed = true;
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+				ImGui::SameLine();
+				if (ImGui::Button("Reset##by_det", ImVec2(55.0f, 0.0f))) { 
+					CurrentSettings.MixedBySeverity01 = 0.0f; 
+					changed = true; 
+					saveNeeded = true; 
 				}
 			} else {
-				if (CurrentSettings.Type == DeficiencyType::Protan) {
-					profileName = isDe ? "Protanopie (Rotsehschw\xc3\xa4\x63he)" : "Protanopia (Red Deficiency)";
-				} else if (CurrentSettings.Type == DeficiencyType::Deutan) {
-					profileName = isDe ? "Deuteranopie (Gr\xc3\xbcnsehschw\xc3\xa4\x63he)" : "Deuteranopia (Green Deficiency)";
-				} else {
-					profileName = isDe ? "Tritanopie (Blau-Gelb-Schw\xc3\xa4\x63he)" : "Tritanopia (Blue-Yellow Deficiency)";
+				float sev = (float)CurrentSettings.Severity01;
+				ImGui::SetNextItemWidth(sw);
+				if (ImGui::SliderFloat(t.Strength, &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.0f);
+					changed = true;
 				}
-
-				char buf[64];
-				std::snprintf(buf, sizeof(buf), isDe ? "Korrekturst\xc3\xa4rke: %.1f%%" : "Correction strength: %.1f%%", CurrentSettings.Severity01 * 100.0);
-				severityDesc = buf;
-
-				if (CurrentSettings.Severity01 <= 0.005) {
-					clinicalGrade = isDe ? "Neutral (Filter inaktiv / 100% Originalfarben)" : "Neutral (Filter inactive / 100% original colors)";
-					isNeutral = true;
-				} else if (CurrentSettings.Severity01 <= 0.35) {
-					clinicalGrade = isDe ? "Leichte Auspr\xc3\xa4gung (HRR / Farnsworth Mild)" : "Mild Expression (HRR / Farnsworth Mild)";
-				} else if (CurrentSettings.Severity01 <= 0.70) {
-					clinicalGrade = isDe ? "M\xc3\xa4\xc3\x9fige Auspr\xc3\xa4gung (HRR Moderate)" : "Moderate Expression (HRR Moderate)";
-				} else {
-					clinicalGrade = isDe ? "Starke Auspr\xc3\xa4gung / Anopie (HRR Severe)" : "Severe Expression / Anopia (HRR Severe)";
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+				ImGui::SameLine();
+				if (ImGui::Button("Reset##sev_det", ImVec2(55.0f, 0.0f))) { 
+					CurrentSettings.Severity01 = 0.0f; 
+					changed = true; 
+					saveNeeded = true; 
 				}
 			}
 
-			ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.12f, 0.18f, 0.95f));
-			ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.24f, 0.38f, 0.58f, 0.65f));
-			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
-
-			float availW = ImGui::GetContentRegionAvail().x;
-			float cardW = (availW < 480.0f) ? availW : 480.0f;
-			if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(cardW, 88.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-				ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "- %s", profileName.c_str());
-				ImGui::Spacing();
-				ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "%s   %s", t.ValuesLabel, severityDesc.c_str());
-				ImGui::Spacing();
-				ImGui::TextColored(
-					!isNeutral ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.65f, 0.72f, 0.82f, 0.90f),
-					"%s %s",
-					t.ClassificationLabel,
-					clinicalGrade.c_str()
-				);
-				ImGui::EndChild();
+			// DIRECTLY UNDER COLOR MATRIX: Save Profile Button!
+			ImGui::Spacing();
+			static auto s_mainSaveFeedbackTime = std::chrono::steady_clock::time_point{};
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
+			if (ImGui::Button(isDe ? "\xf0\x9f\x92\xbe Profil speichern" : "\xf0\x9f\x92\xbe Save Profile", ImVec2(135.0f, 26.0f))) {
+				CurrentSettings.Save(AddonDir);
+				s_mainSaveFeedbackTime = std::chrono::steady_clock::now();
+				changed = false;
 			}
-			ImGui::PopStyleVar(2);
-			ImGui::PopStyleColor(2);
+			ImGui::PopStyleColor(3);
+			ImGui::PopStyleVar();
+
+			if (s_mainSaveFeedbackTime.time_since_epoch().count() > 0) {
+				auto now = std::chrono::steady_clock::now();
+				float elapsed = std::chrono::duration<float>(now - s_mainSaveFeedbackTime).count();
+				if (elapsed >= 0.0f && elapsed < 3.0f) {
+					float alpha = (elapsed > 1.8f) ? (3.0f - elapsed) / 1.2f : 1.0f;
+					alpha = std::clamp(alpha, 0.0f, 1.0f);
+					ImGui::SameLine(0, 10.0f);
+					ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", isDe ? "[OK] Gespeichert!" : "[OK] Saved!");
+				}
+			}
+
+			// Compact Live Feedback Badge
+			ImGui::Spacing();
+			{
+				std::string profileName;
+				std::string severityDesc;
+				std::string clinicalGrade;
+				bool isNeutral = false;
+
+				if (CurrentSettings.Mixed) {
+					profileName = isDe ? "Gemischt (Mixed)" : "Mixed Deficiency";
+					char buf[96];
+					std::snprintf(buf, sizeof(buf), "RG: %.0f%% | BY: %.0f%%", 
+						CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
+					severityDesc = buf;
+					double avgSev = (CurrentSettings.MixedRgSeverity01 + CurrentSettings.MixedBySeverity01) * 0.5;
+					if (avgSev <= 0.005) {
+						clinicalGrade = isDe ? "Neutral (100% Original)" : "Neutral (100% Original)";
+						isNeutral = true;
+					} else if (avgSev <= 0.35) {
+						clinicalGrade = isDe ? "Milde Kompensation" : "Mild Compensation";
+					} else if (avgSev <= 0.70) {
+						clinicalGrade = isDe ? "Mittlere Kompensation" : "Moderate Compensation";
+					} else {
+						clinicalGrade = isDe ? "Starke Kompensation" : "Strong Compensation";
+					}
+				} else {
+					if (CurrentSettings.Type == DeficiencyType::Protan) {
+						profileName = isDe ? "Protanopie (Rot)" : "Protanopia (Red)";
+					} else if (CurrentSettings.Type == DeficiencyType::Deutan) {
+						profileName = isDe ? "Deuteranopie (Gr\xc3\xbc\x6e)" : "Deuteranopia (Green)";
+					} else {
+						profileName = isDe ? "Tritanopie (Blau)" : "Tritanopia (Blue)";
+					}
+
+					char buf[64];
+					std::snprintf(buf, sizeof(buf), "%.1f%%", CurrentSettings.Severity01 * 100.0);
+					severityDesc = buf;
+
+					if (CurrentSettings.Severity01 <= 0.005) {
+						clinicalGrade = isDe ? "Neutral (100% Original)" : "Neutral (100% Original)";
+						isNeutral = true;
+					} else if (CurrentSettings.Severity01 <= 0.35) {
+						clinicalGrade = isDe ? "Leicht (HRR Mild)" : "Mild (HRR Mild)";
+					} else if (CurrentSettings.Severity01 <= 0.70) {
+						clinicalGrade = isDe ? "M\xc3\xa4\xc3\x9fig (HRR Moderate)" : "Moderate (HRR Mod)";
+					} else {
+						clinicalGrade = isDe ? "Stark (HRR Severe)" : "Severe (HRR Severe)";
+					}
+				}
+
+				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.12f, 0.18f, 0.95f));
+				ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.24f, 0.38f, 0.58f, 0.65f));
+				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 6));
+
+				if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(0.0f, 58.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "\xe2\x80\xa2 %s \xe2\x80\x94 %s", profileName.c_str(), severityDesc.c_str());
+					ImGui::Spacing();
+					ImGui::TextColored(
+						!isNeutral ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.65f, 0.72f, 0.82f, 0.90f),
+						"%s %s",
+						t.ClassificationLabel,
+						clinicalGrade.c_str()
+					);
+					ImGui::EndChild();
+				}
+				ImGui::PopStyleVar(2);
+				ImGui::PopStyleColor(2);
+			}
+			ImGui::Spacing();
 		}
 
-		// ── Commander Tag Enhancer UI ─────────────────────────────────────────
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		if (ImGui::CollapsingHeader(t.CmdrEnhancer, ImGuiTreeNodeFlags_DefaultOpen))
+		// ── Section 2: Commander-Tag Enhancer (Default Open) ─────────────────
+		if (ImGui::CollapsingHeader(t.HeaderSection2, ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			ImGui::TextDisabled("%s", t.CmdrEnhancerDesc);
-			ImGui::Spacing();
-
 			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
-			if (ImGui::Checkbox(t.EnableEnhancer, &enhancerActive)) {
+			if (ImGui::Checkbox(isDe ? "Aktiv##enhancer_toggle" : "Active##enhancer_toggle", &enhancerActive)) {
 				CurrentSettings.CommanderTagMode = enhancerActive ? 1 : 0;
 				UpdateTagEnhancerConflicts();
 				changed = true;
 				saveNeeded = true;
 			}
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.CmdrEnhancerDesc);
 
 			if (enhancerActive)
 			{
-				ImGui::SameLine(0, 20.0f);
-				if (ImGui::Checkbox(t.SmartEnhancer, &CurrentSettings.SmartEnhancer)) {
+				ImGui::SameLine(0, 16.0f);
+				if (ImGui::Checkbox(isDe ? "Smart-Auto##smart_toggle" : "Smart Auto##smart_toggle", &CurrentSettings.SmartEnhancer)) {
 					UpdateTagEnhancerConflicts();
 					changed = true;
 					saveNeeded = true;
 				}
-				if (ImGui::IsItemHovered()) {
-					ImGui::SetTooltip("%s", t.SmartEnhancerDesc);
-				}
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.SmartEnhancerDesc);
 
 				ImGui::Spacing();
-				ImGui::SetNextItemWidth(240.0f);
+				float sw = calcSliderWidth();
+				ImGui::SetNextItemWidth(sw);
 				if (ImGui::SliderFloat(isDe ? "Toleranz##enhancer_tol_det" : "Tolerance##enhancer_tol_det",
 				                       &CurrentSettings.EnhancerTolerance, 0.04f, 0.20f, "%.3f")) {
 					UpdateTagEnhancerConflicts();
@@ -1828,22 +1845,22 @@ namespace
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 				ImGui::Spacing();
-				ImGui::TextUnformatted(isDe ? "Tag Referenz-Farben (Sampling-Vorschau):" : "Tag Reference Colors (Sample preview):");
+				ImGui::TextDisabled("%s", isDe ? "Tag-Farben (Vorschau & Konflikt-Check):" : "Tag Colors (Preview & Conflict Check):");
 				ImGui::Spacing();
 
-				// 8 Reference Swatches in 2 rows of 4
+				// 8 Reference Swatches in 2 rows of 4 (fits cleanly in 350px window)
 				for (int i = 0; i < 8; ++i)
 				{
-					if (i > 0 && (i % 4) != 0) ImGui::SameLine(0, 12.0f);
+					if (i > 0 && (i % 4) != 0) ImGui::SameLine(0, 8.0f);
 					ImGui::BeginGroup();
 					ImVec2 p = ImGui::GetCursorScreenPos();
-					ImVec2 sz(18.0f, 18.0f);
+					ImVec2 sz(16.0f, 16.0f);
 					ImU32 col = IM_COL32((int)(kGw2TagRefs[i].r * 255), (int)(kGw2TagRefs[i].g * 255), (int)(kGw2TagRefs[i].b * 255), 255);
-					ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), col, 4.0f);
+					ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), col, 3.0f);
 
 					bool conflict = s_tagConflictStates[i].inConflict;
 					ImU32 borderCol = conflict ? IM_COL32(255, 70, 70, 240) : IM_COL32(200, 200, 200, 120);
-					ImGui::GetWindowDrawList()->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), borderCol, 4.0f, 0, conflict ? 2.0f : 1.0f);
+					ImGui::GetWindowDrawList()->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), borderCol, 3.0f, 0, conflict ? 2.0f : 1.0f);
 
 					ImGui::Dummy(sz);
 					if (ImGui::IsItemHovered())
@@ -1854,16 +1871,14 @@ namespace
 							ImGui::SetTooltip(isDe ? "Kein Konflikt für diese Farbe." : "No conflict for this color.");
 					}
 
-					ImGui::SameLine(0, 5.0f);
+					ImGui::SameLine(0, 4.0f);
 					ImGui::TextUnformatted(kGw2TagRefs[i].labelFunc(t));
 					ImGui::EndGroup();
 				}
 
 				// Presets
 				ImGui::Spacing();
-				ImGui::Separator();
-				ImGui::Spacing();
-				ImGui::TextUnformatted(t.PresetsTitle);
+				ImGui::TextDisabled("%s:", t.PresetsTitle);
 				ImGui::Spacing();
 
 				for (int pIdx = 0; pIdx < 3; ++pIdx)
@@ -1871,15 +1886,15 @@ namespace
 					ImGui::PushID(pIdx + 100);
 					char nameBuf[64];
 					std::snprintf(nameBuf, sizeof(nameBuf), "%s", CurrentSettings.Presets[pIdx].Name.c_str());
-					ImGui::SetNextItemWidth(130.0f);
+					ImGui::SetNextItemWidth(90.0f);
 					if (ImGui::InputText("##preset_name_det", nameBuf, sizeof(nameBuf)))
 					{
 						CurrentSettings.Presets[pIdx].Name = nameBuf;
 						saveNeeded = true;
 					}
 
-					ImGui::SameLine(0, 6.0f);
-					if (ImGui::Button(isDe ? "Laden##det" : "Load##det", ImVec2(55.0f, 0.0f)))
+					ImGui::SameLine(0, 4.0f);
+					if (ImGui::Button(isDe ? "Laden##det" : "Load##det", ImVec2(48.0f, 0.0f)))
 					{
 						CurrentSettings.Type = static_cast<DeficiencyType>(CurrentSettings.Presets[pIdx].Type);
 						CurrentSettings.Severity01 = CurrentSettings.Presets[pIdx].Severity;
@@ -1895,7 +1910,7 @@ namespace
 					}
 
 					ImGui::SameLine(0, 4.0f);
-					if (ImGui::Button(isDe ? "Speichern##det" : "Save##det", ImVec2(70.0f, 0.0f)))
+					if (ImGui::Button(isDe ? "Speichern##det" : "Save##det", ImVec2(65.0f, 0.0f)))
 					{
 						CurrentSettings.Presets[pIdx].Type = static_cast<int>(CurrentSettings.Type);
 						CurrentSettings.Presets[pIdx].Severity = CurrentSettings.Severity01;
@@ -1930,14 +1945,11 @@ namespace
 					ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurück" : "Resets Commander Tag Enhancer to Off / Neutral");
 				}
 			}
+			ImGui::Spacing();
 		}
 
-		// ── Eye Comfort UI ────────────────────────────────────────────────────
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		if (ImGui::CollapsingHeader(t.EyeComfortHeader, ImGuiTreeNodeFlags_DefaultOpen))
+		// ── Section 3: Eye Comfort (Helligkeit) ──────────────────────────────
+		if (ImGui::CollapsingHeader(t.HeaderSection3))
 		{
 			static int s_lastHdrCheckFrameDet = -1;
 			static bool s_cachedHdrDetectedDet = false;
@@ -1967,7 +1979,8 @@ namespace
 			}
 
 			ImGui::Spacing();
-			ImGui::SetNextItemWidth(240.0f);
+			float sw = calcSliderWidth();
+			ImGui::SetNextItemWidth(sw);
 			if (ImGui::SliderFloat(t.EyeComfortGammaSlider, &CurrentSettings.GammaGain, 0.70f, 1.30f, "%.2fx"))
 			{
 				changed = true;
@@ -1980,74 +1993,76 @@ namespace
 			BrightnessRetentionResult retention = GetBrightnessRetention();
 			ImGui::Spacing();
 			ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
-			ImGui::SameLine(0, 10.0f);
+			ImGui::SameLine(0, 8.0f);
 			if (ImGui::Button(t.EyeComfortApply))
 			{
 				CurrentSettings.GammaGain = retention.recommendedGain;
 				changed = true;
 				saveNeeded = true;
 			}
+			ImGui::Spacing();
 		}
 
-		// ── Window-mode status ────────────────────────────────────────────────
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
+		// ── Section 4: Spiel- & Fenstermodus ──────────────────────────────────
+		if (ImGui::CollapsingHeader(t.HeaderSection4))
+		{
+			WindowMode mode = DetectWindowMode(
+				APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
+			if (mode == WindowMode::ExclusiveFullscreen) {
+				ImGui::TextColored({1.0f,0.55f,0.2f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode));
+				ImGui::TextWrapped(
+					"Switch GW2 to Windowed or Windowed Fullscreen (Borderless) "
+					"in Graphics Options to enable the filter.");
+			} else {
+				ImGui::TextColored({0.4f,0.85f,0.4f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode));
+			}
+			ImGui::Spacing();
+			if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
+			}
 
-		WindowMode mode = DetectWindowMode(
-			APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
-		if (mode == WindowMode::ExclusiveFullscreen) {
-			ImGui::TextColored({1.0f,0.55f,0.2f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode));
-			ImGui::TextWrapped(
-				"Switch GW2 to Windowed or Windowed Fullscreen (Borderless) "
-				"in Graphics Options to enable the filter.");
-		} else {
-			ImGui::TextColored({0.4f,0.85f,0.4f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode));
-		}
-		ImGui::Spacing();
-		if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
-			changed = true;
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
-		}
-
-		if (!CurrentSettings.SystemWide) {
-			ImGui::TextDisabled("%s", t.FocusWatchdogExclusive);
-		} else {
-			ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.25f, 1.0f), "%s", t.FocusWatchdogBackground);
-		}
-
-		// ── Hybrid Modus ──────────────────────────────────────────────────────
-		ImGui::Spacing();
-		if (ImGui::Checkbox(t.HybridMode, &CurrentSettings.EnableHybridMode)) {
-			GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
-			changed = true;
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("%s", t.HybridModeHelp);
+			if (!CurrentSettings.SystemWide) {
+				ImGui::TextDisabled("%s", t.FocusWatchdogExclusive);
+			} else {
+				ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.25f, 1.0f), "%s", t.FocusWatchdogBackground);
+			}
+			ImGui::Spacing();
 		}
 
-		// ── Entwickler- & Debug-Modus ─────────────────────────────────────────
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		if (ImGui::Checkbox(t.DebugModeCheckbox, &CurrentSettings.DebugMode)) {
-			changed = true;
-			saveNeeded = true;
+		// ── Section 5: Hybrid Modus (Beta) ────────────────────────────────────
+		if (ImGui::CollapsingHeader(t.HeaderSection5))
+		{
+			if (ImGui::Checkbox(t.HybridMode, &CurrentSettings.EnableHybridMode)) {
+				GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("%s", t.HybridModeHelp);
+			}
+			ImGui::TextDisabled("%s", isDe ? "Kinematic Fader: Automatische Weichzeichnung bei schnellen Kameraschwenks."
+			                               : "Kinematic Fader: Automatic smoothing during rapid camera pans.");
+			ImGui::Spacing();
 		}
 
-		// ── Unauffällige Keynotes / Referenzen (ganz unten, dezent gräulich) ──
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.48f, 0.52f, 0.58f, 0.70f));
-		ImGui::TextUnformatted(t.MethodologyTitle);
-		ImGui::TextWrapped("%s", t.MethodologyDesc);
-		ImGui::PopStyleColor();
+		// ── Section 6: Entwickler & Diagnose ──────────────────────────────────
+		if (ImGui::CollapsingHeader(t.HeaderSection6))
+		{
+			if (ImGui::Checkbox(t.DebugModeCheckbox, &CurrentSettings.DebugMode)) {
+				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::Spacing();
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.48f, 0.52f, 0.58f, 0.80f));
+			ImGui::TextUnformatted(t.MethodologyTitle);
+			ImGui::TextWrapped("%s", t.MethodologyDesc);
+			ImGui::PopStyleColor();
+			ImGui::Spacing();
+		}
 
 		// ── Community Footnote & Artistic Credits ─────────────────────────────
 		ImGui::Spacing();
@@ -2090,23 +2105,24 @@ namespace
 		ImGui::PushID("CBA_GraphHUD");
 
 		// Header Bar: Title, Open Main Window, Reset GUI, Opacity
-		ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.95f, 1.0f), isDe ? "\xf0\x9f\x93\x88 CBA Sensor & Spektralgraph" : "\xf0\x9f\x93\x88 CBA Sensor & Spectral Graph");
-		ImGui::SameLine(0, 14.0f);
+		ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.95f, 1.0f), isDe ? "\xf0\x9f\x93\x88 Spektralgraph" : "\xf0\x9f\x93\x88 Spectral Graph");
+		ImGui::SameLine(0, 8.0f);
 		if (ImGui::Button(isDe ? "\xf0\x9f\x97\x97 Hauptfenster" : "\xf0\x9f\x97\x97 Main Window"))
 		{
 			CurrentSettings.ShowMainWindow = true;
 		}
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenMainWindowTooltip);
 
-		ImGui::SameLine();
-		if (ImGui::Button("Reset GUI##graph"))
+		ImGui::SameLine(0, 6.0f);
+		if (ImGui::Button("Reset##graph"))
 		{
 			s_resetGraphWindowPos = true;
 		}
 
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(70.0f);
-		ImGui::SliderFloat("Opacity##graph", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f");
+		ImGui::SameLine(0, 6.0f);
+		ImGui::SetNextItemWidth(55.0f);
+		ImGui::SliderFloat("##OpacityGraph", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f");
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("HUD-Transparenz / Opacity");
 
 		ImGui::Spacing();
 
@@ -2115,20 +2131,20 @@ namespace
 			std::string profStr;
 			if (CurrentSettings.Mixed) {
 				char b[64];
-				std::snprintf(b, sizeof(b), isDe ? "Mixed (RG: %.0f%%, BY: %.0f%%)" : "Mixed (RG: %.0f%%, BY: %.0f%%)", 
-					CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
+				std::snprintf(b, sizeof(b), "Mixed (%d%%/%d%%)", 
+					(int)(CurrentSettings.MixedRgSeverity01 * 100.0), (int)(CurrentSettings.MixedBySeverity01 * 100.0));
 				profStr = b;
 			} else {
 				const char* name = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
 				                   (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
 				char b[64];
-				std::snprintf(b, sizeof(b), "%s (%.0f%%)", name, CurrentSettings.Severity01 * 100.0);
+				std::snprintf(b, sizeof(b), "%s (%d%%)", name, (int)(CurrentSettings.Severity01 * 100.0));
 				profStr = b;
 			}
 			ImGui::TextColored(ImVec4(0.70f, 0.78f, 0.90f, 0.95f), "%s: %s | %s: %.2fx", 
 				isDe ? "Profil" : "Profile", profStr.c_str(),
 				isDe ? "Helligkeit" : "Brightness", CurrentSettings.GammaGain);
-			ImGui::SameLine(0, 10.0f);
+			ImGui::SameLine(0, 8.0f);
 			DrawFilterStatusIndicator(false);
 		}
 
@@ -2144,20 +2160,20 @@ namespace
 			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, corrMat);
 
 		float availW = ImGui::GetContentRegionAvail().x;
-		float graphW = (availW > 280.0f) ? availW : 280.0f;
-		float graphH = 150.0f;
+		float graphW = (availW > 260.0f) ? availW : 260.0f;
+		float graphH = 120.0f;
 
 		ImVec2 cp = ImGui::GetCursorScreenPos();
 		DrawCurvePanel(ImGui::GetWindowDrawList(), cp, graphW, graphH, corrMat, /*isDetached=*/true, CurrentSettings.UiOpacity);
 		ImGui::InvisibleButton("##curve_panel_hud", ImVec2(graphW, graphH));
 
 		// Live filtered color beam preview (Strahl-Anzeiger)
-		const float pad = 8.0f;
-		const float labelSpaceLeft = 28.0f;
-		const float badgeSpaceRight = 60.0f;
+		const float pad = 6.0f;
+		const float labelSpaceLeft = 24.0f;
+		const float badgeSpaceRight = 50.0f;
 		float plotX = cp.x + pad + labelSpaceLeft;
 		float plotW = graphW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
-		float beamH = 14.0f;
+		float beamH = 12.0f;
 
 		ImVec2 beamPos = ImGui::GetCursorScreenPos();
 		beamPos.x = plotX;
@@ -2272,20 +2288,22 @@ namespace
 			ImGui::SetNextWindowBgAlpha(clampedOpacity);
 			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.06f, 0.08f, 0.12f, clampedOpacity * 0.85f));
 
+			// Narrow, sleek sidebar sizing: min 320x360, max 480x950
+			ImGui::SetNextWindowSizeConstraints(ImVec2(320.0f, 360.0f), ImVec2(480.0f, 950.0f));
+
 			if (s_resetMainWindowPos)
 			{
-				ImVec2 disp = ImGui::GetIO().DisplaySize;
-				float w = 480.0f;
-				float h = 640.0f;
-				float posX = (disp.x > w) ? (disp.x - w) * 0.5f : 40.0f;
-				float posY = (disp.y > h) ? (disp.y - h) * 0.5f : 40.0f;
+				float w = 350.0f;
+				float h = 580.0f;
+				float posX = 50.0f;
+				float posY = 70.0f;
 				ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
 				ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
 				s_resetMainWindowPos = false;
 			}
 			else
 			{
-				ImGui::SetNextWindowSize(ImVec2(480.0f, 640.0f), ImGuiCond_FirstUseEver);
+				ImGui::SetNextWindowSize(ImVec2(350.0f, 580.0f), ImGuiCond_FirstUseEver);
 			}
 
 			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
@@ -2304,20 +2322,23 @@ namespace
 			ImGui::SetNextWindowBgAlpha(clampedOpacity * 0.45f);
 			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.06f, 0.10f, clampedOpacity * 0.45f));
 
+			// Compact HUD sizing: min 280x180, max 500x350
+			ImGui::SetNextWindowSizeConstraints(ImVec2(280.0f, 180.0f), ImVec2(500.0f, 350.0f));
+
 			if (s_resetGraphWindowPos)
 			{
 				ImVec2 disp = ImGui::GetIO().DisplaySize;
-				float w = 420.0f;
-				float h = 260.0f;
-				float posX = (disp.x > w) ? (disp.x - w - 40.0f) : 40.0f;
-				float posY = 80.0f;
+				float w = 350.0f;
+				float h = 215.0f;
+				float posX = (disp.x > 780.0f) ? 415.0f : ((disp.x > w) ? (disp.x - w - 20.0f) : 20.0f);
+				float posY = 70.0f;
 				ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
 				ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
 				s_resetGraphWindowPos = false;
 			}
 			else
 			{
-				ImGui::SetNextWindowSize(ImVec2(420.0f, 260.0f), ImGuiCond_FirstUseEver);
+				ImGui::SetNextWindowSize(ImVec2(350.0f, 215.0f), ImGuiCond_FirstUseEver);
 			}
 
 			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
