@@ -140,9 +140,11 @@ namespace
 		const char* EyeComfortApply;
 		const char* EyeComfortHdrTooltip;
 
-		// Compact Mode, QuickAccess & Community Credits
-		const char* OpenFloatingWindow;
-		const char* OpenFloatingWindowTooltip;
+		// Windows, QuickAccess & Community Credits
+		const char* OpenMainWindow;
+		const char* OpenMainWindowTooltip;
+		const char* OpenSensorGraph;
+		const char* OpenSensorGraphTooltip;
 		const char* ShowQuickAccess;
 		const char* ShowQuickAccessTooltip;
 		const char* EmbeddedNotice;
@@ -197,7 +199,7 @@ namespace
 			"Sprache",
 			"AQ/HRR Diagnose",
 			"Freitext f\xc3\xbcr Diagnose-Presets oder eine genauere Zuordnung.",
-			"Hybrid Modus",
+			"Hybrid Modus (Beta)",
 			"Kinematic Fader: Blendet das Overlay bei schnellen Kamerabewegungen automatisch sanft aus.\nLiest den GW2 Render-Buffer im Hintergrund, um WCAG-Fehler zu erkennen.",
 			"Color Profile Graph: Verlauf der R/G/B-Farbkan\xc3\xa4le",
 			"Diagnose Profil-Referenz (AQ/HRR):",
@@ -235,20 +237,22 @@ namespace
 
 			// Eye Comfort Section
 			"Eye Comfort",
-			"Helligkeit (Gamma-Gain)",
+			"Helligkeitsanpassung",
 			"Helligkeitserhalt: %.1f%%  (Empfohlen: %.2fx)",
 			"Empfehlung \xc3\xbc\x62\x65rnehmen",
 			"beeinflusst nur die Anzeige-Berechnung, nicht die Farbkorrektur selbst",
 
-			// Compact Mode, QuickAccess & Community Credits
-			"CBA Diagnose- & Sensor-Fenster \xc3\xb6\x66\x66nen (ALT+C)",
-			"\xc3\x96\x66\x66net das schwebende Diagnose- und Sensor-Fenster mit Live-Graphen, Farbtrennung, Commander-Tag-Enhancer und Eye Comfort.",
+			// Windows, QuickAccess & Community Credits
+			"Hauptfenster",
+			"\xc3\x96\x66\x66net das CBA Hauptfenster mit allen Profil- und Farbeinstellungen (CTRL+ALT+C)",
+			"Sensor-Graph",
+			"\xc3\x96\x66\x66net das separate, transparente Sensor- & Graph-HUD (SHIFT+ALT+C)",
 			" CBA-Icon in Nexus-Leiste anzeigen (QuickAccess)",
 			"Blendet das CBA-Icon in der oberen Nexus-Schnellstartleiste ein oder aus.",
-			"Kompaktmodus f\xc3\xbcr Nexus-Optionen: Alle erweiterten Graphen und Sensoren laufen im separaten Fenster.",
+			"Kompaktmodus: Einstellungen und Sensor-Graphen laufen in eigenen Fenstern.",
 			"Mit Liebe f\xc3\xbcr die Tyria-Community entwickelt \xe2\x99\xa5 Barrierefreiheit f\xc3\xbcr alle Raid- & Open-World-Spieler",
-			"[ \xf0\x9f\x95\xb9 C64 Retro Abspann ]",
-			"Endloser 8-Bit C64 Danksagungs-Abspann f\xc3\xbcr alle Unterst\xc3\xbctzer, Raid-Commander und die Community!"
+			"Credits <3",
+			"Danksagung an die Community, Unterst\xc3\xbctzer & Raider"
 		};
 
 		static const L10n en{
@@ -266,7 +270,7 @@ namespace
 			"Language",
 			"AQ/HRR diagnosis",
 			"Free text for diagnosis presets or more precise mapping.",
-			"Hybrid Mode",
+			"Hybrid Mode (Beta)",
 			"Kinematic Fader: Automatically fades out the overlay during fast camera movements.\nReads the GW2 render buffer in the background to show WCAG errors.",
 			"Color Profile Graph: Transfer function of R/G/B channels",
 			"Diagnostic Profile Reference (AQ/HRR):",
@@ -304,20 +308,22 @@ namespace
 
 			// Eye Comfort Section
 			"Eye Comfort",
-			"Brightness (Gamma Gain)",
+			"Brightness Adjust",
 			"Brightness Retention: %.1f%%  (Recommended: %.2fx)",
 			"Apply Recommendation",
 			"affects display calculation only, not color correction itself",
 
-			// Compact Mode, QuickAccess & Community Credits
-			"Open CBA Diagnostics & Sensor Window (ALT+C)",
-			"Opens the floating diagnostic & sensor window with live graphs, color curves, Commander Tag Enhancer, and Eye Comfort.",
+			// Windows, QuickAccess & Community Credits
+			"Main Window",
+			"Opens the CBA Main Window with all profile and color controls (CTRL+ALT+C)",
+			"Sensor Graph",
+			"Opens the separate, transparent sensor & graph HUD (SHIFT+ALT+C)",
 			" Show CBA icon in Nexus bar (QuickAccess)",
 			"Toggles the CBA icon in the top Nexus QuickAccess toolbar.",
-			"Compact Mode for Nexus options: All advanced graphs and diagnostics run in the separate window.",
+			"Compact Mode: Controls and sensor graphs run in dedicated floating windows.",
 			"Crafted with love for the Tyrian community \xe2\x99\xa5 Raid & Open World Accessibility",
-			"[ \xf0\x9f\x95\xb9 C64 Retro Credits ]",
-			"Endless 8-bit C64 scrolling credits for all supporters, raid commanders, and the community!"
+			"Credits <3",
+			"Credits & appreciation for the community & raiders"
 		};
 
 		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
@@ -339,6 +345,8 @@ namespace
 		std::thread s_watchdogThread;
 		std::atomic<HWND> s_gw2Hwnd{nullptr};
 		std::atomic<bool> s_gw2Minimized{false};
+		std::atomic<bool> s_resetMainWindowPos{false};
+		std::atomic<bool> s_resetGraphWindowPos{false};
 		std::atomic<bool> s_resetDetachedWindowPos{false};
 		std::atomic<bool> s_deferredInitDone{false};
 
@@ -869,10 +877,15 @@ namespace
 	{
 		if (aIsRelease) return;
 
-		if (strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
+		if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
 		{
 			EnsureDeferredInitialized();
-			CurrentSettings.DetachedWindow = !CurrentSettings.DetachedWindow;
+			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+		}
+		else if (strcmp(aIdentifier, "CBA - Sensor Graph") == 0 || strcmp(aIdentifier, "KB_CBA_GRAPH") == 0)
+		{
+			EnsureDeferredInitialized();
+			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
 		}
 	}
 
@@ -883,7 +896,7 @@ namespace
 		{
 			if (APIDefs->QuickAccess.Add)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "KB_CBA_WINDOW", "cba4gw2 (ALT+C)");
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (CTRL+ALT+C)");
 			}
 		}
 		else
@@ -1104,6 +1117,93 @@ namespace
 		ImGui::PopStyleColor(3);
 	}
 
+	// ── Live Status Dot & Filter State Indicator ─────────────────────────────
+	static void DrawFilterStatusIndicator(bool aWithText)
+	{
+		const L10n& t = Strings();
+		bool isDe = (t.Enabled[0] == 'A');
+
+		// Determine current filter state
+		bool isEnabled = CurrentSettings.Enabled;
+		WindowMode mode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
+		bool isExclusive = (mode == WindowMode::ExclusiveFullscreen);
+
+		HWND fg = GetForegroundWindow();
+		DWORD fgPid = 0;
+		if (fg) GetWindowThreadProcessId(fg, &fgPid);
+		bool isGw2Foreground = (fg && fgPid == GetCurrentProcessId());
+		bool isMinimized = s_gw2Minimized.load() || (s_gw2Hwnd.load() && IsIconic(s_gw2Hwnd.load()));
+		bool isPaused = (!isMinimized && !isGw2Foreground && !CurrentSettings.SystemWide);
+
+		ImU32 dotColor;
+		ImU32 glowColor = 0;
+		const char* statusText = "";
+		const char* tooltipText = "";
+
+		if (!isEnabled)
+		{
+			dotColor = IM_COL32(120, 130, 140, 255);
+			statusText = isDe ? "Inaktiv" : "Inactive";
+			tooltipText = isDe ? "CBA Status: Farbfilter ist ausgeschaltet (OFF).\nKlicke auf [ON], um den Filter zu aktivieren." 
+			                   : "CBA Status: Color filter is OFF.\nClick [ON] to activate the filter.";
+		}
+		else if (isExclusive)
+		{
+			dotColor = IM_COL32(255, 140, 20, 255);
+			statusText = isDe ? "Blockiert (Vollbild)" : "Blocked (Fullscreen)";
+			tooltipText = isDe ? "CBA Status: Windows DWM-Farbfilter wird durch exklusives Vollbild blockiert!\nBitte in GW2 Grafikoptionen auf 'Fenster-Vollbild' (Borderless) umschalten."
+			                   : "CBA Status: Windows DWM filter blocked by exclusive fullscreen!\nPlease switch GW2 graphics to 'Windowed Fullscreen' (Borderless).";
+		}
+		else if (isMinimized || isPaused)
+		{
+			dotColor = IM_COL32(245, 205, 45, 255);
+			statusText = isDe ? "Pausiert" : "Paused";
+			tooltipText = isDe ? "CBA Status: GW2 ist im Hintergrund oder minimiert.\nFilter pausiert automatisch zum Schutz anderer Anwendungen.\n('Im Hintergrund aktiv lassen' f\xc3\xbcr Dauerbetrieb)."
+			                   : "CBA Status: GW2 is in background or minimized.\nFilter pauses automatically.\n('Keep active in background' to keep active).";
+		}
+		else
+		{
+			// Active & running: pulsing green animation!
+			float time = (float)ImGui::GetTime();
+			float pulse = 0.70f + 0.30f * std::sin(time * 3.5f);
+			dotColor = IM_COL32(40, 220, 95, 255);
+			glowColor = IM_COL32(40, 220, 95, (int)(pulse * 130.0f));
+			statusText = isDe ? "Aktiv (DWM)" : "Active (DWM)";
+			tooltipText = isDe ? "CBA Status: Farbfilter ist aktiv und an Guild Wars 2 gebunden.\nWindows Magnification DWM-Hardwarebeschleunigung l\xc3\xa4uft stabil."
+			                   : "CBA Status: Color filter active and bound to Guild Wars 2.\nWindows Magnification DWM hardware acceleration active.";
+		}
+
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		float radius = 5.0f;
+		float h = ImGui::GetTextLineHeight();
+		ImVec2 center(p.x + radius + 2.0f, p.y + h * 0.5f);
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+
+		if (glowColor != 0)
+		{
+			dl->AddCircleFilled(center, radius + 3.0f, glowColor);
+		}
+		dl->AddCircleFilled(center, radius, dotColor);
+		dl->AddCircle(center, radius, IM_COL32(20, 30, 40, 200), 0, 1.0f);
+
+		float itemW = radius * 2.0f + 4.0f;
+		ImGui::Dummy(ImVec2(itemW, h));
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("%s", tooltipText);
+		}
+
+		if (aWithText)
+		{
+			ImGui::SameLine(0, 4.0f);
+			ImGui::TextColored(ImColor(dotColor), "%s", statusText);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("%s", tooltipText);
+			}
+		}
+	}
+
 	// Registered as ERenderType::OptionsRender — appended into Nexus's own
 	// options window under this addon's name, no separate window needed.
 
@@ -1258,22 +1358,67 @@ namespace
 		style.Colors[ImGuiCol_Header] = ImVec4(0.3f, 0.6f, 0.9f, 1.0f);
 		style.ItemSpacing = ImVec2(8, 5);
 
-		// ── 1. Header Bar: Title, Handshake & Language ─────────────────────────
-		ImGui::TextColored(ImVec4(0.35f, 0.75f, 1.0f, 1.0f), "cba4gw2");
+		// ── Row 1: [ 🗗 Hauptfenster ] | [ 📈 Sensor-Graph ] | [ ON / OFF ] | [ Language Combo ] ──
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+
+		// Button 1: Main Window
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.38f, 0.62f, 0.92f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.48f, 0.75f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.30f, 0.52f, 1.00f));
+		if (ImGui::Button(isDe ? "\xf0\x9f\x97\x97 Hauptfenster" : "\xf0\x9f\x97\x97 Main Window", ImVec2(126.0f, 26.0f)))
+		{
+			EnsureDeferredInitialized();
+			CurrentSettings.ShowMainWindow = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(3);
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenMainWindowTooltip);
+
 		ImGui::SameLine();
 
-		bool hasNexus = (APIDefs && APIDefs->DataLink.Get("DL_NEXUS_LINK") != nullptr);
-		bool hasMumble = (APIDefs && APIDefs->DataLink.Get("GW2_MUMBLE_LINK") != nullptr);
-		bool handshake = hasNexus && hasMumble;
+		// Button 2: Sensor Graph HUD
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.92f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
+		if (ImGui::Button(isDe ? "\xf0\x9f\x93\x88 Sensor-Graph" : "\xf0\x9f\x93\x88 Sensor Graph", ImVec2(126.0f, 26.0f)))
+		{
+			EnsureDeferredInitialized();
+			CurrentSettings.ShowGraphWindow = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(3);
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
 
-		ImGui::ColorButton("##handshakeStatusEmb", handshake ? ImVec4(0.2f, 0.8f, 0.2f, 1.0f) : ImVec4(0.4f, 0.4f, 0.4f, 1.0f),
-		                   ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_NoAlpha, ImVec2(16, 16));
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip(handshake ? "Handshake OK (Nexus & Mumble)" : "Handshake fehlgeschlagen (Nexus/Mumble fehlt)");
+		ImGui::SameLine(0, 10.0f);
 
-		ImGui::SameLine();
-		ImGui::TextDisabled(" | ");
-		ImGui::SameLine();
+		// Button 3: Master ON / OFF toggle
+		{
+			bool wasEnabled = CurrentSettings.Enabled;
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 4.0f));
+			if (wasEnabled) {
+				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.52f, 0.22f, 0.95f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.65f, 0.28f, 1.00f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.40f, 0.16f, 1.00f));
+			} else {
+				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.28f, 0.28f, 0.30f, 0.85f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.38f, 0.38f, 0.40f, 0.95f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.20f, 0.20f, 0.22f, 1.00f));
+			}
+			if (ImGui::Button(wasEnabled ? "ON " : "OFF", ImVec2(52.0f, 26.0f))) {
+				CurrentSettings.Enabled = !CurrentSettings.Enabled;
+				changed    = true;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(3);
+			ImGui::PopStyleVar();
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip(wasEnabled ? (isDe ? "Filter aktiv — Klicke zum Ausschalten" : "Filter active — click to disable")
+				                             : (isDe ? "Filter inaktiv — Klicke zum Einschalten" : "Filter inactive — click to enable"));
+		}
 
+		ImGui::SameLine(0, 10.0f);
+
+		// Item 4: Language dropdown combo
 		int langComboIdx = 0;
 		if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
 		else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
@@ -1285,7 +1430,7 @@ namespace
 			"Deutsch"
 		};
 
-		ImGui::SetNextItemWidth(125.0f);
+		ImGui::SetNextItemWidth(120.0f);
 		if (ImGui::Combo("##LangComboEmb", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
 		{
 			if (langComboIdx == 0) CurrentSettings.Language = 1;
@@ -1295,144 +1440,13 @@ namespace
 			saveNeeded = true;
 		}
 
-		ImGui::Spacing();
-		ImGui::Spacing();
-
-		// ── 2. Prominent Button to launch Floating Diagnostics Window ─────────
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.46f, 0.78f, 0.92f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.58f, 0.90f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.14f, 0.36f, 0.65f, 1.00f));
-		if (ImGui::Button(t.OpenFloatingWindow, ImVec2(-1.0f, 32.0f)))
-		{
-			CurrentSettings.DetachedWindow = true;
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar();
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenFloatingWindowTooltip);
-
-		ImGui::Spacing();
-		ImGui::TextDisabled("%s", t.EmbeddedNotice);
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		// ── 3. Core Quick Controls (Master ON/OFF + Profile Radios + Slider) ───
-		{
-			bool wasEnabled = CurrentSettings.Enabled;
-			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(10.0f, 4.0f));
-			if (wasEnabled) {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.50f, 0.21f, 0.92f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.64f, 0.28f, 0.97f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.38f, 0.16f, 1.00f));
-			} else {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.26f, 0.26f, 0.28f, 0.78f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.36f, 0.38f, 0.88f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.18f, 0.20f, 1.00f));
-			}
-			if (ImGui::Button(wasEnabled ? "ON " : "OFF")) {
-				CurrentSettings.Enabled = !CurrentSettings.Enabled;
-				changed    = true;
-				saveNeeded = true;
-			}
-			ImGui::PopStyleColor(3);
-			ImGui::PopStyleVar(2);
-			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip(wasEnabled ? "Filter active — click to disable" : "Filter inactive — click to enable");
-		}
-
-		ImGui::SameLine(0, 15.0f);
-		ImGui::TextUnformatted(t.CorrectionProfile);
-
-		ImGui::Spacing();
-
-		auto typeBtn = [&](const char* aLabel, bool aActive, DeficiencyType aType) {
-			if (ImGui::RadioButton(aLabel, aActive)) {
-				if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
-					CurrentSettings.Mixed = false;
-					CurrentSettings.Type  = aType;
-					CurrentSettings.Severity01 = 0.0;
-					changed = true;
-				}
-			}
-		};
-		typeBtn(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Protan, DeficiencyType::Protan);
-		ImGui::SameLine();
-		typeBtn(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Deutan, DeficiencyType::Deutan);
-		ImGui::SameLine();
-		typeBtn(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Tritan, DeficiencyType::Tritan);
-		ImGui::SameLine();
-		if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
-			if (!CurrentSettings.Mixed) {
-				CurrentSettings.Mixed = true;
-				CurrentSettings.MixedRgSeverity01 = 0.0;
-				CurrentSettings.MixedBySeverity01 = 0.0;
-				changed = true;
-			}
-		}
-
-		ImGui::Spacing();
-		if (CurrentSettings.Mixed) {
-			float rg = (float)CurrentSettings.MixedRgSeverity01;
-			float by = (float)CurrentSettings.MixedBySeverity01;
-			ImGui::SetNextItemWidth(200.0f);
-			if (ImGui::SliderFloat(t.RgStrength, &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.0f);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##rg_emb")) { 
-				CurrentSettings.MixedRgSeverity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-			
-			ImGui::SetNextItemWidth(200.0f);
-			if (ImGui::SliderFloat(t.ByStrength, &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.0f);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##by_emb")) { 
-				CurrentSettings.MixedBySeverity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-		} else {
-			float sev = (float)CurrentSettings.Severity01;
-			ImGui::SetNextItemWidth(200.0f);
-			if (ImGui::SliderFloat(t.Strength, &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.0f);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine();
-			if (ImGui::Button("Reset##sev_emb")) { 
-				CurrentSettings.Severity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-		}
-
-		// Quick Commander Tag toggle
-		ImGui::Spacing();
-		bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
-		if (ImGui::Checkbox(t.EnableEnhancer, &enhancerActive)) {
-			CurrentSettings.CommanderTagMode = enhancerActive ? 1 : 0;
-			UpdateTagEnhancerConflicts();
-			changed = true;
-			saveNeeded = true;
-		}
+		ImGui::PopStyleVar(); // FrameRounding
 
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		// ── 4. Nexus Integrations & Startup Behavior ──────────────────────────
+		// ── Nexus Integrations & Startup Behavior ──────────────────────────────
 		if (ImGui::Checkbox(t.ShowQuickAccess, &CurrentSettings.ShowQuickAccessIcon)) {
 			UpdateQuickAccessIcon();
 			saveNeeded = true;
@@ -1451,46 +1465,19 @@ namespace
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
 
 		ImGui::Spacing();
-
-		// Save button with feedback
-		static auto s_embSaveFeedbackTime = std::chrono::steady_clock::time_point{};
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
-		if (ImGui::Button(isDe ? "Profil Speichern" : "Save Profile", ImVec2(120.0f, 26.0f))) {
-			CurrentSettings.Save(AddonDir);
-			s_embSaveFeedbackTime = std::chrono::steady_clock::now();
-			changed = false;
-		}
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar();
-
-		if (s_embSaveFeedbackTime.time_since_epoch().count() > 0) {
-			auto now = std::chrono::steady_clock::now();
-			float elapsed = std::chrono::duration<float>(now - s_embSaveFeedbackTime).count();
-			if (elapsed >= 0.0f && elapsed < 3.0f) {
-				float alpha = (elapsed > 1.8f) ? (3.0f - elapsed) / 1.2f : 1.0f;
-				alpha = std::clamp(alpha, 0.0f, 1.0f);
-				ImGui::SameLine(0, 10.0f);
-				ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", isDe ? "[OK] Gespeichert!" : "[OK] Saved!");
-			}
-		}
-
-		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		// ── 5. Sweet Community Footnote & C64 Retro Credits Easter Egg ────────
+		// ── Community Footnote & Artistic Credits Button ───────────────────────
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.60f, 0.70f, 0.85f));
 		ImGui::TextWrapped("%s", t.CommunityFootnote);
 		ImGui::PopStyleColor();
 
 		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.28f, 0.20f, 0.46f, 0.75f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.42f, 0.30f, 0.68f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.20f, 0.14f, 0.35f, 1.00f));
-		if (ImGui::Button(t.C64Button, ImVec2(160.0f, 24.0f)))
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.20f, 0.35f, 0.75f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.28f, 0.50f, 0.95f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.14f, 0.26f, 1.00f));
+		if (ImGui::Button(t.C64Button, ImVec2(120.0f, 24.0f)))
 		{
 			s_showC64Credits.store(true);
 			StartC64Audio();
@@ -1508,7 +1495,7 @@ namespace
 		ImGui::PopID();
 	}
 
-	void RenderFullDetachedWindow()
+	void RenderMainWindow()
 	{
 		if (!ImGui::GetCurrentContext()) return;
 		const L10n& t = Strings();
@@ -1516,7 +1503,7 @@ namespace
 		bool saveNeeded = false;
 		bool isDe = (t.Enabled[0] == 'A');
 
-		ImGui::PushID("CBA_Detached");
+		ImGui::PushID("CBA_MainWindow");
 
 		ImGuiStyle& style = ImGui::GetStyle();
 		style.FrameRounding = 4.0f;
@@ -1529,40 +1516,46 @@ namespace
 		float widgetAlpha = std::clamp(0.75f + 0.25f * clampedOpacity, 0.75f, 1.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, widgetAlpha);
 
-		// ── Header Bar & Dock/Detach Controls ─────────────────────────────────
+		// ── Header Bar: Title, Live Status Dot, Reset GUI, Opacity, Sensor-Graph HUD Button ──
 		ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "cba4gw2");
 		ImGui::SameLine();
-		
-		bool hasNexus = (APIDefs && APIDefs->DataLink.Get("DL_NEXUS_LINK") != nullptr);
-		bool hasMumble = (APIDefs && APIDefs->DataLink.Get("GW2_MUMBLE_LINK") != nullptr);
-		bool handshake = hasNexus && hasMumble;
-		
-		ImGui::ColorButton("##handshakeStatusDet", handshake ? ImVec4(0.2f, 0.8f, 0.2f, 1.0f) : ImVec4(0.4f, 0.4f, 0.4f, 1.0f),
-		                   ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_NoAlpha, ImVec2(16, 16));
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip(handshake ? "Handshake OK (Nexus & Mumble)" : "Handshake fehlgeschlagen (Nexus/Mumble fehlt)");
+		DrawFilterStatusIndicator(true);
 
 		ImGui::SameLine(0, 10.0f);
-		if (ImGui::Button("Reset GUI")) {
-			s_resetDetachedWindowPos = true;
+		if (ImGui::Button("Reset GUI##main")) {
+			s_resetMainWindowPos = true;
 		}
 		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Setzt Position und Gr\xc3\xb6\xc3\x9f" "e des schwebenden Fensters wieder mittig auf den Bildschirm zur\xc3\xbc" "ck.");
+			ImGui::SetTooltip("Setzt Position und Gr\xc3\xb6\xc3\x9f" "e des Hauptfensters zur\xc3\xbc" "ck.");
 		}
 
 		ImGui::SameLine();
-		ImGui::SetNextItemWidth(100.0f);
-		if (ImGui::SliderFloat("Opacity", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
+		ImGui::SetNextItemWidth(75.0f);
+		if (ImGui::SliderFloat("Opacity##main", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
 			CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.20f, 1.00f);
 			changed = true;
 		}
 		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
-		// ── Primary Controls (Enable, Language) ───────────────────────────────
+		ImGui::SameLine(0, 8.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.90f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
+		if (ImGui::Button(isDe ? "\xf0\x9f\x93\x88 Sensor-Graph" : "\xf0\x9f\x93\x88 Sensor Graph")) {
+			CurrentSettings.ShowGraphWindow = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(3);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
+		}
+
+		// ── Primary Controls (Enable ON/OFF, Language) ────────────────────────
 		ImGui::Spacing();
 		{
 			bool wasEnabled = CurrentSettings.Enabled;
 			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(9.0f, 3.0f));
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(10.0f, 4.0f));
 			if (wasEnabled) {
 				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.50f, 0.21f, 0.92f));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.64f, 0.28f, 0.97f));
@@ -1572,7 +1565,7 @@ namespace
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.36f, 0.38f, 0.88f));
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.18f, 0.20f, 1.00f));
 			}
-			if (ImGui::Button(wasEnabled ? "ON " : "OFF")) {
+			if (ImGui::Button(wasEnabled ? "ON " : "OFF", ImVec2(52.0f, 26.0f))) {
 				CurrentSettings.Enabled = !CurrentSettings.Enabled;
 				changed    = true;
 				saveNeeded = true;
@@ -1580,10 +1573,10 @@ namespace
 			ImGui::PopStyleColor(3);
 			ImGui::PopStyleVar(2);
 			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip(wasEnabled ? "Filter active — click to disable" : "Filter inactive — click to enable");
+				ImGui::SetTooltip(wasEnabled ? "Filter aktiv — Klicke zum Ausschalten" : "Filter inaktiv — Klicke zum Einschalten");
 		}
 		
-		ImGui::SameLine();
+		ImGui::SameLine(0, 10.0f);
 		ImGui::TextDisabled(" | ");
 		ImGui::SameLine();
 
@@ -1599,7 +1592,7 @@ namespace
 		};
 
 		ImGui::SetNextItemWidth(125.0f);
-		if (ImGui::Combo("##LangComboDet", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
+		if (ImGui::Combo("##LangComboMain", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
 		{
 			if (langComboIdx == 0) CurrentSettings.Language = 1;
 			else if (langComboIdx == 1) CurrentSettings.Language = 0;
@@ -1686,69 +1679,35 @@ namespace
 			}
 		}
 
+		// ── DIRECTLY AT / RIGHT UNDER THE COLOR MATRIX: Save Profile button! ──
+		ImGui::Spacing();
+		static auto s_mainSaveFeedbackTime = std::chrono::steady_clock::time_point{};
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
+		if (ImGui::Button(isDe ? "Profil Speichern" : "Save Profile", ImVec2(130.0f, 26.0f))) {
+			CurrentSettings.Save(AddonDir);
+			s_mainSaveFeedbackTime = std::chrono::steady_clock::now();
+			changed = false;
+		}
+		ImGui::PopStyleColor(3);
+		ImGui::PopStyleVar();
+
+		if (s_mainSaveFeedbackTime.time_since_epoch().count() > 0) {
+			auto now = std::chrono::steady_clock::now();
+			float elapsed = std::chrono::duration<float>(now - s_mainSaveFeedbackTime).count();
+			if (elapsed >= 0.0f && elapsed < 3.0f) {
+				float alpha = (elapsed > 1.8f) ? (3.0f - elapsed) / 1.2f : 1.0f;
+				alpha = std::clamp(alpha, 0.0f, 1.0f);
+				ImGui::SameLine(0, 10.0f);
+				ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", isDe ? "[OK] Gespeichert!" : "[OK] Saved!");
+			}
+		}
+
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
-
-		// ── Correction curves ─────────────────────────────────────────────────
-		double corrMat[3][3];
-		if (CurrentSettings.Mixed)
-			ColorMatrix::MixedCorrectionMatrix(
-				CurrentSettings.MixedRgSeverity01,
-				CurrentSettings.MixedBySeverity01, corrMat);
-		else
-			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, corrMat);
-
-		float availW = ImGui::GetContentRegionAvail().x;
-		float graphW = std::clamp(availW, 280.0f, 420.0f);
-		float graphH = 175.0f;
-
-		{
-			ImVec2 cp = ImGui::GetCursorScreenPos();
-			DrawCurvePanel(ImGui::GetWindowDrawList(), cp, graphW, graphH, corrMat, /*isDetached=*/true, CurrentSettings.UiOpacity);
-			ImGui::InvisibleButton("##curve_panel_det", ImVec2(graphW, graphH));
-			ImGui::TextDisabled("%s", t.ColorProfileGraph);
-
-			// Live filtered color beam preview (Strahl-Anzeiger)
-			const float pad = 8.0f;
-			const float labelSpaceLeft = 28.0f;
-			const float badgeSpaceRight = 60.0f;
-			float plotX = cp.x + pad + labelSpaceLeft;
-			float plotW = graphW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
-			float beamH = 16.0f;
-
-			ImVec2 beamPos = ImGui::GetCursorScreenPos();
-			beamPos.x = plotX;
-			ImDrawList* dl = ImGui::GetWindowDrawList();
-			
-			constexpr int kBeamSteps = 48;
-			for (int b = 0; b < kBeamSteps; ++b) {
-				float u0 = (float)b / kBeamSteps;
-				float u1 = (float)(b + 1) / kBeamSteps;
-				float uMid = (u0 + u1) * 0.5f;
-				float h = uMid * 6.0f;
-				float x = 1.0f - std::abs(std::fmod(h, 2.0f) - 1.0f);
-				float r0 = 0.0f, g0 = 0.0f, b0 = 0.0f;
-				if (h < 1.0f)      { r0 = 1.0f; g0 = x;    b0 = 0.0f; }
-				else if (h < 2.0f) { r0 = x;    g0 = 1.0f; b0 = 0.0f; }
-				else if (h < 3.0f) { r0 = 0.0f; g0 = 1.0f; b0 = x;    }
-				else if (h < 4.0f) { r0 = 0.0f; g0 = x;    b0 = 1.0f; }
-				else if (h < 5.0f) { r0 = x;    g0 = 0.0f; b0 = 1.0f; }
-				else               { r0 = 1.0f; g0 = 0.0f; b0 = x;    }
-
-				double cr = std::clamp(corrMat[0][0]*r0 + corrMat[0][1]*g0 + corrMat[0][2]*b0, 0.0, 1.0);
-				double cg = std::clamp(corrMat[1][0]*r0 + corrMat[1][1]*g0 + corrMat[1][2]*b0, 0.0, 1.0);
-				double cb = std::clamp(corrMat[2][0]*r0 + corrMat[2][1]*g0 + corrMat[2][2]*b0, 0.0, 1.0);
-
-				int beamAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 210.0f, 40.0f, 255.0f));
-				ImU32 col = IM_COL32((int)(cr*255), (int)(cg*255), (int)(cb*255), beamAlpha);
-				dl->AddRectFilled(ImVec2(plotX + u0 * plotW, beamPos.y), ImVec2(plotX + u1 * plotW, beamPos.y + beamH), col, (b == 0 || b == kBeamSteps - 1) ? 2.0f : 0.0f);
-			}
-			int borderAlpha = (int)(CurrentSettings.UiOpacity * 130.0f);
-			dl->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 3.0f);
-			ImGui::Dummy(ImVec2(graphW, beamH));
-			ImGui::TextDisabled("Echtzeit-Spektrum (gefiltert)");
-		}
 
 		ImGui::Spacing();
 		ImGui::Spacing();
@@ -1810,8 +1769,9 @@ namespace
 			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
 
+			float availW = ImGui::GetContentRegionAvail().x;
 			float cardW = (availW < 480.0f) ? availW : 480.0f;
-			if (ImGui::BeginChild("##status_feedback_card_det", ImVec2(cardW, 88.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+			if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(cardW, 88.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
 				ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "- %s", profileName.c_str());
 				ImGui::Spacing();
 				ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "%s   %s", t.ValuesLabel, severityDesc.c_str());
@@ -2080,32 +2040,6 @@ namespace
 			saveNeeded = true;
 		}
 
-		// ── Save Profile button ───────────────────────────────────────────────
-		ImGui::Spacing();
-		static auto s_detSaveFeedbackTime = std::chrono::steady_clock::time_point{};
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
-		if (ImGui::Button(isDe ? "Profil Speichern##det" : "Save Profile##det", ImVec2(120.0f, 26.0f))) {
-			CurrentSettings.Save(AddonDir);
-			s_detSaveFeedbackTime = std::chrono::steady_clock::now();
-			changed = false;
-		}
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar();
-
-		if (s_detSaveFeedbackTime.time_since_epoch().count() > 0) {
-			auto now = std::chrono::steady_clock::now();
-			float elapsed = std::chrono::duration<float>(now - s_detSaveFeedbackTime).count();
-			if (elapsed >= 0.0f && elapsed < 3.0f) {
-				float alpha = (elapsed > 1.8f) ? (3.0f - elapsed) / 1.2f : 1.0f;
-				alpha = std::clamp(alpha, 0.0f, 1.0f);
-				ImGui::SameLine(0, 10.0f);
-				ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", isDe ? "[OK] Gespeichert!" : "[OK] Saved!");
-			}
-		}
-
 		// ── Unauffällige Keynotes / Referenzen (ganz unten, dezent gräulich) ──
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -2115,7 +2049,7 @@ namespace
 		ImGui::TextWrapped("%s", t.MethodologyDesc);
 		ImGui::PopStyleColor();
 
-		// ── Community Footnote & C64 Retro Credits ────────────────────────────
+		// ── Community Footnote & Artistic Credits ─────────────────────────────
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
@@ -2124,10 +2058,10 @@ namespace
 		ImGui::PopStyleColor();
 
 		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.28f, 0.20f, 0.46f, 0.75f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.42f, 0.30f, 0.68f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.20f, 0.14f, 0.35f, 1.00f));
-		if (ImGui::Button(t.C64Button, ImVec2(160.0f, 24.0f)))
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.20f, 0.35f, 0.75f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.28f, 0.50f, 0.95f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.14f, 0.26f, 1.00f));
+		if (ImGui::Button(t.C64Button, ImVec2(120.0f, 24.0f)))
 		{
 			s_showC64Credits.store(true);
 			StartC64Audio();
@@ -2144,6 +2078,125 @@ namespace
 
 		ImGui::PopStyleVar(); // Pop widgetAlpha
 		ImGui::PopID();
+	}
+
+	// ── Dedicated Sensor & Spectral Graph HUD Window ─────────────────────────
+	void RenderGraphWindow()
+	{
+		if (!ImGui::GetCurrentContext()) return;
+		const L10n& t = Strings();
+		bool isDe = (t.Enabled[0] == 'A');
+
+		ImGui::PushID("CBA_GraphHUD");
+
+		// Header Bar: Title, Open Main Window, Reset GUI, Opacity
+		ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.95f, 1.0f), isDe ? "\xf0\x9f\x93\x88 CBA Sensor & Spektralgraph" : "\xf0\x9f\x93\x88 CBA Sensor & Spectral Graph");
+		ImGui::SameLine(0, 14.0f);
+		if (ImGui::Button(isDe ? "\xf0\x9f\x97\x97 Hauptfenster" : "\xf0\x9f\x97\x97 Main Window"))
+		{
+			CurrentSettings.ShowMainWindow = true;
+		}
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenMainWindowTooltip);
+
+		ImGui::SameLine();
+		if (ImGui::Button("Reset GUI##graph"))
+		{
+			s_resetGraphWindowPos = true;
+		}
+
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(70.0f);
+		ImGui::SliderFloat("Opacity##graph", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f");
+
+		ImGui::Spacing();
+
+		// Live Status Line
+		{
+			std::string profStr;
+			if (CurrentSettings.Mixed) {
+				char b[64];
+				std::snprintf(b, sizeof(b), isDe ? "Mixed (RG: %.0f%%, BY: %.0f%%)" : "Mixed (RG: %.0f%%, BY: %.0f%%)", 
+					CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
+				profStr = b;
+			} else {
+				const char* name = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
+				                   (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+				char b[64];
+				std::snprintf(b, sizeof(b), "%s (%.0f%%)", name, CurrentSettings.Severity01 * 100.0);
+				profStr = b;
+			}
+			ImGui::TextColored(ImVec4(0.70f, 0.78f, 0.90f, 0.95f), "%s: %s | %s: %.2fx", 
+				isDe ? "Profil" : "Profile", profStr.c_str(),
+				isDe ? "Helligkeit" : "Brightness", CurrentSettings.GammaGain);
+			ImGui::SameLine(0, 10.0f);
+			DrawFilterStatusIndicator(false);
+		}
+
+		ImGui::Spacing();
+
+		// Correction curves
+		double corrMat[3][3];
+		if (CurrentSettings.Mixed)
+			ColorMatrix::MixedCorrectionMatrix(
+				CurrentSettings.MixedRgSeverity01,
+				CurrentSettings.MixedBySeverity01, corrMat);
+		else
+			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, corrMat);
+
+		float availW = ImGui::GetContentRegionAvail().x;
+		float graphW = (availW > 280.0f) ? availW : 280.0f;
+		float graphH = 150.0f;
+
+		ImVec2 cp = ImGui::GetCursorScreenPos();
+		DrawCurvePanel(ImGui::GetWindowDrawList(), cp, graphW, graphH, corrMat, /*isDetached=*/true, CurrentSettings.UiOpacity);
+		ImGui::InvisibleButton("##curve_panel_hud", ImVec2(graphW, graphH));
+
+		// Live filtered color beam preview (Strahl-Anzeiger)
+		const float pad = 8.0f;
+		const float labelSpaceLeft = 28.0f;
+		const float badgeSpaceRight = 60.0f;
+		float plotX = cp.x + pad + labelSpaceLeft;
+		float plotW = graphW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
+		float beamH = 14.0f;
+
+		ImVec2 beamPos = ImGui::GetCursorScreenPos();
+		beamPos.x = plotX;
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+
+		constexpr int kBeamSteps = 48;
+		for (int b = 0; b < kBeamSteps; ++b) {
+			float u0 = (float)b / kBeamSteps;
+			float u1 = (float)(b + 1) / kBeamSteps;
+			float uMid = (u0 + u1) * 0.5f;
+			float h = uMid * 6.0f;
+			float x = 1.0f - std::abs(std::fmod(h, 2.0f) - 1.0f);
+			float r0 = 0.0f, g0 = 0.0f, b0 = 0.0f;
+			if (h < 1.0f)      { r0 = 1.0f; g0 = x;    b0 = 0.0f; }
+			else if (h < 2.0f) { r0 = x;    g0 = 1.0f; b0 = 0.0f; }
+			else if (h < 3.0f) { r0 = 0.0f; g0 = 1.0f; b0 = x;    }
+			else if (h < 4.0f) { r0 = 0.0f; g0 = x;    b0 = 1.0f; }
+			else if (h < 5.0f) { r0 = x;    g0 = 0.0f; b0 = 1.0f; }
+			else               { r0 = 1.0f; g0 = 0.0f; b0 = x;    }
+
+			double cr = std::clamp(corrMat[0][0]*r0 + corrMat[0][1]*g0 + corrMat[0][2]*b0, 0.0, 1.0);
+			double cg = std::clamp(corrMat[1][0]*r0 + corrMat[1][1]*g0 + corrMat[1][2]*b0, 0.0, 1.0);
+			double cb = std::clamp(corrMat[2][0]*r0 + corrMat[2][1]*g0 + corrMat[2][2]*b0, 0.0, 1.0);
+
+			int beamAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 210.0f, 40.0f, 255.0f));
+			ImU32 col = IM_COL32((int)(cr*255), (int)(cg*255), (int)(cb*255), beamAlpha);
+			dl->AddRectFilled(ImVec2(plotX + u0 * plotW, beamPos.y), ImVec2(plotX + u1 * plotW, beamPos.y + beamH), col, (b == 0 || b == kBeamSteps - 1) ? 2.0f : 0.0f);
+		}
+		int borderAlpha = (int)(CurrentSettings.UiOpacity * 130.0f);
+		dl->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 2.0f);
+		ImGui::Dummy(ImVec2(graphW, beamH));
+		ImGui::TextDisabled("%s", isDe ? "Echtzeit-Spektrum (gefiltert)" : "Real-time spectrum (filtered)");
+
+		ImGui::PopID();
+	}
+
+	void RenderFullDetachedWindow()
+	{
+		RenderMainWindow();
 	}
 
 	void EnsureDeferredInitialized()
@@ -2212,35 +2265,69 @@ namespace
 			RenderC64CreditsOverlay();
 		}
 
-		if (!CurrentSettings.DetachedWindow || !ImGui::GetCurrentContext()) return;
-
-		float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
-		ImGui::SetNextWindowBgAlpha(clampedOpacity);
-		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.06f, 0.08f, 0.12f, clampedOpacity * 0.75f));
-
-		if (s_resetDetachedWindowPos)
+		// ── Window 1: CBA Main Window ─────────────────────────────────────────
+		if (CurrentSettings.ShowMainWindow && ImGui::GetCurrentContext())
 		{
-			ImVec2 disp = ImGui::GetIO().DisplaySize;
-			float w = 460.0f;
-			float h = 580.0f;
-			float posX = (disp.x > w) ? (disp.x - w) * 0.5f : 50.0f;
-			float posY = (disp.y > h) ? (disp.y - h) * 0.5f : 50.0f;
-			ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
-			ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
-			s_resetDetachedWindowPos = false;
-		}
-		else
-		{
-			ImGui::SetNextWindowSize(ImVec2(460.0f, 580.0f), ImGuiCond_FirstUseEver);
+			float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
+			ImGui::SetNextWindowBgAlpha(clampedOpacity);
+			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.06f, 0.08f, 0.12f, clampedOpacity * 0.85f));
+
+			if (s_resetMainWindowPos)
+			{
+				ImVec2 disp = ImGui::GetIO().DisplaySize;
+				float w = 480.0f;
+				float h = 640.0f;
+				float posX = (disp.x > w) ? (disp.x - w) * 0.5f : 40.0f;
+				float posY = (disp.y > h) ? (disp.y - h) * 0.5f : 40.0f;
+				ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
+				ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+				s_resetMainWindowPos = false;
+			}
+			else
+			{
+				ImGui::SetNextWindowSize(ImVec2(480.0f, 640.0f), ImGuiCond_FirstUseEver);
+			}
+
+			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
+			if (ImGui::Begin("cba4gw2 - Hauptfenster###CBA_MainWindow", &CurrentSettings.ShowMainWindow, winFlags))
+			{
+				RenderMainWindow();
+			}
+			ImGui::End();
+			ImGui::PopStyleColor();
 		}
 
-		ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
-		if (ImGui::Begin("cba4gw2###CBA_FloatingWindow", &CurrentSettings.DetachedWindow, winFlags))
+		// ── Window 2: Sensor & Spectral Graph HUD Window ─────────────────────
+		if (CurrentSettings.ShowGraphWindow && ImGui::GetCurrentContext())
 		{
-			RenderFullDetachedWindow();
+			float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
+			ImGui::SetNextWindowBgAlpha(clampedOpacity * 0.45f);
+			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.06f, 0.10f, clampedOpacity * 0.45f));
+
+			if (s_resetGraphWindowPos)
+			{
+				ImVec2 disp = ImGui::GetIO().DisplaySize;
+				float w = 420.0f;
+				float h = 260.0f;
+				float posX = (disp.x > w) ? (disp.x - w - 40.0f) : 40.0f;
+				float posY = 80.0f;
+				ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
+				ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+				s_resetGraphWindowPos = false;
+			}
+			else
+			{
+				ImGui::SetNextWindowSize(ImVec2(420.0f, 260.0f), ImGuiCond_FirstUseEver);
+			}
+
+			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
+			if (ImGui::Begin("cba4gw2 - Sensor Graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow, winFlags))
+			{
+				RenderGraphWindow();
+			}
+			ImGui::End();
+			ImGui::PopStyleColor();
 		}
-		ImGui::End();
-		ImGui::PopStyleColor();
 	}
 
 	void AddonLoad(AddonAPI* aApi)
@@ -2272,6 +2359,13 @@ namespace
 			}
 			CurrentSettings = Settings::Load(AddonDir);
 
+			// Backward compatibility migration: If DetachedWindow was previously set, open Main Window
+			if (CurrentSettings.DetachedWindow)
+			{
+				CurrentSettings.ShowMainWindow = true;
+				CurrentSettings.DetachedWindow = false;
+			}
+
 			// Initialize hybrid background scanner
 			GetHybridScanner().Initialize();
 			GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
@@ -2283,12 +2377,11 @@ namespace
 				CurrentSettings.Enabled = false;
 			}
 
-			// Language defaults to 0 (Auto/Sys) via Settings struct — no override needed.
-
-			// Escape closes floating window
+			// Escape closes both windows
 			if (APIDefs->UI.RegisterCloseOnEscape)
 			{
-				APIDefs->UI.RegisterCloseOnEscape("cba4gw2###CBA_FloatingWindow", &CurrentSettings.DetachedWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
 			}
 
 			// Renderers
@@ -2304,10 +2397,11 @@ namespace
 				APIDefs->WndProc.Register(AddonWndProc);
 			}
 
-			// QuickAccess toolbar icon & window toggle keybind
+			// QuickAccess toolbar icon & window toggle keybinds (Clean, left-aligned names in Nexus!)
 			if (APIDefs->InputBinds.RegisterWithString)
 			{
-				APIDefs->InputBinds.RegisterWithString("KB_CBA_WINDOW", ProcessKeybind, "ALT+C");
+				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+ALT+C");
+				APIDefs->InputBinds.RegisterWithString("CBA - Sensor Graph", ProcessKeybind, "SHIFT+ALT+C");
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{
@@ -2315,7 +2409,7 @@ namespace
 			}
 			if (APIDefs->QuickAccess.Add && CurrentSettings.ShowQuickAccessIcon)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "KB_CBA_WINDOW", "cba4gw2 (ALT+C)");
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (CTRL+ALT+C)");
 			}
 
 			// Start state watchdog thread (monitors focus transitions every 50ms)
@@ -2350,6 +2444,8 @@ namespace
 				}
 				if (APIDefs->InputBinds.Deregister)
 				{
+					APIDefs->InputBinds.Deregister("CBA - Main Window");
+					APIDefs->InputBinds.Deregister("CBA - Sensor Graph");
 					APIDefs->InputBinds.Deregister("KB_CBA_WINDOW");
 				}
 				if (APIDefs->WndProc.Deregister)
@@ -2361,6 +2457,8 @@ namespace
 				}
 				if (APIDefs->UI.DeregisterCloseOnEscape)
 				{
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2###CBA_FloatingWindow");
 				}
 			}

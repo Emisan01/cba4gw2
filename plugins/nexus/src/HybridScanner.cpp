@@ -51,13 +51,13 @@ namespace cba
 
 	void HybridScanner::UpdateHardwareLoad(float aFps)
 	{
-		// Hardware Sensor Logic inspired by TAC
+		// Responsive scan rate to eliminate delayed ghosting/after-image
 		if (aFps > 45.0f) {
-			mDynamicScanIntervalMs = 100; // 10 FPS scan
+			mDynamicScanIntervalMs = 33; // ~30 FPS scan
 		} else if (aFps > 20.0f) {
-			mDynamicScanIntervalMs = 250; // 4 FPS scan (throttled)
+			mDynamicScanIntervalMs = 66; // ~15 FPS scan
 		} else {
-			mDynamicScanIntervalMs = 500; // 2 FPS scan (heavy load / zerg)
+			mDynamicScanIntervalMs = 150; // ~6.6 FPS scan (heavy load / zerg)
 		}
 	}
 
@@ -518,8 +518,8 @@ namespace cba
 			mScanRequestedTime = now;
 		}
 		else if (mScanState == ScanState::WaitingForGPU) {
-			// Wait 100ms before mapping to ensure GPU is done and prevent pipeline stall
-			if (now - mScanRequestedTime >= 100) {
+			// Wait 16ms (1 frame @ 60Hz) before mapping to ensure GPU is done and eliminate latency
+			if (now - mScanRequestedTime >= 16) {
 				LARGE_INTEGER start, end, freq;
 				QueryPerformanceFrequency(&freq);
 				QueryPerformanceCounter(&start);

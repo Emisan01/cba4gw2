@@ -43,7 +43,9 @@ namespace cba
 
 		float UiOpacity = 1.0f;
 		bool LoadOnStartup = false;
-		bool DetachedWindow = false;
+		bool ShowMainWindow = false;
+		bool ShowGraphWindow = false;
+		bool DetachedWindow = false; // backward compatibility
 		bool ShowQuickAccessIcon = true;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
