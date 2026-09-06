@@ -226,11 +226,20 @@ namespace cba
 						float db = static_cast<float>(b) - (target.b * 255.0f);
 						float dist = std::sqrt(dr*dr + dg*dg + db*db);
 
-						if (dist < 255.0f * tolerance) {
+						float effTol = (target.tolerance > 0.001f) ? target.tolerance : tolerance;
+						float coreDist = 255.0f * effTol;
+						float maxDist = coreDist * (1.0f + std::max(0.0f, target.diffusion));
+
+						if (dist < maxDist) {
 							highlight = true;
-							repR = target.repR;
-							repG = target.repG;
-							repB = target.repB;
+							float alpha = 1.0f;
+							if (dist > coreDist && target.diffusion > 0.001f) {
+								float t = (dist - coreDist) / (maxDist - coreDist);
+								alpha = 0.5f * (1.0f + std::cos(t * 3.1415926535f));
+							}
+							repR = static_cast<uint8_t>(std::clamp(target.repR * alpha, 0.0f, 255.0f));
+							repG = static_cast<uint8_t>(std::clamp(target.repG * alpha, 0.0f, 255.0f));
+							repB = static_cast<uint8_t>(std::clamp(target.repB * alpha, 0.0f, 255.0f));
 							break;
 						}
 					}

@@ -115,7 +115,7 @@ namespace cba
 			else if (key == "EnhancerHue")       s.EnhancerHue = safeStof(value, 60.0f);
 			else if (key == "EnhancerTol")       s.EnhancerTolerance = std::clamp(safeStof(value, 0.12f), 0.04f, 0.20f);
 			else if (key == "GammaGain")         s.GammaGain = std::clamp(safeStof(value, 1.0f), 0.70f, 1.30f);
-			else if (key == "UiOpacity")         s.UiOpacity = std::clamp(safeStof(value, 1.0f), 0.10f, 1.00f);
+			else if (key == "UiOpacity")         s.UiOpacity = std::clamp(safeStof(value, 1.0f), 0.00f, 1.00f);
 			else if (key == "GraphMode")         s.GraphMode = std::clamp(safeStoi(value, 0), 0, 2);
 			else if (key == "MainGraphMode")     s.MainGraphMode = std::clamp(safeStoi(value, 0), 0, 2);
 			else if (key == "AutoBrightness")    s.AutoBrightness = (value == "1");
@@ -123,14 +123,47 @@ namespace cba
 			else if (key == "LoadOnStartup")     s.LoadOnStartup = (value == "1");
 			else if (key == "ShowMainWindow")   s.ShowMainWindow = (value == "1");
 			else if (key == "ShowGraphWindow")  s.ShowGraphWindow = (value == "1");
-			else if (key == "DetachedWindow")   {
-				s.DetachedWindow = (value == "1");
-				if (s.DetachedWindow && !s.ShowMainWindow && !s.ShowGraphWindow) {
-					s.ShowMainWindow = true;
-				}
-			}
+			else if (key == "ShowLabWindow")    s.ShowLabWindow = (value == "1");
+			else if (key == "DetachedWindow")   s.DetachedWindow = (value == "1");
 			else if (key == "ShowQuickAccess")   s.ShowQuickAccessIcon = (value == "1");
 			else if (key == "SystemWide")        s.SystemWide = (value == "1");
+			else if (key == "FreeFilterEnabled") s.FreeFilterEnabled = (value == "1");
+			else if (key == "FreeFilterTargetR") s.FreeFilterTargetRgb[0] = safeStof(value, 0.25f);
+			else if (key == "FreeFilterTargetG") s.FreeFilterTargetRgb[1] = safeStof(value, 0.62f);
+			else if (key == "FreeFilterTargetB") s.FreeFilterTargetRgb[2] = safeStof(value, 0.30f);
+			else if (key == "FreeFilterReplaceR") s.FreeFilterReplaceRgb[0] = safeStof(value, 0.85f);
+			else if (key == "FreeFilterReplaceG") s.FreeFilterReplaceRgb[1] = safeStof(value, 0.28f);
+			else if (key == "FreeFilterReplaceB") s.FreeFilterReplaceRgb[2] = safeStof(value, 0.24f);
+			else if (key == "FreeFilterTolTones") s.FreeFilterToleranceTones = std::clamp(safeStof(value, 3.0f), 1.0f, 32.0f);
+			else if (key == "ContrastPairIdx")   s.ContrastPairIndex = std::clamp(safeStoi(value, 0), 0, 4);
+			else if (key == "LabModeEnabled")    s.LabModeEnabled = (value == "1");
+			else if (key == "SelectedLabFilter") s.SelectedLabFilterIndex = safeStoi(value, 0);
+			else if (key.rfind("LabFilter_", 0) == 0 && key.size() >= 12)
+			{
+				size_t underPos = key.find('_', 10);
+				if (underPos != std::string::npos)
+				{
+					int fIdx = safeStoi(key.substr(10, underPos - 10), -1);
+					if (fIdx >= 0)
+					{
+						if (fIdx >= (int)s.LabFilters.size())
+							s.LabFilters.resize(fIdx + 1);
+
+						std::string prop = key.substr(underPos + 1);
+						if (prop == "Enabled")       s.LabFilters[fIdx].Enabled = (value == "1");
+						else if (prop == "Name")     s.LabFilters[fIdx].Name = value;
+						else if (prop == "TargetR")  s.LabFilters[fIdx].TargetRgb[0] = safeStof(value, 0.25f);
+						else if (prop == "TargetG")  s.LabFilters[fIdx].TargetRgb[1] = safeStof(value, 0.62f);
+						else if (prop == "TargetB")  s.LabFilters[fIdx].TargetRgb[2] = safeStof(value, 0.30f);
+						else if (prop == "ReplaceR") s.LabFilters[fIdx].ReplaceRgb[0] = safeStof(value, 0.85f);
+						else if (prop == "ReplaceG") s.LabFilters[fIdx].ReplaceRgb[1] = safeStof(value, 0.28f);
+						else if (prop == "ReplaceB") s.LabFilters[fIdx].ReplaceRgb[2] = safeStof(value, 0.24f);
+						else if (prop == "TolTones") s.LabFilters[fIdx].ToleranceTones = std::clamp(safeStoi(value, 3), 1, 32);
+						else if (prop == "Diffusion")s.LabFilters[fIdx].Diffusion = std::clamp(safeStof(value, 0.35f), 0.0f, 1.0f);
+						else if (prop == "Action")   s.LabFilters[fIdx].ActionType = std::clamp(safeStoi(value, 0), 0, 3);
+					}
+				}
+			}
 			else if (key.rfind("Preset", 0) == 0 && key.size() >= 10)
 			{
 				int idx = key[6] - '0';
@@ -160,6 +193,35 @@ namespace cba
 				}
 			}
 		}
+
+		if (s.LabFilters.empty())
+		{
+			LabFilter f1;
+			f1.Enabled = true;
+			f1.Name = "Gruen zu Signal-Rot";
+			f1.TargetRgb[0] = 0.25f; f1.TargetRgb[1] = 0.62f; f1.TargetRgb[2] = 0.30f; // #3f9d4d
+			f1.ReplaceRgb[0] = 0.85f; f1.ReplaceRgb[1] = 0.28f; f1.ReplaceRgb[2] = 0.24f; // #d9463c
+			f1.ToleranceTones = 3;
+			f1.Diffusion = 0.35f;
+			f1.ActionType = 0;
+			s.LabFilters.push_back(f1);
+
+			LabFilter f2;
+			f2.Enabled = false;
+			f2.Name = "Blau zu Cyan-Kontrast";
+			f2.TargetRgb[0] = 0.21f; f2.TargetRgb[1] = 0.44f; f2.TargetRgb[2] = 0.80f; // #3670cc
+			f2.ReplaceRgb[0] = 0.15f; f2.ReplaceRgb[1] = 0.68f; f2.ReplaceRgb[2] = 0.74f; // #26aebd
+			f2.ToleranceTones = 3;
+			f2.Diffusion = 0.40f;
+			f2.ActionType = 1;
+			s.LabFilters.push_back(f2);
+		}
+
+		// Always start with windows closed on startup — user reopens them via Nexus icon or hotkey
+		s.ShowMainWindow = false;
+		s.ShowGraphWindow = false;
+		s.ShowLabWindow = false;
+		s.DetachedWindow = false;
 
 		return s;
 	}
@@ -203,9 +265,37 @@ namespace cba
 		file << "LoadOnStartup=" << (LoadOnStartup ? "1" : "0") << "\n";
 		file << "ShowMainWindow=" << (ShowMainWindow ? "1" : "0") << "\n";
 		file << "ShowGraphWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";
+		file << "ShowLabWindow=" << (ShowLabWindow ? "1" : "0") << "\n";
 		file << "DetachedWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";
 		file << "ShowQuickAccess=" << (ShowQuickAccessIcon ? "1" : "0") << "\n";
 		file << "SystemWide=" << (SystemWide ? "1" : "0") << "\n";
+		file << "FreeFilterEnabled=" << (FreeFilterEnabled ? "1" : "0") << "\n";
+		file << "FreeFilterTargetR=" << FreeFilterTargetRgb[0] << "\n";
+		file << "FreeFilterTargetG=" << FreeFilterTargetRgb[1] << "\n";
+		file << "FreeFilterTargetB=" << FreeFilterTargetRgb[2] << "\n";
+		file << "FreeFilterReplaceR=" << FreeFilterReplaceRgb[0] << "\n";
+		file << "FreeFilterReplaceG=" << FreeFilterReplaceRgb[1] << "\n";
+		file << "FreeFilterReplaceB=" << FreeFilterReplaceRgb[2] << "\n";
+		file << "FreeFilterTolTones=" << FreeFilterToleranceTones << "\n";
+		file << "ContrastPairIdx=" << ContrastPairIndex << "\n";
+		file << "LabModeEnabled=" << (LabModeEnabled ? "1" : "0") << "\n";
+		file << "SelectedLabFilter=" << SelectedLabFilterIndex << "\n";
+
+		file << "\n[LabFilters]\n";
+		for (size_t i = 0; i < LabFilters.size(); ++i)
+		{
+			file << "LabFilter_" << i << "_Enabled=" << (LabFilters[i].Enabled ? "1" : "0") << "\n";
+			file << "LabFilter_" << i << "_Name=" << LabFilters[i].Name << "\n";
+			file << "LabFilter_" << i << "_TargetR=" << LabFilters[i].TargetRgb[0] << "\n";
+			file << "LabFilter_" << i << "_TargetG=" << LabFilters[i].TargetRgb[1] << "\n";
+			file << "LabFilter_" << i << "_TargetB=" << LabFilters[i].TargetRgb[2] << "\n";
+			file << "LabFilter_" << i << "_ReplaceR=" << LabFilters[i].ReplaceRgb[0] << "\n";
+			file << "LabFilter_" << i << "_ReplaceG=" << LabFilters[i].ReplaceRgb[1] << "\n";
+			file << "LabFilter_" << i << "_ReplaceB=" << LabFilters[i].ReplaceRgb[2] << "\n";
+			file << "LabFilter_" << i << "_TolTones=" << LabFilters[i].ToleranceTones << "\n";
+			file << "LabFilter_" << i << "_Diffusion=" << LabFilters[i].Diffusion << "\n";
+			file << "LabFilter_" << i << "_Action=" << LabFilters[i].ActionType << "\n";
+		}
 
 		file << "\n[Presets]\n";
 		for (int i = 0; i < 3; ++i)

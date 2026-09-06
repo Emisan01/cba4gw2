@@ -140,7 +140,7 @@ namespace cba
 
 	void ColorMatrix::CorrectionMatrix(DeficiencyType aType, double aSeverity01, double aOut3x3[3][3])
 	{
-		double clampedSev = Clamp01(aSeverity01);
+		double clampedSev = std::clamp(aSeverity01, 0.0, 1.25);
 		if (clampedSev <= 0.0001)
 		{
 			CopyMatrix(Identity3, aOut3x3);

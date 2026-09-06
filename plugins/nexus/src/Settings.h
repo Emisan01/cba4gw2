@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include "ColorMatrix.h"
 
 namespace cba
@@ -45,15 +46,39 @@ namespace cba
 		int GraphMode = 0; // 0 = Polygonal (PWL), 1 = Harmonisch (Gauss/LMS), 2 = Strahlen (Ray Scope) - HUD / Detached
 		int MainGraphMode = 0; // Independent Graph Mode for Main Window
 		bool AutoBrightness = false; // When true, GammaGain follows recommended retention dynamically
-		bool AlwaysDirectStart = false; // When true, skips Safe-Start gate
+		bool AlwaysDirectStart = true; // When true, skips Safe-Start gate unless an actual crash occurred
 		bool CleanExit = true; // Set to 0 at runtime, set to 1 on graceful exit
 		bool SafeModeTriggered = false; // Runtime flag: true if previous run crashed
 		bool LoadOnStartup = false;
 		bool ShowMainWindow = false;
 		bool ShowGraphWindow = false;
+		bool ShowLabWindow = false;
 		bool DetachedWindow = false; // backward compatibility
 		bool ShowQuickAccessIcon = true;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
+
+		// Free-Filter-Design (Selective Color Isolation & Shift with Krita-style Hue Wheel)
+		bool FreeFilterEnabled = false;
+		float FreeFilterTargetRgb[3] = { 0.25f, 0.62f, 0.30f };  // Default Ziel: GW2 Grün #3f9d4d
+		float FreeFilterReplaceRgb[3] = { 0.85f, 0.28f, 0.24f }; // Default Ersatz: GW2 Rot #d9463c
+		float FreeFilterToleranceTones = 3.0f; // ±3 Töne / Farbstufen (Default Schwellenwert)
+		int ContrastPairIndex = 0; // 0=Blau/Grün, 1=Rot/Grün, 2=Gelb/Blau, 3=Cyan/Blau, 4=Orange/Rot
+
+		// Filter-Labor & Experimentierfeld (Stackable custom filter instances with precision radius & diffusion)
+		struct LabFilter
+		{
+			bool Enabled = true;
+			std::string Name = "Filter 1";
+			float TargetRgb[3] = { 0.25f, 0.62f, 0.30f };  // Ziel-Farbe
+			float ReplaceRgb[3] = { 0.85f, 0.28f, 0.24f }; // Signal-/Ersatzfarbe
+			int ToleranceTones = 3;                       // Begrenzungsradius (±1 bis ±32 Töne)
+			float Diffusion = 0.35f;                      // Leichte Diffusion / Feathering (0.0 bis 1.0)
+			int ActionType = 0;                           // 0=Signal-Farbe, 1=Auto-Komplementär, 2=Invertieren, 3=Luminanz-Boost
+		};
+
+		bool LabModeEnabled = false;
+		int SelectedLabFilterIndex = 0;
+		std::vector<LabFilter> LabFilters;
 
 		// 3 User-Saved Color Correction Profiles
 		struct ProfileSlot

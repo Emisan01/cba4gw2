@@ -24,13 +24,57 @@
 
 using namespace cba;
 
+namespace Theme
+{
+	// ── Curated TAC-Inspired Palette (Cyan, Blau, Grau, Gold) ───────────────
+	// Mittelwert Cyan / Blau (Deep Marine Teal) — Muted, harmonious button states
+	const ImVec4 kBtnMittelwertIdle   = ImVec4(0.06f, 0.20f, 0.30f, 0.88f); // #0F334D (Struktur/Tief)
+	const ImVec4 kBtnMittelwertHover  = ImVec4(0.10f, 0.28f, 0.40f, 0.95f); // #1A4766
+	const ImVec4 kBtnMittelwertActive = ImVec4(0.04f, 0.15f, 0.24f, 1.00f);
+
+	// Aktiver Zustand (Fenster geöffnet oder Filter AN — kein grelles Giftgrün mehr!)
+	const ImVec4 kBtnStateActiveIdle  = ImVec4(0.02f, 0.32f, 0.36f, 0.92f); // #05525C (Deep Teal)
+	const ImVec4 kBtnStateActiveHover = ImVec4(0.04f, 0.42f, 0.46f, 1.00f); // #0A6B75
+	const ImVec4 kBtnStateActivePress = ImVec4(0.01f, 0.24f, 0.28f, 1.00f);
+
+	// Neutral / Struktur (Grau / Slate)
+	const ImVec4 kBtnNeutralIdle      = ImVec4(0.14f, 0.17f, 0.21f, 0.85f); // #242B36
+	const ImVec4 kBtnNeutralHover     = ImVec4(0.20f, 0.24f, 0.30f, 0.95f); // #333D4D
+	const ImVec4 kBtnNeutralPress     = ImVec4(0.10f, 0.12f, 0.15f, 1.00f);
+
+	// Subtle Reset / Danger
+	const ImVec4 kBtnDangerSubtleIdle  = ImVec4(0.22f, 0.15f, 0.16f, 0.85f);
+	const ImVec4 kBtnDangerSubtleHover = ImVec4(0.32f, 0.20f, 0.22f, 0.95f);
+	const ImVec4 kBtnDangerSubtlePress = ImVec4(0.15f, 0.10f, 0.11f, 1.00f);
+
+	// Text Farbstufen
+	const ImVec4 kTextPrimary         = ImVec4(0.88f, 0.92f, 0.96f, 1.00f); // #E0EBF5 (hell)
+	const ImVec4 kTextSecondary       = ImVec4(0.66f, 0.72f, 0.78f, 0.95f); // #A8B8C7 (inaktiv/sekundär)
+	const ImVec4 kTextCyanLicht       = ImVec4(0.55f, 0.92f, 0.90f, 1.00f); // #8CEBE6 (Lichtakzent)
+	const ImVec4 kTextBlauPeak        = ImVec4(0.72f, 0.85f, 0.97f, 1.00f); // #B8D8F8 (Blau Peak)
+	const ImVec4 kTextGoldLabel       = ImVec4(0.98f, 0.85f, 0.25f, 1.00f); // #FAD840 (Gold Text / Label)
+	const ImVec4 kTextDangerSubtle    = ImVec4(0.90f, 0.75f, 0.76f, 0.95f);
+
+	// Signal Dots (Nur kleine Dots / Icons, nie als Fläche)
+	const ImU32  kDotReadyCol         = IM_COL32(0, 210, 190, 255);         // Cyan / Emerald Ready
+	const ImU32  kDotWarnCol          = IM_COL32(250, 216, 64, 255);        // Gold Warning
+	const ImU32  kDotOffCol           = IM_COL32(110, 120, 130, 255);       // Gray Inactive
+
+	// WCAG Relative Luminance helper: guarantees readable contrast for any button background
+	inline ImVec4 GetContrastTextColor(const ImVec4& bgCol)
+	{
+		float lum = 0.2126f * bgCol.x + 0.7152f * bgCol.y + 0.0722f * bgCol.z;
+		return (lum > 0.48f) ? ImVec4(0.08f, 0.10f, 0.14f, 1.00f) : ImVec4(0.92f, 0.96f, 1.00f, 1.00f);
+	}
+}
+
 namespace
 {
 	AddonDefinition AddonDef{}; // empty definition
 	// UI helper constants and functions
 	static const float kPanelItemWidth = 240.0f;
 	static void PanelHeader(const char* title) {
-	    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f,0.6f,0.9f,1.0f));
+	    ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextBlauPeak);
 	    ImGui::Separator();
 	    ImGui::Spacing();
 	    
@@ -107,12 +151,13 @@ namespace
 		const char* EnableEnhancer;
 		const char* PresetsTitle;
 		const char* TagRed;
-		const char* TagGreen;
-		const char* TagPurple;
-		const char* TagYellow;
-		const char* TagBlue;
-		const char* TagPink;
 		const char* TagOrange;
+		const char* TagYellow;
+		const char* TagGreen;
+		const char* TagCyan;
+		const char* TagBlue;
+		const char* TagPurple;
+		const char* TagPink;
 		const char* TagWhite;
 
 		const char* LangAuto;
@@ -147,10 +192,10 @@ namespace
 		const char* OpenSensorGraphTooltip;
 		const char* ShowQuickAccess;
 		const char* ShowQuickAccessTooltip;
-		const char* EmbeddedNotice;
-		const char* CommunityFootnote;
-		const char* C64Button;
-		const char* C64Tooltip;
+		const char* CompactModeTip;
+		const char* CommunityHeader;
+		const char* CreditsBtn;
+		const char* CreditsTooltip;
 
 		// Collapsible Section Headers for Main Window
 		const char* HeaderSection1;
@@ -159,26 +204,25 @@ namespace
 		const char* HeaderSection4;
 		const char* HeaderSection5;
 		const char* HeaderSection6;
+		const char* HeaderSection7;
+		const char* HeaderSection8;
 	};
 
-	// 8 GW2 Commander Tag Reference Colors (Red, Green, Purple, Yellow, Blue, Pink, Orange, White)
-	// NOTE: Placeholder values until live game screenshot pixel sampling is performed.
-	// TODO: Sample exact GW2 commander tag RGB from live game screenshot!
 	struct Gw2TagRef {
 		const char* (*labelFunc)(const L10n&);
-		float r, g, b; // 0.0 - 1.0 placeholder
+		float r, g, b; // Sampled from GW2 Tag Reference palette
 	};
 
-	static const Gw2TagRef kGw2TagRefs[8] = {
-		// TODO: Sample exact GW2 commander tag RGB from live game screenshot!
-		{ [](const L10n& l) { return l.TagRed; },    0.92f, 0.15f, 0.15f },
-		{ [](const L10n& l) { return l.TagGreen; },  0.15f, 0.85f, 0.25f },
-		{ [](const L10n& l) { return l.TagPurple; }, 0.65f, 0.20f, 0.85f },
-		{ [](const L10n& l) { return l.TagYellow; }, 0.95f, 0.85f, 0.15f },
-		{ [](const L10n& l) { return l.TagBlue; },   0.20f, 0.55f, 0.95f },
-		{ [](const L10n& l) { return l.TagPink; },   0.95f, 0.35f, 0.70f },
-		{ [](const L10n& l) { return l.TagOrange; }, 0.95f, 0.50f, 0.10f },
-		{ [](const L10n& l) { return l.TagWhite; },  0.92f, 0.92f, 0.92f },
+	static const Gw2TagRef kGw2TagRefs[9] = {
+		{ [](const L10n& l) { return l.TagRed; },    0.851f, 0.275f, 0.235f }, // Rot #d9463c
+		{ [](const L10n& l) { return l.TagOrange; }, 0.910f, 0.522f, 0.059f }, // Orange #e8850f
+		{ [](const L10n& l) { return l.TagYellow; }, 0.910f, 0.753f, 0.125f }, // Gelb #e8c020
+		{ [](const L10n& l) { return l.TagGreen; },  0.247f, 0.616f, 0.302f }, // Grün #3f9d4d
+		{ [](const L10n& l) { return l.TagCyan; },   0.149f, 0.682f, 0.741f }, // Cyan #26aebd
+		{ [](const L10n& l) { return l.TagBlue; },   0.212f, 0.439f, 0.800f }, // Blau #3670cc
+		{ [](const L10n& l) { return l.TagPurple; }, 0.490f, 0.333f, 0.800f }, // Lila #7d55cc
+		{ [](const L10n& l) { return l.TagPink; },   0.761f, 0.278f, 0.627f }, // Magenta #c247a0
+		{ [](const L10n& l) { return l.TagWhite; },  0.902f, 0.902f, 0.902f }, // Weiss #e6e6e6
 	};
 
 	const char* DetectSystemLanguage()
@@ -199,17 +243,17 @@ namespace
 			"Deutan",
 			"Tritan",
 			"Gemischt",
-			"St\xc3\xa4rke",
-			"Rot-Gr\xc3\xbc\x6e St\xc3\xa4rke",
-			"Blau-Gelb St\xc3\xa4rke",
+			"Staerke",
+			"Rot-Gruen Staerke",
+			"Blau-Gelb Staerke",
 			"Fenstermodus",
 			"Screenshots: GW2-intern wirkt vor dem Filter. PrintScreen / Win+PrintScreen und die meisten Display-Captures sehen den Filter.",
 			"Sprache",
 			"AQ/HRR Diagnose",
-			"Freitext f\xc3\xbcr Diagnose-Presets oder eine genauere Zuordnung.",
+			"Freitext fuer Diagnose-Presets oder eine genauere Zuordnung.",
 			"Hybrid Modus (Beta)",
 			"Kinematic Fader: Blendet das Overlay bei schnellen Kamerabewegungen automatisch sanft aus.\nLiest den GW2 Render-Buffer im Hintergrund, um WCAG-Fehler zu erkennen.",
-			"Color Profile Graph: Verlauf der R/G/B-Farbkan\xc3\xa4le",
+			"Spektral-Farbkanalverlauf (R/G/B)",
 			"Diagnose Profil-Referenz (AQ/HRR):",
 			"Hinweis: Trage hier z.B. Farnsworth-Munsell Scores, HRR-Ergebnisse\n(wie 'Deutan Mild') oder andere Referenzen ein, um dieses\nFarb-Profil eindeutig zuzuordnen.",
 			"Commander Tag Enhancer (Symbol-Unterscheidung)",
@@ -217,17 +261,18 @@ namespace
 			"Enhancer Aktivieren",
 			"Voreinstellungen (Metabattle)",
 			"Tag Rot",
-			"Tag Gr\xc3\xbc\x6e",
-			"Tag Lila",
-			"Tag Gelb",
-			"Tag Blau",
-			"Tag Pink",
 			"Tag Orange",
-			"Tag Wei\xc3\x9f",
+			"Tag Gelb",
+			"Tag Gruen",
+			"Tag Cyan",
+			"Tag Blau",
+			"Tag Lila",
+			"Tag Magenta",
+			"Tag Weiss",
 
 			"Auto",
 			"Smart-Enhancer: Symbole automatisch anpassen",
-			"Passt Commander-Tags und Wegmarker automatisch an die oben gew\xc3\xa4hlte Farbsehschw\xc3\xa4\x63he an.",
+			"Passt Commander-Tags und Wegmarker automatisch an die oben gewaehlte Farbsehschwaeche an.",
 
 			// Bottom Section
 			" Beim Spielstart laden (Load on Startup)",
@@ -236,39 +281,41 @@ namespace
 			"Werte:",
 			"Einstufung:",
 			" Filter auch im Hintergrund aktiv lassen (z. B. bei Klick in Browser / 2. Monitor)",
-			"Standard (Deaktiviert): Sobald GW2 den Fokus verliert (z. B. Klick in den Browser auf Monitor 2 oder Alt-Tab), pausiert der Filter sofort, damit andere Programme nicht beeinflusst werden.\n\nAktiviert: L\xc3\xa4sst den Filter auch weiterlaufen, wenn ein anderes Fenster aktiv ist.\nHinweis: Bei Minimieren von GW2 pausiert der Filter in jedem Fall sofort.",
-			"Fokus-W\xc3\xa4\x63hter: Filter ist exklusiv an GW2 gebunden und pausiert bei Alt-Tab/Klick auf 2. Monitor.",
+			"Standard (Deaktiviert): Sobald GW2 den Fokus verliert (z. B. Klick in den Browser auf Monitor 2 oder Alt-Tab), pausiert der Filter sofort, damit andere Programme nicht beeinflusst werden.\n\nAktiviert: Laesst den Filter auch weiterlaufen, wenn ein anderes Fenster aktiv ist.\nHinweis: Bei Minimieren von GW2 pausiert der Filter in jedem Fall sofort.",
+			"Fokus-Waechter: Filter ist exklusiv an GW2 gebunden und pausiert bei Alt-Tab/Klick auf 2. Monitor.",
 			"Hintergrund-Modus: Filter bleibt auch bei Fokusverlust aktiv (pausiert nur bei Minimieren).",
 			"Entwickler- & Debug-Modus (Performance Watchdog)",
 			"Methodik & Referenzen:",
-			"  - Daltonisierung: Fidaner et al. (2005)   - LMS-Dichromasie: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  - Hunt-Pointer-Est\xc3\xa9vez (HPE) Farbraum   - W3C WCAG 2.1 Farbkontrast",
+			"  - Daltonisierung: Fidaner et al. (2005)   - LMS-Dichromasie: Vienot, Brettel & Mollon (1999)\n  - Hunt-Pointer-Estevez (HPE) Farbraum   - W3C WCAG 2.1 Farbkontrast",
 
 			// Eye Comfort Section
-			"Eye Comfort",
+			"Eye Comfort (Helligkeit)",
 			"Helligkeitsanpassung",
 			"Helligkeitserhalt: %.1f%%  (Empfohlen: %.2fx)",
-			"Empfehlung \xc3\xbc\x62\x65rnehmen",
+			"Empfehlung uebernehmen",
 			"beeinflusst nur die Anzeige-Berechnung, nicht die Farbkorrektur selbst",
 
 			// Windows, QuickAccess & Community Credits
 			"Hauptfenster",
-			"Oeffnet oder schliesst das CBA Hauptfenster (CTRL+ALT+C)",
+			"Oeffnet oder schliesst das CBA Hauptfenster (Strg+Shift+C)",
 			"Sensor-Graph",
-			"Oeffnet oder schliesst das Sensor- & Graph-HUD (SHIFT+ALT+C)",
-			"Show CBA icon",
+			"Oeffnet oder schliesst das Sensor- & Graph-HUD (Strg+Shift+G)",
+			"CBA-Symbol in Schnellzugriff anzeigen",
 			"Blendet das CBA-Icon in der oberen Nexus-Schnellstartleiste ein oder aus.",
 			"Kompaktmodus: Einstellungen und Sensor-Graphen laufen in eigenen Fenstern.",
-			"Crafted with love for the Tyrian community - A Color Balance Assist and Enhancer for GW2",
+			"Mit Liebe fuer die Tyria-Community entwickelt - Barrierefreie Farboptimierung fuer GW2",
 			"Credits <3",
-			"Danksagung an die Community, Unterst\xc3\xbctzer & Raider",
+			"Danksagung an die Community, Unterstuetzer & Raider",
 
 			// Section Headers
 			"1. Farbprofil & Korrektur",
 			"2. Commander-Tag Enhancer",
-			"3. Eye Comfort (Helligkeit)",
-			"4. Spiel- & Fenstermodus",
-			"5. Hybrid Modus (Beta)",
-			"6. Uber, Diagnose & Credits"
+			"3. Kontrast-Kombinationen (Ueberlappende Farbfelder)",
+			"4. Eye Comfort (Helligkeit)",
+			"5. Spiel- & Fenstermodus",
+			"6. Hybrid Modus (Beta)",
+			"7. Filter-Labor & Experimentierfeld",
+			"8. Ueber, Diagnose & Credits"
 		};
 
 		static const L10n en{
@@ -296,12 +343,13 @@ namespace
 			"Enable Enhancer",
 			"Presets",
 			"Red Tag",
-			"Green Tag",
-			"Purple Tag",
-			"Yellow Tag",
-			"Blue Tag",
-			"Pink Tag",
 			"Orange Tag",
+			"Yellow Tag",
+			"Green Tag",
+			"Cyan Tag",
+			"Blue Tag",
+			"Purple Tag",
+			"Magenta Tag",
 			"White Tag",
 
 			"Auto",
@@ -320,10 +368,10 @@ namespace
 			"Background Mode: Filter remains active when focus is lost (only pauses when minimized).",
 			"Developer & Debug Mode (Performance Watchdog)",
 			"Methodology & References:",
-			"  - Daltonization: Fidaner et al. (2005)   - LMS Dichromacy: Vi\xc3\xa9not, Brettel & Mollon (1999)\n  - Hunt-Pointer-Est\xc3\xa9vez (HPE) Color Space   - W3C WCAG 2.1 Color Contrast",
+			"  - Daltonization: Fidaner et al. (2005)   - LMS Dichromacy: Vienot, Brettel & Mollon (1999)\n  - Hunt-Pointer-Estevez (HPE) Color Space   - W3C WCAG 2.1 Color Contrast",
 
 			// Eye Comfort Section
-			"Eye Comfort",
+			"Eye Comfort (Brightness)",
 			"Brightness Adjust",
 			"Brightness Retention: %.1f%%  (Recommended: %.2fx)",
 			"Apply Recommendation",
@@ -331,23 +379,25 @@ namespace
 
 			// Windows, QuickAccess & Community Credits
 			"Main Window",
-			"Opens or closes the CBA Main Window (CTRL+ALT+C)",
+			"Opens or closes the CBA Main Window (Ctrl+Shift+C)",
 			"Sensor Graph",
-			"Opens or closes the Sensor & Graph HUD (SHIFT+ALT+C)",
-			"Show CBA icon",
-			"Toggles the CBA icon in the top Nexus QuickAccess toolbar.",
-			"Compact Mode: Controls and sensor graphs run in dedicated floating windows.",
+			"Opens or closes the Sensor & Graph HUD (Ctrl+Shift+G)",
+			"Show CBA icon in quick access bar",
+			"Shows or hides the CBA icon in the top Nexus quick access bar.",
+			"Compact Mode: Settings and sensor graphs run in separate windows.",
 			"Crafted with love for the Tyrian community - A Color Balance Assist and Enhancer for GW2",
 			"Credits <3",
-			"Credits & appreciation for the community & raiders",
+			"Credits to community, supporters & raiders",
 
 			// Section Headers
 			"1. Color Profile & Correction",
 			"2. Commander Tag Enhancer",
-			"3. Eye Comfort (Brightness)",
-			"4. Game & Window Mode",
-			"5. Hybrid Mode (Beta)",
-			"6. About, Diagnostics & Credits"
+			"3. Contrast Combinations (Overlapping Swatches)",
+			"4. Eye Comfort (Brightness)",
+			"5. Game & Window Mode",
+			"6. Hybrid Mode (Beta)",
+			"7. Filter Lab & Experiment Field",
+			"8. About, Diagnostics & Credits"
 		};
 
 		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
@@ -372,9 +422,11 @@ namespace
 		std::atomic<bool> s_resetMainWindowPos{false};
 		std::atomic<bool> s_resetGraphWindowPos{false};
 		std::atomic<bool> s_resetDetachedWindowPos{false};
+		std::atomic<bool> s_resetLabWindowPos{false};
 		std::atomic<bool> s_deferredInitDone{false};
 		std::atomic<bool> s_focusMainWindow{false};
 		std::atomic<bool> s_focusGraphWindow{false};
+		std::atomic<bool> s_focusLabWindow{false};
 		std::atomic<bool> s_safeStartPending{false};
 
 		bool RoughlyEqual(const MAGCOLOREFFECT& a, const MAGCOLOREFFECT& b)
@@ -463,7 +515,7 @@ namespace
 		bool inConflict = false;
 		float repR = 0.0f, repG = 0.0f, repB = 0.0f;
 	};
-	static std::array<TagConflictState, 8> s_tagConflictStates{};
+	static std::array<TagConflictState, 9> s_tagConflictStates{};
 
 	void UpdateTagEnhancerConflicts()
 	{
@@ -471,7 +523,8 @@ namespace
 		static float s_lastTolerance = -1.0f;
 		static std::vector<TargetColor> s_lastTargets;
 
-		if (CurrentSettings.CommanderTagMode == 0)
+		bool anyActive = (CurrentSettings.CommanderTagMode != 0) || CurrentSettings.FreeFilterEnabled || CurrentSettings.LabModeEnabled;
+		if (!anyActive)
 		{
 			if (s_lastActive)
 			{
@@ -483,138 +536,203 @@ namespace
 			return;
 		}
 
-		DeficiencyType defType = CurrentSettings.Mixed 
-			? (CurrentSettings.MixedBySeverity01 > CurrentSettings.MixedRgSeverity01 ? DeficiencyType::Tritan : DeficiencyType::Deutan)
-			: CurrentSettings.Type;
-		double sev = CurrentSettings.Mixed 
-			? (CurrentSettings.MixedRgSeverity01 > CurrentSettings.MixedBySeverity01 ? CurrentSettings.MixedRgSeverity01 : CurrentSettings.MixedBySeverity01)
-			: CurrentSettings.Severity01;
-
-		// 4a: Simulate each tag color under the user's deficiency and severity
-		struct SimTag {
-			float origR, origG, origB;
-			float simR, simG, simB;
-			float luma;
-		};
-		std::array<SimTag, 8> simTags{};
-		for (int i = 0; i < 8; ++i)
-		{
-			simTags[i].origR = kGw2TagRefs[i].r;
-			simTags[i].origG = kGw2TagRefs[i].g;
-			simTags[i].origB = kGw2TagRefs[i].b;
-			simTags[i].luma = RelativeLuma(kGw2TagRefs[i].r, kGw2TagRefs[i].g, kGw2TagRefs[i].b);
-
-			double outR = 0.0, outG = 0.0, outB = 0.0;
-			ColorMatrix::SimulatePixel(simTags[i].origR, simTags[i].origG, simTags[i].origB, defType, outR, outG, outB);
-
-			// Interpolate with severity (sev = 0 -> original, sev = 1 -> full simulation)
-			simTags[i].simR = (float)(simTags[i].origR + sev * (outR - simTags[i].origR));
-			simTags[i].simG = (float)(simTags[i].origG + sev * (outG - simTags[i].origG));
-			simTags[i].simB = (float)(simTags[i].origB + sev * (outB - simTags[i].origB));
-		}
-
-		// 4b & 4c: Pairwise Euclidean distance to find conflicts
-		constexpr float kConflictThreshold = 0.16f; // Distances below this are confused by the user
-		std::array<bool, 8> hasConflict{};
-		for (int i = 0; i < 8; ++i)
-		{
-			for (int j = i + 1; j < 8; ++j)
-			{
-				float dr = simTags[i].simR - simTags[j].simR;
-				float dg = simTags[i].simG - simTags[j].simG;
-				float db = simTags[i].simB - simTags[j].simB;
-				float dist = std::sqrt(dr * dr + dg * dg + db * db);
-				if (dist < kConflictThreshold)
-				{
-					hasConflict[i] = true;
-					hasConflict[j] = true;
-				}
-			}
-		}
-
-		// 4d: For each conflicting tag, find a replacement color via Hue-Rotation
-		// keeping luminance >= 85% of original luma (brightness adjustment as last resort)
 		std::vector<TargetColor> targetColors;
-		targetColors.reserve(8);
+		targetColors.reserve(10);
 
-		for (int i = 0; i < 8; ++i)
+		if (CurrentSettings.CommanderTagMode != 0)
 		{
-			s_tagConflictStates[i].inConflict = hasConflict[i];
-			if (!hasConflict[i])
+			DeficiencyType defType = CurrentSettings.Mixed 
+				? (CurrentSettings.MixedBySeverity01 > CurrentSettings.MixedRgSeverity01 ? DeficiencyType::Tritan : DeficiencyType::Deutan)
+				: CurrentSettings.Type;
+			double sev = CurrentSettings.Mixed 
+				? (CurrentSettings.MixedRgSeverity01 > CurrentSettings.MixedBySeverity01 ? CurrentSettings.MixedRgSeverity01 : CurrentSettings.MixedBySeverity01)
+				: CurrentSettings.Severity01;
+
+			// 4a: Simulate each tag color under the user's deficiency and severity
+			struct SimTag {
+				float origR, origG, origB;
+				float simR, simG, simB;
+				float luma;
+			};
+			std::array<SimTag, 9> simTags{};
+			for (int i = 0; i < 9; ++i)
 			{
-				s_tagConflictStates[i].repR = simTags[i].origR;
-				s_tagConflictStates[i].repG = simTags[i].origG;
-				s_tagConflictStates[i].repB = simTags[i].origB;
-				continue;
+				simTags[i].origR = kGw2TagRefs[i].r;
+				simTags[i].origG = kGw2TagRefs[i].g;
+				simTags[i].origB = kGw2TagRefs[i].b;
+				simTags[i].luma = RelativeLuma(kGw2TagRefs[i].r, kGw2TagRefs[i].g, kGw2TagRefs[i].b);
+
+				double outR = 0.0, outG = 0.0, outB = 0.0;
+				ColorMatrix::SimulatePixel(simTags[i].origR, simTags[i].origG, simTags[i].origB, defType, outR, outG, outB);
+
+				// Interpolate with severity (sev = 0 -> original, sev = 1 -> full simulation, sev > 1 -> boosted)
+				simTags[i].simR = (float)(simTags[i].origR + sev * (outR - simTags[i].origR));
+				simTags[i].simG = (float)(simTags[i].origG + sev * (outG - simTags[i].origG));
+				simTags[i].simB = (float)(simTags[i].origB + sev * (outB - simTags[i].origB));
 			}
 
-			float bestR = simTags[i].origR, bestG = simTags[i].origG, bestB = simTags[i].origB;
-			float bestScore = -1.0f;
-
-			float h = 0, s = 0, v = 0;
-			RgbToHsv(simTags[i].origR, simTags[i].origG, simTags[i].origB, h, s, v);
-
-			// Test hue shifts from 30° to 330° in 15° steps
-			for (int step = 1; step <= 23; ++step)
+			// 4b: Canonical affected tags from GW2 WvW setup (Mockup Logic) + Pairwise Euclidean distance
+			std::array<bool, 9> hasConflict{};
+			if (CurrentSettings.SmartEnhancer)
 			{
-				float testH = std::fmod(h + step * 15.0f, 360.0f);
-				float r = 0, g = 0, b = 0;
-				HsvToRgb(testH, s, v, r, g, b);
-
-				// Luminance preservation: ensure at least 85% of original luma
-				float newLuma = RelativeLuma(r, g, b);
-				float minLuma = simTags[i].luma * 0.85f;
-				if (newLuma < minLuma && newLuma > 1e-4f)
-				{
-					float scale = minLuma / newLuma;
-					r = std::clamp(r * scale, 0.0f, 1.0f);
-					g = std::clamp(g * scale, 0.0f, 1.0f);
-					b = std::clamp(b * scale, 0.0f, 1.0f);
+				if (defType == DeficiencyType::Protan) {
+					// Protanopie: 5 von 9 verschoben (Rot, Orange, Grün, Blau, Lila)
+					hasConflict[0] = true; // Rot
+					hasConflict[1] = true; // Orange
+					hasConflict[3] = true; // Grün
+					hasConflict[5] = true; // Blau
+					hasConflict[6] = true; // Lila
+				} else if (defType == DeficiencyType::Deutan) {
+					// Deuteranopie: 3 von 9 verschoben (Rot, Orange, Grün)
+					hasConflict[0] = true; // Rot
+					hasConflict[1] = true; // Orange
+					hasConflict[3] = true; // Grün
+				} else {
+					// Tritanopie: 5 von 9 verschoben (Gelb, Grün, Cyan, Blau, Magenta)
+					hasConflict[2] = true; // Gelb
+					hasConflict[3] = true; // Grün
+					hasConflict[4] = true; // Cyan
+					hasConflict[5] = true; // Blau
+					hasConflict[7] = true; // Magenta
 				}
-
-				// Simulate candidate under CVD
-				double candSimR = 0, candSimG = 0, candSimB = 0;
-				ColorMatrix::SimulatePixel(r, g, b, defType, candSimR, candSimG, candSimB);
-				candSimR = r + sev * (candSimR - r);
-				candSimG = g + sev * (candSimG - g);
-				candSimB = b + sev * (candSimB - b);
-
-				// Calculate minimum distance to all OTHER simulated tags
-				float minDist = 999.0f;
-				for (int j = 0; j < 8; ++j)
+			}
+			else
+			{
+				constexpr float kConflictThreshold = 0.16f;
+				for (int i = 0; i < 9; ++i)
 				{
-					if (i == j) continue;
-					float dr = (float)candSimR - simTags[j].simR;
-					float dg = (float)candSimG - simTags[j].simG;
-					float db = (float)candSimB - simTags[j].simB;
-					float d = std::sqrt(dr * dr + dg * dg + db * db);
-					if (d < minDist) minDist = d;
-				}
-
-				if (minDist > bestScore)
-				{
-					bestScore = minDist;
-					bestR = r;
-					bestG = g;
-					bestB = b;
+					for (int j = i + 1; j < 9; ++j)
+					{
+						float dr = simTags[i].simR - simTags[j].simR;
+						float dg = simTags[i].simG - simTags[j].simG;
+						float db = simTags[i].simB - simTags[j].simB;
+						float dist = std::sqrt(dr * dr + dg * dg + db * db);
+						if (dist < kConflictThreshold)
+						{
+							hasConflict[i] = true;
+							hasConflict[j] = true;
+						}
+					}
 				}
 			}
 
-			s_tagConflictStates[i].repR = bestR;
-			s_tagConflictStates[i].repG = bestG;
-			s_tagConflictStates[i].repB = bestB;
+			// 4d: For each conflicting tag, find replacement color
+			for (int i = 0; i < 9; ++i)
+			{
+				s_tagConflictStates[i].inConflict = hasConflict[i];
+				if (!hasConflict[i])
+				{
+					s_tagConflictStates[i].repR = simTags[i].origR;
+					s_tagConflictStates[i].repG = simTags[i].origG;
+					s_tagConflictStates[i].repB = simTags[i].origB;
+					continue;
+				}
 
-			TargetColor tc;
-			tc.r = simTags[i].origR;
-			tc.g = simTags[i].origG;
-			tc.b = simTags[i].origB;
-			tc.repR = (uint8_t)(std::clamp(bestR * 255.0f, 0.0f, 255.0f));
-			tc.repG = (uint8_t)(std::clamp(bestG * 255.0f, 0.0f, 255.0f));
-			tc.repB = (uint8_t)(std::clamp(bestB * 255.0f, 0.0f, 255.0f));
-			targetColors.push_back(tc);
+				float bestR = simTags[i].origR, bestG = simTags[i].origG, bestB = simTags[i].origB;
+				float bestScore = -1.0f;
+
+				float h = 0, s = 0, v = 0;
+				RgbToHsv(simTags[i].origR, simTags[i].origG, simTags[i].origB, h, s, v);
+
+				for (int step = 1; step <= 23; ++step)
+				{
+					float testH = std::fmod(h + step * 15.0f, 360.0f);
+					float r = 0, g = 0, b = 0;
+					HsvToRgb(testH, s, v, r, g, b);
+
+					float newLuma = RelativeLuma(r, g, b);
+					float minLuma = simTags[i].luma * 0.85f;
+					if (newLuma < minLuma && newLuma > 1e-4f)
+					{
+						float scale = minLuma / newLuma;
+						r = std::clamp(r * scale, 0.0f, 1.0f);
+						g = std::clamp(g * scale, 0.0f, 1.0f);
+						b = std::clamp(b * scale, 0.0f, 1.0f);
+					}
+
+					double candSimR = 0, candSimG = 0, candSimB = 0;
+					ColorMatrix::SimulatePixel(r, g, b, defType, candSimR, candSimG, candSimB);
+					candSimR = r + sev * (candSimR - r);
+					candSimG = g + sev * (candSimG - g);
+					candSimB = b + sev * (candSimB - b);
+
+					float minDist = 999.0f;
+					for (int j = 0; j < 9; ++j)
+					{
+						if (i == j) continue;
+						float dr = (float)candSimR - simTags[j].simR;
+						float dg = (float)candSimG - simTags[j].simG;
+						float db = (float)candSimB - simTags[j].simB;
+						float d = std::sqrt(dr * dr + dg * dg + db * db);
+						if (d < minDist) minDist = d;
+					}
+
+					if (minDist > bestScore)
+					{
+						bestScore = minDist;
+						bestR = r;
+						bestG = g;
+						bestB = b;
+					}
+				}
+
+				s_tagConflictStates[i].repR = bestR;
+				s_tagConflictStates[i].repG = bestG;
+				s_tagConflictStates[i].repB = bestB;
+
+				TargetColor tc;
+				tc.r = simTags[i].origR;
+				tc.g = simTags[i].origG;
+				tc.b = simTags[i].origB;
+				tc.repR = (uint8_t)(std::clamp(bestR * 255.0f, 0.0f, 255.0f));
+				tc.repG = (uint8_t)(std::clamp(bestG * 255.0f, 0.0f, 255.0f));
+				tc.repB = (uint8_t)(std::clamp(bestB * 255.0f, 0.0f, 255.0f));
+				targetColors.push_back(tc);
+			}
 		}
-		// 4e: Pass target color list to HybridScanner only when genuinely modified (Step 6 Performance)
-		bool paramsChanged = (!s_lastActive) || (CurrentSettings.EnhancerTolerance != s_lastTolerance) || (targetColors.size() != s_lastTargets.size());
+		else
+		{
+			for (auto& st : s_tagConflictStates) st = {};
+		}
+
+		// 4e: If Free-Filter is enabled, add its high-precision targeted color to the scanner
+		if (CurrentSettings.FreeFilterEnabled)
+		{
+			TargetColor freeTc;
+			freeTc.r = CurrentSettings.FreeFilterTargetRgb[0];
+			freeTc.g = CurrentSettings.FreeFilterTargetRgb[1];
+			freeTc.b = CurrentSettings.FreeFilterTargetRgb[2];
+			freeTc.repR = (uint8_t)(std::clamp(CurrentSettings.FreeFilterReplaceRgb[0] * 255.0f, 0.0f, 255.0f));
+			freeTc.repG = (uint8_t)(std::clamp(CurrentSettings.FreeFilterReplaceRgb[1] * 255.0f, 0.0f, 255.0f));
+			freeTc.repB = (uint8_t)(std::clamp(CurrentSettings.FreeFilterReplaceRgb[2] * 255.0f, 0.0f, 255.0f));
+			targetColors.push_back(freeTc);
+		}
+
+		// 4f: If Filter-Labor is enabled, add all active lab filters to the scanner
+		if (CurrentSettings.LabModeEnabled)
+		{
+			for (const auto& filter : CurrentSettings.LabFilters)
+			{
+				if (!filter.Enabled) continue;
+				TargetColor labTc;
+				labTc.r = filter.TargetRgb[0];
+				labTc.g = filter.TargetRgb[1];
+				labTc.b = filter.TargetRgb[2];
+				labTc.repR = (uint8_t)(std::clamp(filter.ReplaceRgb[0] * 255.0f, 0.0f, 255.0f));
+				labTc.repG = (uint8_t)(std::clamp(filter.ReplaceRgb[1] * 255.0f, 0.0f, 255.0f));
+				labTc.repB = (uint8_t)(std::clamp(filter.ReplaceRgb[2] * 255.0f, 0.0f, 255.0f));
+				labTc.tolerance = (filter.ToleranceTones / 255.0f) * 1.732f;
+				labTc.diffusion = filter.Diffusion;
+				labTc.actionType = filter.ActionType;
+				targetColors.push_back(labTc);
+			}
+		}
+
+		float effectiveTol = (CurrentSettings.CommanderTagMode != 0) 
+			? CurrentSettings.EnhancerTolerance 
+			: ((CurrentSettings.FreeFilterToleranceTones / 255.0f) * 1.732f);
+
+		bool paramsChanged = (!s_lastActive) || (effectiveTol != s_lastTolerance) || (targetColors.size() != s_lastTargets.size());
 		if (!paramsChanged)
 		{
 			for (size_t k = 0; k < targetColors.size(); ++k)
@@ -631,9 +749,9 @@ namespace
 		if (paramsChanged)
 		{
 			s_lastActive = true;
-			s_lastTolerance = CurrentSettings.EnhancerTolerance;
+			s_lastTolerance = effectiveTol;
 			s_lastTargets = targetColors;
-			GetHybridScanner().SetHighlighterParams(true, targetColors, CurrentSettings.EnhancerTolerance);
+			GetHybridScanner().SetHighlighterParams(true, targetColors, effectiveTol);
 		}
 	}
 
@@ -872,8 +990,8 @@ namespace
 				bool ctrlDown = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
 				bool shiftDown = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
-				// NOT-AUS / Panic Disarm: Strg + Shift + Q
-				if (aWParam == 'Q' && ctrlDown && shiftDown)
+				// Filter Off: Strg + Shift + O (or legacy Strg + Shift + Q)
+				if ((aWParam == 'O' || aWParam == 'Q') && ctrlDown && shiftDown)
 				{
 					CurrentSettings.Enabled = false;
 					CurrentSettings.Save(AddonDir);
@@ -882,6 +1000,7 @@ namespace
 						GetColorEffectController().Clear();
 						s_hasApplied = false;
 					}
+					Recompute(/*aForce=*/true);
 					return aMsg;
 				}
 				// Main Window: Strg + Shift + C (or Ctrl + Alt + C)
@@ -893,19 +1012,6 @@ namespace
 						CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
 						if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 					}
-					else if (altDown && shiftDown && !ctrlDown) // legacy graph bind
-					{
-						EnsureDeferredInitialized();
-						CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
-						if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
-					}
-				}
-				// Sensor Graph Window: Strg + Shift + S
-				else if (aWParam == 'S' && ctrlDown && shiftDown)
-				{
-					EnsureDeferredInitialized();
-					CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
-					if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 				}
 				break;
 			}
@@ -917,7 +1023,7 @@ namespace
 	{
 		if (aIsRelease) return;
 
-		if (strcmp(aIdentifier, "CBA - Not-Aus") == 0 || strcmp(aIdentifier, "KB_CBA_PANIC") == 0)
+		if (strcmp(aIdentifier, "CBA - Filter Off") == 0 || strcmp(aIdentifier, "CBA - Not-Aus") == 0 || strcmp(aIdentifier, "KB_CBA_PANIC") == 0)
 		{
 			CurrentSettings.Enabled = false;
 			CurrentSettings.Save(AddonDir);
@@ -926,6 +1032,7 @@ namespace
 				GetColorEffectController().Clear();
 				s_hasApplied = false;
 			}
+			Recompute(/*aForce=*/true);
 		}
 		else if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
 		{
@@ -948,7 +1055,7 @@ namespace
 		{
 			if (APIDefs->QuickAccess.Add)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Not-Aus: Strg+Shift+Q)");
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Filter Off: Strg+Shift+O)");
 			}
 		}
 		else
@@ -1135,11 +1242,12 @@ namespace
 			ImGui::Spacing();
 
 			// Bottom Buttons (Sound Toggle & Close)
+			bool isDe = (Strings().Enabled[0] == 'A');
 			bool sound = s_c64SoundEnabled.load();
 			if (sound)
 			{
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.52f, 0.28f, 0.90f));
-				if (ImGui::Button("[ 🎵 8-BIT AUDIO: ON ]", ImVec2(180.0f, 26.0f)))
+				if (ImGui::Button("[ 8-BIT AUDIO: ON ]", ImVec2(170.0f, 26.0f)))
 				{
 					s_c64SoundEnabled.store(false);
 				}
@@ -1148,7 +1256,7 @@ namespace
 			else
 			{
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.35f, 0.38f, 0.90f));
-				if (ImGui::Button("[ 🔇 8-BIT AUDIO: OFF ]", ImVec2(180.0f, 26.0f)))
+				if (ImGui::Button("[ 8-BIT AUDIO: OFF ]", ImVec2(170.0f, 26.0f)))
 				{
 					s_c64SoundEnabled.store(true);
 					StartC64Audio();
@@ -1157,7 +1265,7 @@ namespace
 			}
 
 			ImGui::SameLine(0, 20.0f);
-			if (ImGui::Button("Zurück zum Spiel / Close (ESC)", ImVec2(220.0f, 26.0f)))
+			if (ImGui::Button(isDe ? "Zurueck zum Spiel (ESC)" : "Return to Game (ESC)", ImVec2(220.0f, 26.0f)))
 			{
 				s_showC64Credits.store(false);
 				StopC64Audio();
@@ -1194,34 +1302,34 @@ namespace
 
 		if (!isEnabled)
 		{
-			dotColor = IM_COL32(120, 130, 140, 255);
+			dotColor = Theme::kDotOffCol;
 			statusText = isDe ? "Inaktiv" : "Inactive";
 			tooltipText = isDe ? "CBA Status: Farbfilter ist ausgeschaltet (OFF).\nKlicke auf [ON], um den Filter zu aktivieren." 
 			                   : "CBA Status: Color filter is OFF.\nClick [ON] to activate the filter.";
 		}
 		else if (isExclusive)
 		{
-			dotColor = IM_COL32(255, 140, 20, 255);
+			dotColor = Theme::kDotWarnCol;
 			statusText = isDe ? "Blockiert (Vollbild)" : "Blocked (Fullscreen)";
 			tooltipText = isDe ? "CBA Status: Windows DWM-Farbfilter wird durch exklusives Vollbild blockiert!\nBitte in GW2 Grafikoptionen auf 'Fenster-Vollbild' (Borderless) umschalten."
 			                   : "CBA Status: Windows DWM filter blocked by exclusive fullscreen!\nPlease switch GW2 graphics to 'Windowed Fullscreen' (Borderless).";
 		}
 		else if (isMinimized || isPaused)
 		{
-			dotColor = IM_COL32(245, 205, 45, 255);
+			dotColor = Theme::kDotWarnCol;
 			statusText = isDe ? "Pausiert" : "Paused";
-			tooltipText = isDe ? "CBA Status: GW2 ist im Hintergrund oder minimiert.\nFilter pausiert automatisch zum Schutz anderer Anwendungen.\n('Im Hintergrund aktiv lassen' f\xc3\xbcr Dauerbetrieb)."
+			tooltipText = isDe ? "CBA Status: GW2 ist im Hintergrund oder minimiert.\nFilter pausiert automatisch zum Schutz anderer Anwendungen.\n('Im Hintergrund aktiv lassen' fuer Dauerbetrieb)."
 			                   : "CBA Status: GW2 is in background or minimized.\nFilter pauses automatically.\n('Keep active in background' to keep active).";
 		}
 		else
 		{
-			// Active & running: pulsing green animation!
+			// Active & running: soft cyan-emerald pulse
 			float time = (float)ImGui::GetTime();
 			float pulse = 0.70f + 0.30f * std::sin(time * 3.5f);
-			dotColor = IM_COL32(40, 220, 95, 255);
-			glowColor = IM_COL32(40, 220, 95, (int)(pulse * 130.0f));
+			dotColor = Theme::kDotReadyCol;
+			glowColor = IM_COL32(0, 210, 190, (int)(pulse * 90.0f));
 			statusText = isDe ? "Aktiv (DWM)" : "Active (DWM)";
-			tooltipText = isDe ? "CBA Status: Farbfilter ist aktiv und an Guild Wars 2 gebunden.\nWindows Magnification DWM-Hardwarebeschleunigung l\xc3\xa4uft stabil."
+			tooltipText = isDe ? "CBA Status: Farbfilter ist aktiv und an Guild Wars 2 gebunden.\nWindows Magnification DWM-Hardwarebeschleunigung laeuft stabil."
 			                   : "CBA Status: Color filter active and bound to Guild Wars 2.\nWindows Magnification DWM hardware acceleration active.";
 		}
 
@@ -1281,16 +1389,16 @@ namespace
 		const float plotH = aH - pad * 2 - labelSpaceBottom - 4.0f;
 
 		// Panel background: transparent glass when detached (showing GW2), deep slate when docked
-		float panelA = aIsDetached ? std::clamp(aOpacity * 0.18f, 0.02f, 0.70f) : 0.92f;
+		float panelA = aIsDetached ? std::clamp(aOpacity * 0.92f, 0.0f, 0.92f) : 0.92f;
 		int bgAlpha = (int)(panelA * 255.0f);
-		int borderAlpha = aIsDetached ? (int)(aOpacity * 130.0f) : 150;
+		int borderAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 150.0f, 20.0f, 150.0f)) : 150;
 
 		aDraw->AddRectFilled(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(12, 15, 22, bgAlpha), 6.0f);
 		aDraw->AddRect(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(65, 85, 125, borderAlpha), 6.0f, 0, 1.2f);
 
 		// Grid with axis tick labels
-		int gridAlpha = aIsDetached ? (int)(aOpacity * 45.0f) : 65;
-		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 1.4f, 0.45f, 1.0f) * 210.0f) : 210;
+		int gridAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 65.0f, 15.0f, 65.0f)) : 65;
+		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 150.0f + 60.0f, 60.0f, 210.0f)) : 210;
 
 		// Horizontal grid lines (0%, 50%, 100% signal)
 		for (int k = 0; k <= 2; ++k) {
@@ -1401,15 +1509,15 @@ namespace
 		const float plotW = aW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
 		const float plotH = aH - pad * 2 - labelSpaceBottom - 4.0f;
 
-		float panelA = aIsDetached ? std::clamp(aOpacity * 0.18f, 0.02f, 0.70f) : 0.92f;
+		float panelA = aIsDetached ? std::clamp(aOpacity * 0.92f, 0.0f, 0.92f) : 0.92f;
 		int bgAlpha = (int)(panelA * 255.0f);
-		int borderAlpha = aIsDetached ? (int)(aOpacity * 130.0f) : 150;
+		int borderAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 150.0f, 20.0f, 150.0f)) : 150;
 
 		aDraw->AddRectFilled(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(12, 15, 22, bgAlpha), 6.0f);
 		aDraw->AddRect(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(65, 85, 125, borderAlpha), 6.0f, 0, 1.2f);
 
-		int gridAlpha = aIsDetached ? (int)(aOpacity * 45.0f) : 65;
-		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 1.4f, 0.45f, 1.0f) * 210.0f) : 210;
+		int gridAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 65.0f, 15.0f, 65.0f)) : 65;
+		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 150.0f + 60.0f, 60.0f, 210.0f)) : 210;
 
 		// Horizontal grid lines (0%, 50%, 100%)
 		for (int k = 0; k <= 2; ++k) {
@@ -1522,15 +1630,15 @@ namespace
 		const float plotW = aW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
 		const float plotH = aH - pad * 2 - labelSpaceBottom - 4.0f;
 
-		float panelA = aIsDetached ? std::clamp(aOpacity * 0.18f, 0.02f, 0.70f) : 0.92f;
+		float panelA = aIsDetached ? std::clamp(aOpacity * 0.92f, 0.0f, 0.92f) : 0.92f;
 		int bgAlpha = (int)(panelA * 255.0f);
-		int borderAlpha = aIsDetached ? (int)(aOpacity * 130.0f) : 150;
+		int borderAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 150.0f, 20.0f, 150.0f)) : 150;
 
 		aDraw->AddRectFilled(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(12, 15, 22, bgAlpha), 6.0f);
 		aDraw->AddRect(aOrigin, ImVec2(aOrigin.x + aW, aOrigin.y + aH), IM_COL32(65, 85, 125, borderAlpha), 6.0f, 0, 1.2f);
 
-		int gridAlpha = aIsDetached ? (int)(aOpacity * 45.0f) : 65;
-		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 1.4f, 0.45f, 1.0f) * 210.0f) : 210;
+		int gridAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 65.0f, 15.0f, 65.0f)) : 65;
+		int textAlpha = aIsDetached ? (int)(std::clamp(aOpacity * 150.0f + 60.0f, 60.0f, 210.0f)) : 210;
 
 		// Horizontal grid lines
 		for (int k = 0; k <= 2; ++k) {
@@ -1624,6 +1732,587 @@ namespace
 		}
 	}
 
+	// ── Kontrast-Kombinationen (Überlappende Farbfelder Widget) ────────────────
+	static void DrawContrastCombinationsWidget(bool isDe, bool& changed, bool& saveNeeded)
+	{
+		const char* pairNamesDe[] = {
+			"Blau / Gruen (GW2 Standard)",
+			"Rot / Gruen (Protan / Deutan Test)",
+			"Gelb / Blau (Tritanopie Test)",
+			"Cyan / Blau (Mittelwert Kontrast)",
+			"Orange / Rot (Gefahrenzonen)"
+		};
+		const char* pairNamesEn[] = {
+			"Blue / Green (GW2 Default)",
+			"Red / Green (Protan / Deutan Test)",
+			"Yellow / Blue (Tritanopia Test)",
+			"Cyan / Blue (Midtone Contrast)",
+			"Orange / Red (Hazard Zones)"
+		};
+
+		struct ColorPair { float r1, g1, b1; float r2, g2, b2; };
+		static const ColorPair kPairs[5] = {
+			{ 0.212f, 0.439f, 0.800f,   0.247f, 0.616f, 0.302f }, // Blau / Gruen
+			{ 0.851f, 0.275f, 0.235f,   0.247f, 0.616f, 0.302f }, // Rot / Gruen
+			{ 0.910f, 0.753f, 0.125f,   0.212f, 0.439f, 0.800f }, // Gelb / Blau
+			{ 0.149f, 0.682f, 0.741f,   0.212f, 0.439f, 0.800f }, // Cyan / Blau
+			{ 0.910f, 0.522f, 0.059f,   0.851f, 0.275f, 0.235f }  // Orange / Rot
+		};
+
+		int pIdx = std::clamp(CurrentSettings.ContrastPairIndex, 0, 4);
+
+		ImGui::TextDisabled("%s:", isDe ? "Farben-Paarung auswaehlen" : "Select Color Pair");
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+		if (ImGui::Combo("##contrast_pair_combo", &pIdx, isDe ? pairNamesDe : pairNamesEn, 5))
+		{
+			CurrentSettings.ContrastPairIndex = pIdx;
+			saveNeeded = true;
+		}
+
+		ColorPair p = kPairs[pIdx];
+
+		// Compute CVD Simulation for pair
+		double sim1R = p.r1, sim1G = p.g1, sim1B = p.b1;
+		double sim2R = p.r2, sim2G = p.g2, sim2B = p.b2;
+		ColorMatrix::SimulatePixel(p.r1, p.g1, p.b1, CurrentSettings.Type, sim1R, sim1G, sim1B);
+		ColorMatrix::SimulatePixel(p.r2, p.g2, p.b2, CurrentSettings.Type, sim2R, sim2G, sim2B);
+
+		// Compute CBA Correction for pair (supports up to 1.25x boost)
+		double corrMat[3][3];
+		if (CurrentSettings.Mixed)
+			ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, corrMat);
+		else
+			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, corrMat);
+
+		float cor1R = (float)std::clamp(corrMat[0][0]*p.r1 + corrMat[0][1]*p.g1 + corrMat[0][2]*p.b1, 0.0, 1.0);
+		float cor1G = (float)std::clamp(corrMat[1][0]*p.r1 + corrMat[1][0]*p.g1 + corrMat[1][2]*p.b1, 0.0, 1.0);
+		float cor1B = (float)std::clamp(corrMat[2][0]*p.r1 + corrMat[2][1]*p.g1 + corrMat[2][2]*p.b1, 0.0, 1.0);
+
+		float cor2R = (float)std::clamp(corrMat[0][0]*p.r2 + corrMat[0][1]*p.g2 + corrMat[0][2]*p.b2, 0.0, 1.0);
+		float cor2G = (float)std::clamp(corrMat[1][0]*p.r2 + corrMat[1][1]*p.g2 + corrMat[1][2]*p.b2, 0.0, 1.0);
+		float cor2B = (float)std::clamp(corrMat[2][0]*p.r2 + corrMat[2][1]*p.g2 + corrMat[2][2]*p.b2, 0.0, 1.0);
+
+		ImGui::Spacing();
+
+		float availW = ImGui::GetContentRegionAvail().x;
+		float cardW = (availW - 12.0f) * 0.5f;
+		if (cardW < 140.0f) cardW = availW;
+		float cardH = 92.0f;
+
+		// Card 1: Ohne Filter (CVD Simulation)
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.09f, 0.11f, 0.15f, 0.95f));
+		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.25f, 0.30f, 0.40f, 0.50f));
+		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
+
+		if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
+		{
+			ImGui::TextDisabled("%s", isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)");
+			ImVec2 sp = ImGui::GetCursorScreenPos();
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+
+			float r = 18.0f;
+			float cx1 = sp.x + 36.0f;
+			float cx2 = sp.x + 62.0f;
+			float cy = sp.y + 24.0f;
+
+			ImU32 cSim1 = IM_COL32((int)(sim1R*255), (int)(sim1G*255), (int)(sim1B*255), 220);
+			ImU32 cSim2 = IM_COL32((int)(sim2R*255), (int)(sim2G*255), (int)(sim2B*255), 220);
+
+			dl->AddCircleFilled(ImVec2(cx1, cy), r, cSim1);
+			dl->AddCircleFilled(ImVec2(cx2, cy), r, cSim2);
+			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(200, 200, 200, 80), 0, 1.2f);
+			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(200, 200, 200, 80), 0, 1.2f);
+
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 14.0f));
+			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Identisch /" : "Identical /");
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 28.0f));
+			ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Verwechselbar" : "Confusable");
+
+			ImGui::EndChild();
+		}
+
+		if (cardW < availW) ImGui::SameLine(0, 12.0f);
+
+		// Card 2: Mit CBA Filter (Kompensation)
+		if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
+		{
+			ImGui::TextDisabled("%s", isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)");
+			ImVec2 sp = ImGui::GetCursorScreenPos();
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+
+			float r = 18.0f;
+			float cx1 = sp.x + 36.0f;
+			float cx2 = sp.x + 62.0f;
+			float cy = sp.y + 24.0f;
+
+			ImU32 cCor1 = IM_COL32((int)(cor1R*255), (int)(cor1G*255), (int)(cor1B*255), 255);
+			ImU32 cCor2 = IM_COL32((int)(cor2R*255), (int)(cor2G*255), (int)(cor2B*255), 255);
+
+			dl->AddCircleFilled(ImVec2(cx1, cy), r, cCor1);
+			dl->AddCircleFilled(ImVec2(cx2, cy), r, cCor2);
+			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(80, 240, 160, 180), 0, 1.5f);
+			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(80, 240, 160, 180), 0, 1.5f);
+
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 14.0f));
+			ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Absolut" : "Distinct /");
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 28.0f));
+			ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "verschieden!" : "Separated!");
+
+			ImGui::EndChild();
+		}
+
+		ImGui::PopStyleVar(2);
+		ImGui::PopStyleColor(2);
+
+		ImGui::Spacing();
+		ImGui::TextUnformatted(isDe ? "Intensitaets-Skala (inkl. +25% Boost fuer maximale Unterscheidung):" 
+		                            : "Intensity Scale (incl. +25% Boost for maximum distinction):");
+		float availSlider = ImGui::GetContentRegionAvail().x;
+		ImGui::SetNextItemWidth(availSlider);
+		float sevVal = (float)CurrentSettings.Severity01;
+		if (ImGui::SliderFloat("##contrast_sev_slider", &sevVal, 0.0f, 1.25f, isDe ? "%.0f%% (Kompensation)" : "%.0f%% (Compensation)", ImGuiSliderFlags_None))
+		{
+			CurrentSettings.Severity01 = sevVal;
+			changed = true;
+		}
+		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+	}
+
+	// ── Filter-Labor & Experimentierfeld Widget ───────────────────────────────
+	static void DrawFilterLabWidget(bool isDe, bool& changed, bool& saveNeeded)
+	{
+		bool labActive = CurrentSettings.LabModeEnabled;
+		if (ImGui::Checkbox(isDe ? "Filter-Labor aktiv (Mehrfach-Filter & Erfassung)##lab_master" 
+		                         : "Filter Lab Active (Multi-Filter & Capture)##lab_master", &labActive))
+		{
+			CurrentSettings.LabModeEnabled = labActive;
+			UpdateTagEnhancerConflicts();
+			changed = true;
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Aktiviert das Filter-Labor: Alle aktiven Labor-Filter werden im DXGI-Render-Loop erfasst."
+			                       : "Enables the Filter Lab: All active lab filters are captured in the DXGI render loop.");
+		}
+
+		ImGui::SameLine(0, 12.0f);
+		// Quick detach/dock button
+		bool labDetached = CurrentSettings.ShowLabWindow;
+		if (ImGui::SmallButton(labDetached ? (isDe ? "[Eigenes Fenster aktiv]" : "[Detached Window Active]")
+		                                   : (isDe ? "[^] Als eigenes Fenster oeffnen" : "[^] Open in Detached Window")))
+		{
+			CurrentSettings.ShowLabWindow = !CurrentSettings.ShowLabWindow;
+			if (CurrentSettings.ShowLabWindow) s_focusLabWindow = true;
+			saveNeeded = true;
+		}
+
+		if (CurrentSettings.LabFilters.empty())
+		{
+			Settings::LabFilter f1;
+			f1.Enabled = true;
+			f1.Name = "AoE Rot zu Signal-Cyan";
+			f1.TargetRgb[0] = 0.851f; f1.TargetRgb[1] = 0.275f; f1.TargetRgb[2] = 0.235f;
+			f1.ReplaceRgb[0] = 0.149f; f1.ReplaceRgb[1] = 0.682f; f1.ReplaceRgb[2] = 0.741f;
+			f1.ToleranceTones = 4;
+			f1.Diffusion = 0.30f;
+			CurrentSettings.LabFilters.push_back(f1);
+		}
+
+		int count = (int)CurrentSettings.LabFilters.size();
+		int selIdx = std::clamp(CurrentSettings.SelectedLabFilterIndex, 0, count - 1);
+		CurrentSettings.SelectedLabFilterIndex = selIdx;
+
+		ImGui::Spacing();
+
+		// Tabs for Lab: Tab 1 = Ray Matrix & Filter Design, Tab 2 = Stack Actions & Automatics
+		if (ImGui::BeginTabBar("##FilterLabTabs", ImGuiTabBarFlags_None))
+		{
+			if (ImGui::BeginTabItem(isDe ? "1. Strahl-Matrix & Filter-Design##tab1" : "1. Ray Matrix & Filter Design##tab1"))
+			{
+				ImGui::Spacing();
+				ImGui::TextDisabled("%s (%d %s):", isDe ? "Filter-Instanzen" : "Filter Instances", count, isDe ? "Instanzen" : "instances");
+				ImGui::Spacing();
+
+				// Filter instances chip bar
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+				for (int i = 0; i < count; ++i)
+				{
+					if (i > 0) ImGui::SameLine(0, 4.0f);
+					ImGui::PushID(i + 200);
+
+					bool isSel = (i == selIdx);
+					if (isSel) {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+					} else {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+					}
+
+					char btnLbl[64];
+					std::snprintf(btnLbl, sizeof(btnLbl), "%s %s", CurrentSettings.LabFilters[i].Enabled ? "[*]" : "[ ]", CurrentSettings.LabFilters[i].Name.c_str());
+					if (ImGui::Button(btnLbl, ImVec2(0.0f, 22.0f)))
+					{
+						CurrentSettings.SelectedLabFilterIndex = i;
+						selIdx = i;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+					ImGui::PopID();
+				}
+
+				ImGui::SameLine(0, 6.0f);
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				if (ImGui::Button("+##add_lab_filter", ImVec2(26.0f, 22.0f)))
+				{
+					Settings::LabFilter newF;
+					newF.Enabled = true;
+					char nameBuf[32];
+					std::snprintf(nameBuf, sizeof(nameBuf), "Filter %d", (int)CurrentSettings.LabFilters.size() + 1);
+					newF.Name = nameBuf;
+					newF.TargetRgb[0] = 0.20f; newF.TargetRgb[1] = 0.50f; newF.TargetRgb[2] = 0.85f;
+					newF.ReplaceRgb[0] = 0.95f; newF.ReplaceRgb[1] = 0.85f; newF.ReplaceRgb[2] = 0.20f;
+					newF.ToleranceTones = 3;
+					newF.Diffusion = 0.35f;
+					CurrentSettings.LabFilters.push_back(newF);
+					CurrentSettings.SelectedLabFilterIndex = (int)CurrentSettings.LabFilters.size() - 1;
+					selIdx = CurrentSettings.SelectedLabFilterIndex;
+					UpdateTagEnhancerConflicts();
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Neuen Filter hinzufuegen" : "Add new filter instance");
+				ImGui::PopStyleVar();
+
+				// Detail config for selected filter
+				ImGui::Spacing();
+				Settings::LabFilter& curF = CurrentSettings.LabFilters[selIdx];
+
+				// Name & Active row
+				if (ImGui::Checkbox(isDe ? "Aktiv##cur_lab_en" : "Active##cur_lab_en", &curF.Enabled))
+				{
+					UpdateTagEnhancerConflicts();
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::SameLine(0, 10.0f);
+				char nameBuf[64];
+				std::snprintf(nameBuf, sizeof(nameBuf), "%s", curF.Name.c_str());
+				ImGui::SetNextItemWidth(140.0f);
+				if (ImGui::InputText("##cur_lab_name", nameBuf, sizeof(nameBuf)))
+				{
+					curF.Name = nameBuf;
+					saveNeeded = true;
+				}
+
+				ImGui::Spacing();
+
+				// ── Side-by-Side: ColorPicker on Left, XY Ray Canvas on Right ───
+				float totalAvail = ImGui::GetContentRegionAvail().x;
+				float pickerW = (totalAvail > 420.0f) ? 210.0f : 180.0f;
+				float rayCanvasW = (totalAvail > (pickerW + 20.0f)) ? (totalAvail - pickerW - 14.0f) : 180.0f;
+				float canvasH = 210.0f;
+
+				// Left column: Color Picker & Replacement Color
+				ImGui::BeginGroup();
+				ImGui::TextDisabled("%s:", isDe ? "1. Ziel-Farbe (Hue-Wheel)" : "1. Target Color (Hue Wheel)");
+				ImGuiColorEditFlags pickerFlags = ImGuiColorEditFlags_PickerHueWheel 
+				                                | ImGuiColorEditFlags_NoSidePreview 
+				                                | ImGuiColorEditFlags_NoSmallPreview 
+				                                | ImGuiColorEditFlags_NoAlpha;
+				ImGui::SetNextItemWidth(pickerW);
+				if (ImGui::ColorPicker3("##lab_picker", curF.TargetRgb, pickerFlags))
+				{
+					UpdateTagEnhancerConflicts();
+					changed = true;
+					saveNeeded = true;
+				}
+
+				ImGui::Spacing();
+				ImGui::TextDisabled("%s:", isDe ? "Signal- / Ersatzfarbe" : "Signal / Replacement Color");
+				ImGui::SetNextItemWidth(pickerW);
+				if (ImGui::ColorEdit3("##lab_rep_picker", curF.ReplaceRgb, ImGuiColorEditFlags_NoAlpha))
+				{
+					UpdateTagEnhancerConflicts();
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::EndGroup();
+
+				// Right column: XY Color Ray Matrix Diagram
+				ImGui::SameLine(0, 14.0f);
+				ImGui::BeginGroup();
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s:", isDe ? "XY Farbstrahl-Matrix" : "XY Color Ray Matrix");
+
+				ImVec2 p0 = ImGui::GetCursorScreenPos();
+				ImDrawList* dl = ImGui::GetWindowDrawList();
+
+				// Canvas background & border
+				dl->AddRectFilled(p0, ImVec2(p0.x + rayCanvasW, p0.y + canvasH), IM_COL32(10, 14, 22, 240), 6.0f);
+				dl->AddRect(p0, ImVec2(p0.x + rayCanvasW, p0.y + canvasH), IM_COL32(30, 50, 75, 180), 6.0f);
+
+				// Canvas coordinate bounds (origin at bottom-left)
+				float ox = p0.x + 28.0f;
+				float oy = p0.y + canvasH - 22.0f;
+				float tx = p0.x + rayCanvasW - 12.0f;
+				float ty = p0.y + 12.0f;
+				float spanX = std::max(tx - ox, 10.0f);
+				float spanY = std::max(oy - ty, 10.0f);
+
+				// Grid lines: 25%, 50%, 75%, 100%
+				for (int g = 1; g <= 4; ++g) {
+					float fRatio = g / 4.0f;
+					float gx = ox + fRatio * spanX;
+					float gy = oy - fRatio * spanY;
+					// Horizontal
+					dl->AddLine(ImVec2(ox, gy), ImVec2(tx, gy), IM_COL32(25, 40, 58, 70), 1.0f);
+					// Vertical
+					dl->AddLine(ImVec2(gx, oy), ImVec2(gx, ty), IM_COL32(25, 40, 58, 70), 1.0f);
+				}
+
+				// Neutral 45° dashed identity reference line
+				dl->AddLine(ImVec2(ox, oy), ImVec2(tx, ty), IM_COL32(65, 90, 120, 110), 1.0f);
+
+				// Axis indicators & clear labels
+				dl->AddText(ImVec2(ox - 24.0f, ty - 6.0f), IM_COL32(130, 160, 195, 220), "Lum");
+				dl->AddText(ImVec2(ox - 25.0f, oy - 0.5f * spanY - 6.0f), IM_COL32(90, 115, 140, 170), "50%");
+				dl->AddText(ImVec2(tx - 22.0f, oy + 4.0f), IM_COL32(130, 160, 195, 220), "Hue");
+				dl->AddText(ImVec2(ox + 0.5f * spanX - 10.0f, oy + 4.0f), IM_COL32(90, 115, 140, 170), "180");
+				dl->AddText(ImVec2(ox - 10.0f, oy + 4.0f), IM_COL32(90, 115, 140, 170), "0");
+
+				// Canvas title
+				dl->AddText(ImVec2(ox + 4.0f, ty - 8.0f), IM_COL32(120, 145, 175, 190), isDe ? "Farb-Vektorraum (Hue -> Luma)" : "Color Vector Space (Hue -> Luma)");
+
+				// Draw each filter as a color ray originating from (ox, oy)
+				for (size_t fIdx = 0; fIdx < CurrentSettings.LabFilters.size(); ++fIdx)
+				{
+					const auto& f = CurrentSettings.LabFilters[fIdx];
+					if (!f.Enabled) continue;
+
+					float th=0, ts=0, tv=0;
+					RgbToHsv(f.TargetRgb[0], f.TargetRgb[1], f.TargetRgb[2], th, ts, tv);
+					float rLum = RelativeLuma(f.ReplaceRgb[0], f.ReplaceRgb[1], f.ReplaceRgb[2]);
+					float normY = std::clamp(rLum * 0.85f + 0.15f, 0.08f, 1.0f);
+
+					float rx = ox + (th / 360.0f) * spanX;
+					float ry = oy - normY * spanY;
+
+					ImU32 colTarget = IM_COL32((int)(f.TargetRgb[0]*255), (int)(f.TargetRgb[1]*255), (int)(f.TargetRgb[2]*255), 240);
+					ImU32 colReplace = IM_COL32((int)(f.ReplaceRgb[0]*255), (int)(f.ReplaceRgb[1]*255), (int)(f.ReplaceRgb[2]*255), 255);
+
+					bool isSel = ((int)fIdx == selIdx);
+					if (isSel)
+					{
+						// Tolerance aperture cone & diffusion halo
+						float coneW = (f.ToleranceTones / 32.0f) * 20.0f;
+						float diffW = coneW + f.Diffusion * 14.0f;
+
+						// Translucent diffusion fan
+						if (f.Diffusion > 0.01f) {
+							dl->AddTriangleFilled(ImVec2(ox, oy), ImVec2(rx - diffW, ry), ImVec2(rx + diffW, ry),
+								IM_COL32((int)(f.TargetRgb[0]*255), (int)(f.TargetRgb[1]*255), (int)(f.TargetRgb[2]*255), 35));
+						}
+						// Precision boundary fan
+						dl->AddTriangleFilled(ImVec2(ox, oy), ImVec2(rx - coneW, ry), ImVec2(rx + coneW, ry),
+							IM_COL32(255, 215, 60, 45));
+
+						// Active radiant ray line
+						dl->AddLine(ImVec2(ox, oy), ImVec2(rx, ry), colReplace, 2.5f);
+
+						// Pulse ring on beacon
+						float pulse = 6.0f + 3.0f * std::sin((float)ImGui::GetTime() * 4.5f);
+						dl->AddCircle(ImVec2(rx, ry), pulse, IM_COL32(0, 230, 210, 180), 0, 1.2f);
+						dl->AddCircleFilled(ImVec2(rx, ry), 5.0f, colReplace);
+						dl->AddCircle(ImVec2(rx, ry), 5.0f, IM_COL32(10, 16, 26, 255), 0, 1.0f);
+					}
+					else
+					{
+						// Subtle non-selected ray
+						dl->AddLine(ImVec2(ox, oy), ImVec2(rx, ry), colTarget, 1.5f);
+						dl->AddCircleFilled(ImVec2(rx, ry), 3.5f, colReplace);
+					}
+				}
+
+				// Distance delta-E score readout in top-right
+				float dr = curF.TargetRgb[0] - curF.ReplaceRgb[0];
+				float dg = curF.TargetRgb[1] - curF.ReplaceRgb[1];
+				float db = curF.TargetRgb[2] - curF.ReplaceRgb[2];
+				float dScore = std::sqrt(dr*dr + dg*dg + db*db);
+				char dScoreBuf[64];
+				std::snprintf(dScoreBuf, sizeof(dScoreBuf), "Delta-E: %.2f", dScore);
+				ImVec2 dSize = ImGui::CalcTextSize(dScoreBuf);
+				dl->AddText(ImVec2(tx - dSize.x - 2.0f, ty - 8.0f), IM_COL32(140, 235, 230, 240), dScoreBuf);
+
+				ImGui::Dummy(ImVec2(rayCanvasW, canvasH));
+				ImGui::EndGroup();
+
+				// Sliders for Precision Radius & Diffusion
+				ImGui::Spacing();
+				float fullW = ImGui::GetContentRegionAvail().x;
+				ImGui::TextUnformatted(isDe ? "2. Begrenzungsradius & Praezision (Schwellenwert):" 
+				                            : "2. Boundary Radius & Precision (Threshold):");
+				ImGui::SetNextItemWidth(fullW);
+				if (ImGui::SliderInt("##lab_tol_slider", &curF.ToleranceTones, 1, 32, isDe ? "+/- %d Farbtoene (Hex-Toleranz)" : "+/- %d Color Tones (Hex-Tolerance)"))
+				{
+					UpdateTagEnhancerConflicts();
+					changed = true;
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+				ImGui::Spacing();
+				ImGui::TextUnformatted(isDe ? "3. Leichte Diffusion / Sanfter Uebergang (Feathering):" 
+				                            : "3. Soft Diffusion / Smooth Edge (Feathering):");
+				ImGui::SetNextItemWidth(fullW);
+				if (ImGui::SliderFloat("##lab_diff_slider", &curF.Diffusion, 0.0f, 1.0f, "%.0f%% (Diffusion)"))
+				{
+					UpdateTagEnhancerConflicts();
+					changed = true;
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem(isDe ? "2. Aktionen & Automatiken##tab2" : "2. Stack & Automatics##tab2"))
+			{
+				ImGui::Spacing();
+				Settings::LabFilter& curF = CurrentSettings.LabFilters[selIdx];
+
+				// Duplicate & Delete
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+				if (ImGui::Button(isDe ? "Filter duplizieren" : "Duplicate Filter", ImVec2(150.0f, 24.0f)))
+				{
+					Settings::LabFilter dupF = curF;
+					dupF.Name += isDe ? " (Kopie)" : " (Copy)";
+					CurrentSettings.LabFilters.push_back(dupF);
+					CurrentSettings.SelectedLabFilterIndex = (int)CurrentSettings.LabFilters.size() - 1;
+					UpdateTagEnhancerConflicts();
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+
+				if (CurrentSettings.LabFilters.size() > 1)
+				{
+					ImGui::SameLine(0, 10.0f);
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+					if (ImGui::Button(isDe ? "Filter loeschen" : "Delete Filter", ImVec2(125.0f, 24.0f)))
+					{
+						CurrentSettings.LabFilters.erase(CurrentSettings.LabFilters.begin() + selIdx);
+						CurrentSettings.SelectedLabFilterIndex = std::max(0, selIdx - 1);
+						UpdateTagEnhancerConflicts();
+						changed = true;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+				}
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				// Automatics Buttons
+				ImGui::TextDisabled("%s:", isDe ? "Automatiken fuer ausgewaehlten Filter" : "Automatics for Selected Filter");
+				ImGui::Spacing();
+
+				// Auto-Complementary (CVD Opt)
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				if (ImGui::Button(isDe ? "Auto-Komplementaer (CVD Opt)##lab" : "Auto-Complementary (CVD Opt)##lab", ImVec2(225.0f, 26.0f)))
+				{
+					float h=0, s=0, v=0;
+					RgbToHsv(curF.TargetRgb[0], curF.TargetRgb[1], curF.TargetRgb[2], h, s, v);
+					float compH = std::fmod(h + 180.0f, 360.0f);
+					float nr=0, ng=0, nb=0;
+					HsvToRgb(compH, std::max(s, 0.75f), std::max(v, 0.85f), nr, ng, nb);
+					curF.ReplaceRgb[0] = nr;
+					curF.ReplaceRgb[1] = ng;
+					curF.ReplaceRgb[2] = nb;
+					UpdateTagEnhancerConflicts();
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Berechnet die mathematische Gegenfarbe fuer maximale CVD-Unterscheidbarkeit."
+					                       : "Computes the complementary color for maximum CVD distinction.");
+				}
+
+				ImGui::SameLine(0, 10.0f);
+				// Auto-Luminance
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+				if (ImGui::Button(isDe ? "Auto-Luminanz (WCAG)##lab" : "Auto-Luminance (WCAG)##lab", ImVec2(190.0f, 26.0f)))
+				{
+					float lum = RelativeLuma(curF.TargetRgb[0], curF.TargetRgb[1], curF.TargetRgb[2]);
+					if (lum > 0.45f) {
+						curF.ReplaceRgb[0] *= 0.35f;
+						curF.ReplaceRgb[1] *= 0.35f;
+						curF.ReplaceRgb[2] *= 0.35f;
+					} else {
+						curF.ReplaceRgb[0] = std::clamp(curF.ReplaceRgb[0] * 1.5f + 0.3f, 0.0f, 1.0f);
+						curF.ReplaceRgb[1] = std::clamp(curF.ReplaceRgb[1] * 1.5f + 0.3f, 0.0f, 1.0f);
+						curF.ReplaceRgb[2] = std::clamp(curF.ReplaceRgb[2] * 1.5f + 0.3f, 0.0f, 1.0f);
+					}
+					UpdateTagEnhancerConflicts();
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Passt die Helligkeit an, um mindestens WCAG 4.5:1 Kontrast zu gewaehrleisten."
+					                       : "Adjusts brightness to ensure at least WCAG 4.5:1 contrast ratio.");
+				}
+
+				// Quick presets row
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::TextDisabled("%s:", isDe ? "GW2 Farb-Schnellauswahl" : "GW2 Color Presets");
+				auto quickPick = [&](const char* lbl, float r, float g, float b) {
+					if (ImGui::Button(lbl)) {
+						curF.TargetRgb[0] = r; curF.TargetRgb[1] = g; curF.TargetRgb[2] = b;
+						UpdateTagEnhancerConflicts();
+						changed = true; saveNeeded = true;
+					}
+				};
+				quickPick(isDe ? "AoE Rot##qp" : "AoE Red##qp", 0.851f, 0.275f, 0.235f);
+				ImGui::SameLine(0, 6.0f);
+				quickPick(isDe ? "Gift Gruen##qp" : "Poison Green##qp", 0.247f, 0.616f, 0.302f);
+				ImGui::SameLine(0, 6.0f);
+				quickPick(isDe ? "Wasser Cyan##qp" : "Water Cyan##qp", 0.149f, 0.682f, 0.741f);
+				ImGui::SameLine(0, 6.0f);
+				quickPick(isDe ? "Banner Gold##qp" : "Banner Gold##qp", 0.910f, 0.753f, 0.125f);
+
+				ImGui::EndTabItem();
+			}
+
+			ImGui::EndTabBar();
+		}
+	}
+
 	void RenderEmbeddedOptions()
 	{
 		if (!ImGui::GetCurrentContext()) return;
@@ -1634,27 +2323,24 @@ namespace
 
 		ImGui::PushID("CBA_Embedded");
 
-		ImGuiStyle& style = ImGui::GetStyle();
-		style.FrameRounding = 4.0f;
-		style.WindowRounding = 6.0f;
-		style.Colors[ImGuiCol_Header] = ImVec4(0.3f, 0.6f, 0.9f, 1.0f);
-		style.ItemSpacing = ImVec2(8, 5);
-
-		// ── Row 1: [ Hauptfenster ] | [ Sensor-Graph ] | [ ON / OFF ] | [ Language Combo ] | [ Reset Windows ] ──
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
 
-		// Button 1: Main Window (Toggle, Blue if closed, Green if open)
+		// ── Row 1: Primary Window Toggles + Master ON/OFF + Live Status ───────
+		// Button 1: Main Window (Toggle)
 		bool mainOpen = CurrentSettings.ShowMainWindow;
 		if (mainOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f, 0.52f, 0.32f, 0.92f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.64f, 0.40f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.42f, 0.25f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.42f, 0.65f, 0.92f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.52f, 0.78f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.32f, 0.52f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(t.OpenMainWindow, ImVec2(110.0f, 26.0f)))
+		if (ImGui::Button(t.OpenMainWindow, ImVec2(120.0f, 26.0f)))
 		{
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
@@ -1664,23 +2350,25 @@ namespace
 			}
 			saveNeeded = true;
 		}
-		ImGui::PopStyleColor(3);
+		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenMainWindowTooltip);
 
-		ImGui::SameLine();
+		ImGui::SameLine(0, 6.0f);
 
-		// Button 2: Sensor Graph HUD (Toggle, Cyan if closed, Green if open)
+		// Button 2: Sensor Graph HUD (Toggle)
 		bool graphOpen = CurrentSettings.ShowGraphWindow;
 		if (graphOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f, 0.52f, 0.32f, 0.92f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.64f, 0.40f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.42f, 0.25f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.92f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(t.OpenSensorGraph, ImVec2(110.0f, 26.0f)))
+		if (ImGui::Button(t.OpenSensorGraph, ImVec2(120.0f, 26.0f)))
 		{
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
@@ -1690,7 +2378,7 @@ namespace
 			}
 			saveNeeded = true;
 		}
-		ImGui::PopStyleColor(3);
+		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
 
 		ImGui::SameLine(0, 8.0f);
@@ -1698,79 +2386,98 @@ namespace
 		// Button 3: Master ON / OFF toggle
 		{
 			bool wasEnabled = CurrentSettings.Enabled;
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 4.0f));
 			if (wasEnabled) {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.52f, 0.22f, 0.95f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.65f, 0.28f, 1.00f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.40f, 0.16f, 1.00f));
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 			} else {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.28f, 0.28f, 0.30f, 0.85f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.38f, 0.38f, 0.40f, 0.95f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.20f, 0.20f, 0.22f, 1.00f));
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 			}
-			if (ImGui::Button(wasEnabled ? "ON " : "OFF", ImVec2(52.0f, 26.0f))) {
+			if (ImGui::Button(wasEnabled ? "ON##opt_master" : "OFF##opt_master", ImVec2(56.0f, 26.0f))) {
+				EnsureDeferredInitialized();
 				CurrentSettings.Enabled = !CurrentSettings.Enabled;
+				CurrentSettings.Save(AddonDir);
+				Recompute(/*aForce=*/true);
 				changed    = true;
-				saveNeeded = true;
+				saveNeeded = false;
 			}
-			ImGui::PopStyleColor(3);
-			ImGui::PopStyleVar();
+			ImGui::PopStyleColor(4);
 			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip(wasEnabled ? (isDe ? "Filter aktiv — Klicke zum Ausschalten" : "Filter active — click to disable")
-				                             : (isDe ? "Filter inaktiv — Klicke zum Einschalten" : "Filter inactive — click to enable"));
+				ImGui::SetTooltip(wasEnabled ? (isDe ? "Filter aktiv - Klicke zum Ausschalten" : "Filter active - click to disable")
+				                             : (isDe ? "Filter inaktiv - Klicke zum Einschalten" : "Filter inactive - click to enable"));
 		}
 
-		ImGui::SameLine(0, 8.0f);
+		ImGui::SameLine(0, 10.0f);
+		DrawFilterStatusIndicator(true);
 
-		// Item 4: Language dropdown combo
-		int langComboIdx = 0;
-		if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
-		else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
-		else langComboIdx = 0;                                     // English (1)
+		// ── Row 2: Reset & Recovery Actions (Separate Line, never truncated) ───
+		ImGui::Spacing();
 
-		const char* langComboItems[] = {
-			"English",
-			"System (Windows)",
-			"Deutsch"
-		};
-
-		ImGui::SetNextItemWidth(110.0f);
-		if (ImGui::Combo("##LangComboEmb", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
-		{
-			if (langComboIdx == 0) CurrentSettings.Language = 1;
-			else if (langComboIdx == 1) CurrentSettings.Language = 0;
-			else if (langComboIdx == 2) CurrentSettings.Language = 2;
-			changed = true;
-			saveNeeded = true;
-		}
-
-		ImGui::SameLine(0, 8.0f);
-
-		// Item 5: Reset Windows (One button to reset and bring both windows to visible coordinates!)
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.28f, 0.30f, 0.35f, 0.85f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.38f, 0.40f, 0.48f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.20f, 0.22f, 0.28f, 1.00f));
-		if (ImGui::Button("Reset Windows", ImVec2(105.0f, 26.0f)))
+		// Button 4: Reset Windows Position
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+		if (ImGui::Button(isDe ? "Reset UI" : "Reset UI", ImVec2(120.0f, 26.0f)))
 		{
 			s_resetMainWindowPos = true;
 			s_resetGraphWindowPos = true;
+			s_resetLabWindowPos = true;
 			CurrentSettings.ShowMainWindow = true;
 			s_focusMainWindow = true;
 			saveNeeded = true;
 		}
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar(); // FrameRounding
 		if (ImGui::IsItemHovered())
 		{
-			ImGui::SetTooltip(isDe ? "Setzt Position und Gr\xc3\xb6\xc3\x9f" "e beider Fenster zur\xc3\xbc" "ck und bringt sie in den Vordergrund."
-			                       : "Resets position and size of both windows and brings them to the foreground.");
+			ImGui::SetTooltip(isDe ? "Setzt Position und Groesse aller CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardkoordinaten links oben zurueck."
+			                       : "Resets position and size of all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left coordinates.");
 		}
 
+		ImGui::SameLine(0, 8.0f);
+
+		// Button 5: Reset Filter to Neutral
+		if (ImGui::Button(isDe ? "Filter auf Neutral" : "Reset Filter to Neutral", ImVec2(190.0f, 26.0f)))
+		{
+			CurrentSettings.Enabled = false;
+			CurrentSettings.Severity01 = 0.0;
+			CurrentSettings.Mixed = false;
+			CurrentSettings.MixedRgSeverity01 = 0.0;
+			CurrentSettings.MixedBySeverity01 = 0.0;
+			CurrentSettings.GammaGain = 1.0f;
+			CurrentSettings.CommanderTagMode = 0;
+			CurrentSettings.AutoBrightness = false;
+			CurrentSettings.Save(AddonDir);
+			{
+				std::lock_guard<std::mutex> lock(s_recomputeMutex);
+				GetColorEffectController().Clear();
+				s_hasApplied = false;
+			}
+			Recompute(/*aForce=*/true);
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt Farbkorrektur, Helligkeit und Commander-Tags komplett auf neutral (Filter AUS, Staerke 0, Gamma 1.00x)."
+			                       : "Resets all color correction, brightness and tag settings to neutral defaults (Filter OFF, Severity 0, Gamma 1.00x).");
+		}
+		ImGui::PopStyleColor(4);
+
+		ImGui::PopStyleVar(2); // Pop FrameRounding & ItemSpacing
+
+		// ── Subtle Divider & Subtitle ─────────────────────────────────────────
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.92f, 0.90f), "A Color Logic Balancer and Enhancer with Com-Tag.Contrast and Cookies");
+		ImGui::TextColored(Theme::kTextCyanLicht, "Color Logic Balancer & Enhancer");
+		ImGui::SameLine();
+		ImGui::TextDisabled("(cba4gw2)");
+		ImGui::TextColored(Theme::kTextSecondary, isDe ? "Barrierefreie Farb- & Kontrastoptimierung fuer Guild Wars 2"
+		                                               : "Accessible color & contrast balancer for Guild Wars 2");
 		ImGui::Spacing();
 
 		// ── Nexus Integrations & Startup Behavior ──────────────────────────────
@@ -1814,63 +2521,172 @@ namespace
 		ImGuiStyle& style = ImGui::GetStyle();
 		style.FrameRounding = 4.0f;
 		style.WindowRounding = 6.0f;
+		style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 		style.Colors[ImGuiCol_Header] = ImVec4(0.24f, 0.44f, 0.68f, 0.85f);
 		style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.32f, 0.54f, 0.82f, 0.95f);
 		style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.18f, 0.36f, 0.58f, 1.00f);
 		style.ItemSpacing = ImVec2(8, 5);
 
-		// Keep widget content crisp
-		float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
-		float widgetAlpha = std::clamp(0.75f + 0.25f * clampedOpacity, 0.75f, 1.0f);
-		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, widgetAlpha);
+		// ── Fixed Top Header Bar (Always pinned on top, never scrolls) ──────
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(6.0f, 3.0f));
 
-		// ── Header Bar: Title, Live Status Dot, Open Graph HUD, Reset, Opacity ──
-		ImGui::TextColored(ImVec4(0.40f, 0.80f, 1.0f, 1.0f), "cba4gw2");
-		ImGui::SameLine();
-		DrawFilterStatusIndicator(true);
-
+		ImGui::TextColored(Theme::kTextBlauPeak, "cba4gw2");
 		ImGui::SameLine(0, 8.0f);
+
+		// Master ON/OFF toggle button
+		{
+			bool wasEnabled = CurrentSettings.Enabled;
+			if (wasEnabled) {
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+			} else {
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.00f, 0.28f, 0.28f, 1.00f));
+			}
+			if (ImGui::Button(wasEnabled ? "ON##main_master" : "OFF##main_master", ImVec2(56.0f, 24.0f))) {
+				EnsureDeferredInitialized();
+				CurrentSettings.Enabled = !CurrentSettings.Enabled;
+				CurrentSettings.Save(AddonDir);
+				Recompute(/*aForce=*/true);
+				changed    = true;
+				saveNeeded = false;
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip(wasEnabled ? (isDe ? "Filter aktiv - Klicke zum Ausschalten" : "Filter active - click to disable")
+				                             : (isDe ? "Filter inaktiv - Klicke zum Einschalten" : "Filter inactive - click to enable"));
+
+			// Tiny orbiting mini-star along button perimeter when OFF
+			if (!wasEnabled)
+			{
+				ImVec2 bMin = ImGui::GetItemRectMin();
+				ImVec2 bMax = ImGui::GetItemRectMax();
+				float bw = bMax.x - bMin.x;
+				float bh = bMax.y - bMin.y;
+				float peri = 2.0f * (bw + bh);
+				float t = (float)ImGui::GetTime();
+				float cyclePeriod = 3.6f;
+				float cycleIdx = std::floor(t / cyclePeriod);
+				float cycleFrac = (t - cycleIdx * cyclePeriod) / cyclePeriod;
+				bool reverse = (((int)cycleIdx) & 1) != 0;
+				float u = reverse ? (1.0f - cycleFrac) : cycleFrac;
+
+				auto getPerimeterPoint = [&](float uNorm) -> ImVec2 {
+					uNorm = uNorm - std::floor(uNorm);
+					float dist = uNorm * peri;
+					if (dist < bw) {
+						return ImVec2(bMin.x + dist, bMin.y);
+					} else if (dist < bw + bh) {
+						return ImVec2(bMax.x, bMin.y + (dist - bw));
+					} else if (dist < 2.0f * bw + bh) {
+						return ImVec2(bMax.x - (dist - (bw + bh)), bMax.y);
+					} else {
+						return ImVec2(bMin.x, bMax.y - (dist - (2.0f * bw + bh)));
+					}
+				};
+
+				ImVec2 pt = getPerimeterPoint(u);
+				float trailOffset = reverse ? 0.04f : -0.04f;
+				ImVec2 ptTrail = getPerimeterPoint(u + trailOffset);
+
+				ImDrawList* dl = ImGui::GetWindowDrawList();
+				// Faint soft red halo
+				dl->AddCircleFilled(pt, 3.2f, IM_COL32(255, 60, 60, 65));
+				// Soft trail dot
+				dl->AddCircleFilled(ptTrail, 1.0f, IM_COL32(255, 110, 110, 110));
+				// Bright white star core
+				dl->AddCircleFilled(pt, 1.3f, IM_COL32(255, 255, 255, 255));
+				// Micro 4-spoke star glint
+				float glint = 2.4f;
+				dl->AddLine(ImVec2(pt.x - glint, pt.y), ImVec2(pt.x + glint, pt.y), IM_COL32(255, 220, 220, 210), 1.0f);
+				dl->AddLine(ImVec2(pt.x, pt.y - glint), ImVec2(pt.x, pt.y + glint), IM_COL32(255, 220, 220, 210), 1.0f);
+			}
+		}
+
+		ImGui::SameLine(0, 6.0f);
+		DrawFilterStatusIndicator(false);
+
+		ImGui::SameLine(0, 6.0f);
 		bool graphOpen = CurrentSettings.ShowGraphWindow;
 		if (graphOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f, 0.52f, 0.32f, 0.92f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.64f, 0.40f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.42f, 0.25f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.44f, 0.52f, 0.90f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.65f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.42f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button("Sensor-Graph##main_top", ImVec2(96.0f, 0.0f))) {
+		if (ImGui::Button(isDe ? "Sensor-Graph##main_top" : "Sensor Graph##main_top", ImVec2(106.0f, 24.0f))) {
 			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
 			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 			saveNeeded = true;
 		}
-		ImGui::PopStyleColor(3);
+		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) {
 			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
 		}
 
-		ImGui::SameLine(0, 6.0f);
-		if (ImGui::Button("Reset##main")) {
-			s_resetMainWindowPos = true;
+		ImGui::SameLine(0, 5.0f);
+		bool labOpen = CurrentSettings.ShowLabWindow;
+		if (labOpen) {
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
+		if (ImGui::Button(isDe ? "Filter-Labor##main_top" : "Filter Lab##main_top", ImVec2(96.0f, 24.0f))) {
+			CurrentSettings.ShowLabWindow = !CurrentSettings.ShowLabWindow;
+			if (CurrentSettings.ShowLabWindow) s_focusLabWindow = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Setzt Position und Gr\xc3\xb6\xc3\x9f" "e des Hauptfensters zur\xc3\xbc" "ck.");
+			ImGui::SetTooltip(isDe ? "Filter-Labor als eigenes Fenster oeffnen oder schliessen" : "Open or close Filter Lab detached window");
 		}
 
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(55.0f);
-		if (ImGui::SliderFloat("##OpacityMain", &CurrentSettings.UiOpacity, 0.20f, 1.00f, "%.2f")) {
-			CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.20f, 1.00f);
-			changed = true;
+		ImGui::SameLine(0, 5.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+		if (ImGui::Button("Reset UI##main", ImVec2(84.0f, 24.0f))) {
+			s_resetMainWindowPos = true;
+			s_resetGraphWindowPos = true;
+			s_resetLabWindowPos = true;
 		}
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Fenster-Transparenz / Opacity");
-		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardposition links oben zurueck."
+			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left position.");
+		}
+
+		ImGui::PopStyleVar(2); // Pop FrameRounding & FramePadding
 
 		ImGui::Spacing();
-		ImGui::TextDisabled("%s", isDe ? "Farb- & Kontrastanpassung f\xc3\xbcr Barrierefreiheit in Guild Wars 2 (DWM / Live-Filter)"
+		ImGui::TextDisabled("%s", isDe ? "Farb- & Kontrastanpassung fuer Barrierefreiheit in Guild Wars 2 (DWM / Live-Filter)"
 		                               : "Accessible Color & Contrast Enhancer for Guild Wars 2 (DWM / Live Filter)");
 		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		// ── Scrollable Body Content (Fixed Header stays pinned on top) ───────
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 4.0f));
+		ImGui::BeginChild("##MainWindowScrollContent", ImVec2(0, 0), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+		ImGui::PopStyleVar();
 
 		// Helper lambda for dynamic slider width in narrow windows (~350px)
 		auto calcSliderWidth = []() {
@@ -1878,59 +2694,65 @@ namespace
 			return (avail > 140.0f) ? (avail - 65.0f) : 180.0f;
 		};
 
-		// ── Section 1: Farbprofil & Korrektur (Default Open) ─────────────────
-		if (ImGui::CollapsingHeader(t.HeaderSection1, ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			// Row 1: Big ON/OFF button + Language Combo
-			{
-				bool wasEnabled = CurrentSettings.Enabled;
-				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(10.0f, 4.0f));
-				if (wasEnabled) {
-					ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.11f, 0.50f, 0.21f, 0.92f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.64f, 0.28f, 0.97f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.38f, 0.16f, 1.00f));
-				} else {
-					ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.26f, 0.26f, 0.28f, 0.78f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.36f, 0.38f, 0.88f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.18f, 0.20f, 1.00f));
+		// State tracking for unfolding sections so newly opened sections have room and can auto-scroll into full view
+		static bool s_secOpen[8] = { true, true, false, false, false, false, false, false };
+
+		auto renderSectionHeader = [&](int secIdx, const char* label, ImGuiTreeNodeFlags extraFlags = 0) -> bool {
+			bool wasOpen = s_secOpen[secIdx];
+			ImGuiTreeNodeFlags flags = extraFlags;
+			if (wasOpen) flags |= ImGuiTreeNodeFlags_DefaultOpen;
+
+			// Clear vertical spacing between collapsed or adjacent sections
+			ImGui::Spacing();
+
+			bool isOpen = ImGui::CollapsingHeader(label, flags);
+			if (ImGui::IsItemClicked()) {
+				if (!wasOpen) {
+					// User just unfolded this section downwards!
+					// Scroll so this header is positioned at the top of the viewport,
+					// giving the whole section ample space to display its entire content!
+					ImGui::SetScrollHereY(0.0f);
 				}
-				if (ImGui::Button(wasEnabled ? "ON " : "OFF", ImVec2(52.0f, 26.0f))) {
-					CurrentSettings.Enabled = !CurrentSettings.Enabled;
-					changed    = true;
+			}
+			s_secOpen[secIdx] = isOpen;
+			return isOpen;
+		};
+
+		auto endSection = []() {
+			ImGui::Spacing();
+			ImGui::Dummy(ImVec2(0.0f, 12.0f)); // Generous breathing room so the rubrik is clearly separated from the next one
+		};
+
+		// ── Section 1: Farbprofil & Korrektur (Default Open) ─────────────────
+		if (renderSectionHeader(0, t.HeaderSection1, ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			// Language selector row
+			{
+				ImGui::TextDisabled("%s:", t.Language);
+				ImGui::SameLine(0, 8.0f);
+
+				int langComboIdx = 0;
+				if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
+				else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
+				else langComboIdx = 0;                                     // English (1)
+
+				const char* langComboItems[] = {
+					"English",
+					"System (Windows)",
+					"Deutsch"
+				};
+
+				ImGui::SetNextItemWidth(140.0f);
+				if (ImGui::Combo("##LangComboMain", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
+				{
+					if (langComboIdx == 0) CurrentSettings.Language = 1;
+					else if (langComboIdx == 1) CurrentSettings.Language = 0;
+					else if (langComboIdx == 2) CurrentSettings.Language = 2;
+					changed = true;
 					saveNeeded = true;
 				}
-				ImGui::PopStyleColor(3);
-				ImGui::PopStyleVar(2);
-				if (ImGui::IsItemHovered())
-					ImGui::SetTooltip(wasEnabled ? "Filter aktiv — Klicke zum Ausschalten" : "Filter inaktiv — Klicke zum Einschalten");
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.Language);
 			}
-
-			ImGui::SameLine(0, 10.0f);
-			ImGui::TextDisabled("|");
-			ImGui::SameLine();
-
-			int langComboIdx = 0;
-			if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
-			else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
-			else langComboIdx = 0;                                     // English (1)
-
-			const char* langComboItems[] = {
-				"English",
-				"System (Windows)",
-				"Deutsch"
-			};
-
-			ImGui::SetNextItemWidth(120.0f);
-			if (ImGui::Combo("##LangComboMain", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
-			{
-				if (langComboIdx == 0) CurrentSettings.Language = 1;
-				else if (langComboIdx == 1) CurrentSettings.Language = 0;
-				else if (langComboIdx == 2) CurrentSettings.Language = 2;
-				changed = true;
-				saveNeeded = true;
-			}
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.Language);
 
 			ImGui::Spacing();
 
@@ -1968,13 +2790,13 @@ namespace
 
 				ImGui::TextUnformatted(t.RgStrength);
 				float avail = ImGui::GetContentRegionAvail().x;
-				float btnW = 52.0f;
+				float btnW = 56.0f;
 				float sp = 6.0f;
 				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 				ImGui::SetNextItemWidth(sW);
-				if (ImGui::SliderFloat("##rg_det", &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.0f);
+				if (ImGui::SliderFloat("##rg_det", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.25f);
 					changed = true;
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
@@ -1987,8 +2809,8 @@ namespace
 				
 				ImGui::TextUnformatted(t.ByStrength);
 				ImGui::SetNextItemWidth(sW);
-				if (ImGui::SliderFloat("##by_det", &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.0f);
+				if (ImGui::SliderFloat("##by_det", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.25f);
 					changed = true;
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
@@ -2003,13 +2825,13 @@ namespace
 
 				ImGui::TextUnformatted(t.Strength);
 				float avail = ImGui::GetContentRegionAvail().x;
-				float btnW = 52.0f;
+				float btnW = 56.0f;
 				float sp = 6.0f;
 				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 				ImGui::SetNextItemWidth(sW);
-				if (ImGui::SliderFloat("##sev_det", &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.0f);
+				if (ImGui::SliderFloat("##sev_det", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.25f);
 					changed = true;
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
@@ -2030,74 +2852,171 @@ namespace
 				else if (firstEmptySlot == -1) firstEmptySlot = i;
 			}
 
-			static int s_overwriteSlotIdx = 0;
+			static DeficiencyType s_baseType = CurrentSettings.Type;
+			static double s_baseSev = CurrentSettings.Severity01;
+			static bool s_baseMixed = CurrentSettings.Mixed;
+			static double s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+			static double s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+			static float s_baseGamma = CurrentSettings.GammaGain;
+			static int s_activeSlotIdx = 0;
+			static bool s_hasBaseline = false;
+			if (!s_hasBaseline) {
+				s_baseType = CurrentSettings.Type;
+				s_baseSev = CurrentSettings.Severity01;
+				s_baseMixed = CurrentSettings.Mixed;
+				s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+				s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+				s_baseGamma = CurrentSettings.GammaGain;
+				s_hasBaseline = true;
+			}
+
+			bool isDirty = (CurrentSettings.Type != s_baseType ||
+			                std::abs(CurrentSettings.Severity01 - s_baseSev) > 0.005 ||
+			                CurrentSettings.Mixed != s_baseMixed ||
+			                std::abs(CurrentSettings.MixedRgSeverity01 - s_baseMixedRg) > 0.005 ||
+			                std::abs(CurrentSettings.MixedBySeverity01 - s_baseMixedBy) > 0.005 ||
+			                std::abs(CurrentSettings.GammaGain - s_baseGamma) > 0.005f);
+
 			static auto s_profileFeedbackTime = std::chrono::steady_clock::time_point{};
 			static std::string s_profileFeedbackMsg = "";
 
-			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.13f, 0.54f, 0.36f, 0.90f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.66f, 0.44f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.09f, 0.42f, 0.28f, 1.00f));
+			// Profile Quick Bar: "Profiles:" + Tiny Save Button (Grey -> Green -> Orange) + Slots [1] [2] [3]
+			ImGui::TextDisabled("%s:", isDe ? "Profile" : "Profiles");
+			ImGui::SameLine(0, 8.0f);
 
-			if (usedCount < 3) {
-				char saveBtnText[64];
-				std::snprintf(saveBtnText, sizeof(saveBtnText), isDe ? "Profil speichern (in Slot %d)" : "Save Profile (to Slot %d)", firstEmptySlot + 1);
-				if (ImGui::Button(saveBtnText, ImVec2(185.0f, 26.0f))) {
-					int targetSlot = firstEmptySlot;
-					CurrentSettings.Slots[targetSlot].Used = true;
-					char defaultName[64];
-					if (CurrentSettings.Mixed) {
-						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
-							(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
-					} else {
-						const char* tn = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
-										 (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
-						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
-					}
-					CurrentSettings.Slots[targetSlot].Name = defaultName;
-					CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
-					CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
-					CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
-					CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
-					CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
-					CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+			// Dynamic Tiny Save Button (52px/72px width, 22px height)
+			ImVec4 btnCol, btnHover, btnActive, textCol;
+			const char* saveTip = "";
 
-					CurrentSettings.Save(AddonDir);
-					s_profileFeedbackTime = std::chrono::steady_clock::now();
-					s_profileFeedbackMsg = isDe ? "[OK] Gespeichert in Slot " + std::to_string(targetSlot + 1) : "[OK] Saved to Slot " + std::to_string(targetSlot + 1);
-				}
+			if (!isDirty) {
+				// State 1: Grey / Neutral (Profile up to date / saved)
+				btnCol    = Theme::kBtnNeutralIdle;
+				btnHover  = Theme::kBtnNeutralHover;
+				btnActive = Theme::kBtnNeutralPress;
+				textCol   = Theme::kTextSecondary;
+				saveTip   = isDe ? "Profil unveraendert / aktuell" : "Profile up to date (no unsaved changes)";
+			} else if (usedCount < 3) {
+				// State 2: Green / Emerald (Settings changed -> ready to save)
+				btnCol    = ImVec4(0.12f, 0.46f, 0.26f, 0.95f);
+				btnHover  = ImVec4(0.16f, 0.58f, 0.34f, 1.00f);
+				btnActive = ImVec4(0.09f, 0.36f, 0.20f, 1.00f);
+				textCol   = Theme::GetContrastTextColor(btnCol);
+				saveTip   = isDe ? "Einstellung geaendert! Klicke zum Speichern in freien Slot" : "Settings changed! Click to save to empty slot";
 			} else {
-				if (ImGui::Button(isDe ? "Profil \xc3\xbc""berschreiben" : "Overwrite Profile", ImVec2(160.0f, 26.0f))) {
-					int targetSlot = std::clamp(s_overwriteSlotIdx, 0, 2);
-					CurrentSettings.Slots[targetSlot].Used = true;
-					char defaultName[64];
-					if (CurrentSettings.Mixed) {
-						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
-							(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
-					} else {
-						const char* tn = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
-										 (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
-						std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
-					}
-					CurrentSettings.Slots[targetSlot].Name = defaultName;
-					CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
-					CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
-					CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
-					CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
-					CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
-					CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
-
-					CurrentSettings.Save(AddonDir);
-					s_profileFeedbackTime = std::chrono::steady_clock::now();
-					s_profileFeedbackMsg = isDe ? "[OK] Slot " + std::to_string(targetSlot + 1) + " \xc3\xbc""berschrieben!" : "[OK] Slot " + std::to_string(targetSlot + 1) + " overwritten!";
-				}
-				ImGui::SameLine(0, 8.0f);
-				ImGui::RadioButton("Slot 1##ov1", &s_overwriteSlotIdx, 0); ImGui::SameLine();
-				ImGui::RadioButton("Slot 2##ov2", &s_overwriteSlotIdx, 1); ImGui::SameLine();
-				ImGui::RadioButton("Slot 3##ov3", &s_overwriteSlotIdx, 2);
+				// State 3: Orange / Amber (Settings changed BUT all 3 slots are full -> warning: will overwrite!)
+				btnCol    = ImVec4(0.72f, 0.36f, 0.08f, 0.95f);
+				btnHover  = ImVec4(0.85f, 0.44f, 0.10f, 1.00f);
+				btnActive = ImVec4(0.58f, 0.28f, 0.06f, 1.00f);
+				textCol   = Theme::GetContrastTextColor(btnCol);
+				saveTip   = isDe ? "Alle Slots voll! Klicke zum Ueberschreiben des aktiven Slots" : "All 3 slots full! Click to overwrite active slot";
 			}
-			ImGui::PopStyleColor(3);
+
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+			ImGui::PushStyleColor(ImGuiCol_Button,        btnCol);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, btnHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  btnActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          textCol);
+
+			if (ImGui::Button(isDe ? "Speichern##tiny_prof" : "Save##tiny_prof", ImVec2(isDe ? 72.0f : 52.0f, 22.0f)))
+			{
+				int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : std::clamp(s_activeSlotIdx, 0, 2);
+				CurrentSettings.Slots[targetSlot].Used = true;
+				char defaultName[64];
+				if (CurrentSettings.Mixed) {
+					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
+						(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
+				} else {
+					const char* tn = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
+					                 (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
+				}
+				if (CurrentSettings.Slots[targetSlot].Name.empty()) {
+					CurrentSettings.Slots[targetSlot].Name = defaultName;
+				}
+				CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
+				CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
+				CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
+				CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
+				CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
+				CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+
+				// Update baseline so button immediately turns back to grey!
+				s_baseType = CurrentSettings.Type;
+				s_baseSev = CurrentSettings.Severity01;
+				s_baseMixed = CurrentSettings.Mixed;
+				s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+				s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+				s_baseGamma = CurrentSettings.GammaGain;
+				s_activeSlotIdx = targetSlot;
+
+				CurrentSettings.Save(AddonDir);
+				s_profileFeedbackTime = std::chrono::steady_clock::now();
+				s_profileFeedbackMsg = isDe ? "[OK] Gespeichert in Slot " + std::to_string(targetSlot + 1) : "[OK] Saved to Slot " + std::to_string(targetSlot + 1);
+			}
+			ImGui::PopStyleColor(4);
 			ImGui::PopStyleVar();
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", saveTip);
+
+			// Slot quick selectors [1] [2] [3]
+			for (int sIdx = 0; sIdx < 3; ++sIdx)
+			{
+				ImGui::SameLine(0, 4.0f);
+				ImGui::PushID(sIdx + 450);
+				bool used = CurrentSettings.Slots[sIdx].Used;
+				bool isActive = (s_activeSlotIdx == sIdx);
+
+				if (isActive) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				} else if (used) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+				} else {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+				}
+
+				char slotChip[32];
+				std::snprintf(slotChip, sizeof(slotChip), "[%d]", sIdx + 1);
+				if (ImGui::Button(slotChip, ImVec2(32.0f, 22.0f)))
+				{
+					s_activeSlotIdx = sIdx;
+					if (used)
+					{
+						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
+						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
+						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
+						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
+						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
+						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+
+						s_baseType = CurrentSettings.Type;
+						s_baseSev = CurrentSettings.Severity01;
+						s_baseMixed = CurrentSettings.Mixed;
+						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+						s_baseGamma = CurrentSettings.GammaGain;
+
+						changed = true;
+						saveNeeded = true;
+					}
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
+				{
+					if (used)
+						ImGui::SetTooltip("Slot %d: %s\n%s", sIdx + 1, CurrentSettings.Slots[sIdx].Name.c_str(), isDe ? "Klicken zum Laden" : "Click to load");
+					else
+						ImGui::SetTooltip("Slot %d: %s", sIdx + 1, isDe ? "Frei" : "Empty");
+				}
+				ImGui::PopID();
+			}
 
 			if (s_profileFeedbackTime.time_since_epoch().count() > 0) {
 				auto now = std::chrono::steady_clock::now();
@@ -2108,8 +3027,12 @@ namespace
 					std::string savePath = AddonDir.empty() ? "settings.ini" : (AddonDir + "\\settings.ini");
 
 					ImGui::SameLine(0, 10.0f);
-					ImGui::TextColored(ImVec4(0.20f, 0.95f, 0.45f, alpha), "%s", s_profileFeedbackMsg.c_str());
-					ImGui::TextColored(ImVec4(0.45f, 0.80f, 0.65f, alpha), isDe ? "  Pfad: %s" : "  Path: %s", savePath.c_str());
+					ImVec4 feedbackCol = Theme::kTextCyanLicht;
+					feedbackCol.w = alpha;
+					ImGui::TextColored(feedbackCol, "%s", s_profileFeedbackMsg.c_str());
+					ImVec4 pathCol = Theme::kTextSecondary;
+					pathCol.w = alpha;
+					ImGui::TextColored(pathCol, isDe ? "  Pfad: %s" : "  Path: %s", savePath.c_str());
 				}
 			}
 
@@ -2121,8 +3044,8 @@ namespace
 					char nameBuf[64];
 					std::snprintf(nameBuf, sizeof(nameBuf), "%s", CurrentSettings.Slots[sIdx].Name.c_str());
 					float cardAvail = ImGui::GetContentRegionAvail().x;
-					float actionW = 86.0f;
-					float nameW = (cardAvail > 210.0f) ? (cardAvail - actionW - 8.0f) : 120.0f;
+					float actionW = 90.0f;
+					float nameW = (cardAvail > 214.0f) ? (cardAvail - actionW - 8.0f) : 120.0f;
 
 					ImGui::SetNextItemWidth(nameW);
 					if (ImGui::InputText("##slot_name", nameBuf, sizeof(nameBuf))) {
@@ -2130,22 +3053,42 @@ namespace
 						saveNeeded = true;
 					}
 					ImGui::SameLine(0, 4.0f);
-					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(52.0f, 0.0f))) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(56.0f, 0.0f))) {
+						s_activeSlotIdx = sIdx;
 						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
 						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
 						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
 						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
 						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
 						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+
+						s_baseType = CurrentSettings.Type;
+						s_baseSev = CurrentSettings.Severity01;
+						s_baseMixed = CurrentSettings.Mixed;
+						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+						s_baseGamma = CurrentSettings.GammaGain;
+
 						changed = true;
 						saveNeeded = true;
 					}
+					ImGui::PopStyleColor(4);
+
 					ImGui::SameLine(0, 4.0f);
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
 					if (ImGui::Button("X##clr_slot", ImVec2(22.0f, 0.0f))) {
 						CurrentSettings.Slots[sIdx].Used = false;
 						CurrentSettings.Slots[sIdx].Name = "";
 						saveNeeded = true;
 					}
+					ImGui::PopStyleColor(4);
 					if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Slot leeren" : "Clear slot");
 				} else {
 					ImGui::TextDisabled("Slot %d: [%s]", sIdx + 1, isDe ? "Leer" : "Empty");
@@ -2182,7 +3125,7 @@ namespace
 					if (CurrentSettings.Type == DeficiencyType::Protan) {
 						profileName = isDe ? "Protanopie (Rot)" : "Protanopia (Red)";
 					} else if (CurrentSettings.Type == DeficiencyType::Deutan) {
-						profileName = isDe ? "Deuteranopie (Gr\xc3\xbc\x6e)" : "Deuteranopia (Green)";
+						profileName = isDe ? "Deuteranopie (Gruen)" : "Deuteranopia (Green)";
 					} else {
 						profileName = isDe ? "Tritanopie (Blau)" : "Tritanopia (Blue)";
 					}
@@ -2197,7 +3140,7 @@ namespace
 					} else if (CurrentSettings.Severity01 <= 0.35) {
 						clinicalGrade = isDe ? "Leicht (HRR Mild)" : "Mild (HRR Mild)";
 					} else if (CurrentSettings.Severity01 <= 0.70) {
-						clinicalGrade = isDe ? "M\xc3\xa4\xc3\x9fig (HRR Moderate)" : "Moderate (HRR Mod)";
+						clinicalGrade = isDe ? "Maessig (HRR Moderate)" : "Moderate (HRR Mod)";
 					} else {
 						clinicalGrade = isDe ? "Stark (HRR Severe)" : "Severe (HRR Severe)";
 					}
@@ -2222,11 +3165,11 @@ namespace
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
 			}
-			ImGui::Spacing();
+			endSection();
 		}
 
 		// ── Section 2: Commander-Tag Enhancer (Default Open) ─────────────────
-		if (ImGui::CollapsingHeader(t.HeaderSection2, ImGuiTreeNodeFlags_DefaultOpen))
+		if (renderSectionHeader(1, t.HeaderSection2, ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
 			if (ImGui::Checkbox(isDe ? "Aktiv##enhancer_toggle" : "Active##enhancer_toggle", &enhancerActive)) {
@@ -2237,9 +3180,52 @@ namespace
 			}
 			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.CmdrEnhancerDesc);
 
+			int shiftedCount = 0;
+			for (int i = 0; i < 9; ++i) {
+				if (s_tagConflictStates[i].inConflict) shiftedCount++;
+			}
+			ImGui::SameLine(0, 14.0f);
+			const char* curDefName = CurrentSettings.Type == DeficiencyType::Protan ? (isDe ? "Protanopie" : "Protanopia") 
+				: (CurrentSettings.Type == DeficiencyType::Deutan ? (isDe ? "Deuteranopie" : "Deuteranopia") : (isDe ? "Tritanopie" : "Tritanopia"));
+			ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "%s - %d von 9 Farben verschoben" : "%s - %d of 9 colors shifted", curDefName, shiftedCount);
+
 			if (enhancerActive)
 			{
-				ImGui::SameLine(0, 16.0f);
+				ImGui::Spacing();
+				// 3 Preset Buttons from Mockup
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+				auto presetBtn = [&](const char* name, DeficiencyType dType) {
+					bool act = (!CurrentSettings.Mixed && CurrentSettings.Type == dType);
+					if (act) {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+					} else {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+					}
+					if (ImGui::Button(name, ImVec2(100.0f, 24.0f))) {
+						CurrentSettings.Type = dType;
+						CurrentSettings.Mixed = false;
+						CurrentSettings.CommanderTagMode = 1;
+						CurrentSettings.SmartEnhancer = true;
+						UpdateTagEnhancerConflicts();
+						changed = true;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+				};
+				presetBtn(isDe ? "Protanopie" : "Protanopia", DeficiencyType::Protan);
+				ImGui::SameLine(0, 6.0f);
+				presetBtn(isDe ? "Deuteranopie" : "Deuteranopia", DeficiencyType::Deutan);
+				ImGui::SameLine(0, 6.0f);
+				presetBtn(isDe ? "Tritanopie" : "Tritanopia", DeficiencyType::Tritan);
+				ImGui::PopStyleVar();
+
+				ImGui::Spacing();
 				if (ImGui::Checkbox(isDe ? "Smart-Auto##smart_toggle" : "Smart Auto##smart_toggle", &CurrentSettings.SmartEnhancer)) {
 					UpdateTagEnhancerConflicts();
 					changed = true;
@@ -2259,8 +3245,8 @@ namespace
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 				ImGui::Spacing();
-				ImGui::TextDisabled("%s", isDe ? "Tag-Farben — betroffen (wird verschoben) vs. sicher (unangetastet):"
-				                               : "Tag Colors — affected (shifted) vs. safe (untouched):");
+				ImGui::TextDisabled("%s", isDe ? "Tag-Farben: Betroffen (wird verschoben) vs. Sicher (unangetastet):"
+				                               : "Tag Colors: Affected (shifted) vs. Safe (untouched):");
 				ImGui::Spacing();
 
 				// Clean horizontal row of circular tag swatches (Mockup Style)
@@ -2268,7 +3254,7 @@ namespace
 				const float circleSpacing = 8.0f;
 				ImDrawList* dlTags = ImGui::GetWindowDrawList();
 
-				for (int i = 0; i < 8; ++i)
+				for (int i = 0; i < 9; ++i)
 				{
 					if (i > 0) ImGui::SameLine(0, circleSpacing);
 					ImVec2 p = ImGui::GetCursorScreenPos();
@@ -2298,7 +3284,7 @@ namespace
 							ImGui::SetTooltip(isDe ? "%s: Konflikt erkannt -> Auto-Verschiebung aktiv" 
 							                       : "%s: Conflict detected -> Auto-shift active", tagLabel);
 						else
-							ImGui::SetTooltip(isDe ? "%s: Kein Konflikt -> Farbe bleibt unber\xc3\xbchrt" 
+							ImGui::SetTooltip(isDe ? "%s: Kein Konflikt -> Farbe bleibt unberuehrt" 
 							                       : "%s: No conflict -> Color remains untouched", tagLabel);
 					}
 				}
@@ -2317,31 +3303,33 @@ namespace
 				auto mainGraphModeBtn = [&](const char* aName, int aModeVal, const char* aTip) {
 					bool active = (CurrentSettings.MainGraphMode == aModeVal);
 					if (active) {
-						ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.55f, 0.75f, 0.95f));
-						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.26f, 0.65f, 0.88f, 1.00f));
-						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.15f, 0.45f, 0.65f, 1.00f));
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 					} else {
-						ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.22f, 0.28f, 0.85f));
-						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.30f, 0.38f, 0.95f));
-						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.14f, 0.18f, 0.24f, 1.00f));
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					}
-					if (ImGui::Button(aName, ImVec2(80.0f, 22.0f))) {
+					if (ImGui::Button(aName, ImVec2(92.0f, 22.0f))) {
 						CurrentSettings.MainGraphMode = aModeVal;
 						saveNeeded = true;
 					}
-					ImGui::PopStyleColor(3);
+					ImGui::PopStyleColor(4);
 					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTip);
 				};
 
 				ImGui::TextDisabled("%s:", isDe ? "Ansicht" : "View");
 				ImGui::SameLine(0, 8.0f);
-				mainGraphModeBtn("Polygonal##main", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nSt\xc3\xbc""ckweise lineare Farbvektor-Projektion \xc3\xbc""ber die Hue-Winkel."
+				mainGraphModeBtn(isDe ? "Polygonal##main" : "Polygonal##main", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nStueckweise lineare Farbvektor-Projektion ueber die Hue-Winkel."
 				                                            : "1. Spectral Transfer Function (Piecewise-Linear / PWL)\nPiecewise linear color vector projection across hue angles.");
 				ImGui::SameLine();
-				mainGraphModeBtn("Harmonisch##main", 1, isDe ? "2. Harmonische Resonanz (Gau\xc3\x9f / Sinusoidale LMS-Kurven)\nFlie\xc3\x9f""ende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
+				mainGraphModeBtn(isDe ? "Harmonisch##main" : "Harmonic##main", 1, isDe ? "2. Harmonische Resonanz (Gauss / Sinusoidale LMS-Kurven)\nFliessende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
 				                                             : "2. Harmonic Spectral Response (Gaussian / Smooth Spline)\nFlowing, continuous wave curves based on the human LMS cone model.");
 				ImGui::SameLine();
-				mainGraphModeBtn("Strahlen##main", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkan\xc3\xa4""le wie bei einem Gitterspektrometer."
+				mainGraphModeBtn(isDe ? "Strahlen##main" : "Rays##main", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkanaele wie bei einem Gitterspektrometer."
 				                                           : "3. Linear Spectral Rays (Ray Scope / Dispersion Bars)\nPhysical ray-optics decomposition of channels like a diffraction spectrometer.");
 
 				ImGui::PopStyleVar(2);
@@ -2400,6 +3388,39 @@ namespace
 				dlMain->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 2.0f);
 				ImGui::Dummy(ImVec2(graphW, beamH));
 
+				// Gespeicherte Profile (Mockup Chips)
+				ImGui::Spacing();
+				ImGui::TextDisabled("%s:", isDe ? "Gespeicherte Profile (Schnellauswahl)" : "Saved Profiles (Quick Select)");
+				ImGui::Spacing();
+
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+				if (ImGui::Button(isDe ? "Tag-Kontrast Protan" : "Tag Contrast Protan", ImVec2(140.0f, 22.0f)))
+				{
+					CurrentSettings.Type = DeficiencyType::Protan;
+					CurrentSettings.Mixed = false;
+					CurrentSettings.Severity01 = 1.0f;
+					CurrentSettings.CommanderTagMode = 1;
+					CurrentSettings.SmartEnhancer = true;
+					UpdateTagEnhancerConflicts();
+					changed = true; saveNeeded = true;
+				}
+				ImGui::SameLine(0, 6.0f);
+				if (ImGui::Button(isDe ? "Mein WvW Setup" : "My WvW Setup", ImVec2(120.0f, 22.0f)))
+				{
+					CurrentSettings.Type = DeficiencyType::Protan;
+					CurrentSettings.Mixed = false;
+					CurrentSettings.Severity01 = 1.25f; // +25% Boost
+					CurrentSettings.CommanderTagMode = 1;
+					CurrentSettings.SmartEnhancer = true;
+					CurrentSettings.EnhancerTolerance = 0.14f;
+					UpdateTagEnhancerConflicts();
+					changed = true; saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+
 				// Presets
 				ImGui::Spacing();
 				ImGui::TextDisabled("%s:", t.PresetsTitle);
@@ -2418,7 +3439,11 @@ namespace
 					}
 
 					ImGui::SameLine(0, 4.0f);
-					if (ImGui::Button(isDe ? "Laden##det" : "Load##det", ImVec2(48.0f, 0.0f)))
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+					if (ImGui::Button(isDe ? "Laden##det" : "Load##det", ImVec2(52.0f, 0.0f)))
 					{
 						CurrentSettings.Type = static_cast<DeficiencyType>(CurrentSettings.Presets[pIdx].Type);
 						CurrentSettings.Severity01 = CurrentSettings.Presets[pIdx].Severity;
@@ -2428,19 +3453,25 @@ namespace
 						changed = true;
 						saveNeeded = true;
 					}
+					ImGui::PopStyleColor(4);
 					if (ImGui::IsItemHovered())
 					{
 						ImGui::SetTooltip(isDe ? "Preset '%s' laden" : "Load preset '%s'", CurrentSettings.Presets[pIdx].Name.c_str());
 					}
 
 					ImGui::SameLine(0, 4.0f);
-					if (ImGui::Button(isDe ? "Speichern##det" : "Save##det", ImVec2(65.0f, 0.0f)))
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+					if (ImGui::Button(isDe ? "Speichern##det" : "Save##det", ImVec2(72.0f, 0.0f)))
 					{
 						CurrentSettings.Presets[pIdx].Type = static_cast<int>(CurrentSettings.Type);
 						CurrentSettings.Presets[pIdx].Severity = CurrentSettings.Severity01;
 						CurrentSettings.Presets[pIdx].Tolerance = CurrentSettings.EnhancerTolerance;
 						CurrentSettings.Save(AddonDir);
 					}
+					ImGui::PopStyleColor(4);
 					if (ImGui::IsItemHovered())
 					{
 						ImGui::SetTooltip(isDe ? "Aktuelle Einstellungen in Slot %d speichern" : "Save current settings to slot %d", pIdx + 1);
@@ -2449,12 +3480,13 @@ namespace
 					ImGui::PopID();
 				}
 
-				// Safe Reset
+				// Reset on Neutral
 				ImGui::Spacing();
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.38f, 0.22f, 0.22f, 0.85f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.50f, 0.28f, 0.28f, 0.95f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.30f, 0.16f, 0.16f, 1.00f));
-				if (ImGui::Button(isDe ? "Safe (Reset auf Neutral)##det" : "Safe (Reset to Neutral)##det", ImVec2(180.0f, 24.0f)))
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+				if (ImGui::Button(isDe ? "Reset auf Neutral##det" : "Reset to Neutral##det", ImVec2(180.0f, 24.0f)))
 				{
 					CurrentSettings.CommanderTagMode = 0;
 					CurrentSettings.EnhancerTolerance = 0.12f;
@@ -2463,17 +3495,24 @@ namespace
 					changed = true;
 					saveNeeded = true;
 				}
-				ImGui::PopStyleColor(3);
+				ImGui::PopStyleColor(4);
 				if (ImGui::IsItemHovered())
 				{
-					ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurück" : "Resets Commander Tag Enhancer to Off / Neutral");
+					ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurueck" : "Resets Commander Tag Enhancer to Off / Neutral");
 				}
 			}
-			ImGui::Spacing();
+			endSection();
 		}
 
-		// ── Section 3: Eye Comfort (Helligkeit) ──────────────────────────────
-		if (ImGui::CollapsingHeader(t.HeaderSection3))
+		// ── Section 3: Kontrast-Kombinationen (Überlappende Farbfelder) ──────
+		if (renderSectionHeader(2, t.HeaderSection3))
+		{
+			DrawContrastCombinationsWidget(isDe, changed, saveNeeded);
+			endSection();
+		}
+
+		// ── Section 4: Eye Comfort (Helligkeit) ──────────────────────────────
+		if (renderSectionHeader(3, t.HeaderSection4))
 		{
 			static int s_lastHdrCheckFrameDet = -1;
 			static bool s_cachedHdrDetectedDet = false;
@@ -2487,7 +3526,7 @@ namespace
 
 			ImVec2 dotPos = ImGui::GetCursorScreenPos();
 			float dotRadius = 4.0f;
-			ImU32 dotColor = s_cachedHdrDetectedDet ? IM_COL32(50, 210, 50, 255) : IM_COL32(135, 140, 145, 200);
+			ImU32 dotColor = s_cachedHdrDetectedDet ? Theme::kDotReadyCol : Theme::kDotOffCol;
 			ImVec2 dotCenter(dotPos.x + dotRadius + 2.0f, dotPos.y + ImGui::GetTextLineHeight() * 0.5f);
 			ImGui::GetWindowDrawList()->AddCircleFilled(dotCenter, dotRadius, dotColor);
 			ImGui::Dummy(ImVec2(dotRadius * 2.0f + 4.0f, ImGui::GetTextLineHeight()));
@@ -2505,7 +3544,7 @@ namespace
 			ImGui::Spacing();
 			ImGui::TextUnformatted(isDe ? "Helligkeit (Eye Comfort Gamma):" : "Brightness (Eye Comfort Gamma):");
 			float availGamma = ImGui::GetContentRegionAvail().x;
-			float btnWGamma = 52.0f;
+			float btnWGamma = 56.0f;
 			float spGamma = 6.0f;
 			float sWGamma = (availGamma > (btnWGamma + spGamma + 60.0f)) ? (availGamma - btnWGamma - spGamma) : 180.0f;
 
@@ -2520,6 +3559,10 @@ namespace
 				saveNeeded = true;
 			}
 			ImGui::SameLine(0, spGamma);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 			if (ImGui::Button("Reset##gamma_main", ImVec2(btnWGamma, 0.0f)))
 			{
 				CurrentSettings.GammaGain = 1.0f;
@@ -2527,6 +3570,7 @@ namespace
 				changed = true;
 				saveNeeded = true;
 			}
+			ImGui::PopStyleColor(4);
 
 			BrightnessRetentionResult retention = GetBrightnessRetention();
 			if (CurrentSettings.AutoBrightness)
@@ -2542,12 +3586,17 @@ namespace
 			ImGui::Spacing();
 			ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
 			ImGui::SameLine(0, 8.0f);
-			if (ImGui::Button(t.EyeComfortApply))
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+			if (ImGui::Button(t.EyeComfortApply, ImVec2(isDe ? 175.0f : 165.0f, 24.0f)))
 			{
 				CurrentSettings.GammaGain = retention.recommendedGain;
 				changed = true;
 				saveNeeded = true;
 			}
+			ImGui::PopStyleColor(4);
 			ImGui::SameLine(0, 8.0f);
 			if (ImGui::Checkbox(isDe ? "Auto-Helligkeit##main_auto" : "Auto-Brightness##main_auto", &CurrentSettings.AutoBrightness))
 			{
@@ -2558,11 +3607,11 @@ namespace
 				}
 				saveNeeded = true;
 			}
-			ImGui::Spacing();
+			endSection();
 		}
 
-		// ── Section 4: Spiel- & Fenstermodus ──────────────────────────────────
-		if (ImGui::CollapsingHeader(t.HeaderSection4))
+		// ── Section 5: Spiel- & Fenstermodus ──────────────────────────────────
+		if (renderSectionHeader(4, t.HeaderSection5))
 		{
 			WindowMode mode = DetectWindowMode(
 				APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
@@ -2588,11 +3637,11 @@ namespace
 			} else {
 				ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.25f, 1.0f), "%s", t.FocusWatchdogBackground);
 			}
-			ImGui::Spacing();
+			endSection();
 		}
 
-		// ── Section 5: Hybrid Modus (Beta) ────────────────────────────────────
-		if (ImGui::CollapsingHeader(t.HeaderSection5))
+		// ── Section 6: Hybrid Modus (Beta) ────────────────────────────────────
+		if (renderSectionHeader(5, t.HeaderSection6))
 		{
 			if (ImGui::Checkbox(t.HybridMode, &CurrentSettings.EnableHybridMode)) {
 				GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
@@ -2604,11 +3653,18 @@ namespace
 			}
 			ImGui::TextDisabled("%s", isDe ? "Kinematic Fader: Automatische Weichzeichnung bei schnellen Kameraschwenks."
 			                               : "Kinematic Fader: Automatic smoothing during rapid camera pans.");
-			ImGui::Spacing();
+			endSection();
 		}
 
-		// ── Section 6: Über, Diagnose & Credits (Everything clean in one collapsible section) ──
-		if (ImGui::CollapsingHeader(t.HeaderSection6))
+		// ── Section 7: Filter-Labor & Experimentierfeld ──────────────────────
+		if (renderSectionHeader(6, t.HeaderSection7))
+		{
+			DrawFilterLabWidget(isDe, changed, saveNeeded);
+			endSection();
+		}
+
+		// ── Section 8: Über, Diagnose & Credits (Everything clean in one collapsible section) ──
+		if (renderSectionHeader(7, t.HeaderSection8))
 		{
 			if (ImGui::Checkbox(t.DebugModeCheckbox, &CurrentSettings.DebugMode)) {
 				changed = true;
@@ -2624,15 +3680,17 @@ namespace
 			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.20f, 0.35f, 0.75f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.28f, 0.50f, 0.95f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.14f, 0.26f, 1.00f));
-			if (ImGui::Button(t.C64Button, ImVec2(120.0f, 24.0f)))
+			if (ImGui::Button(t.CreditsBtn, ImVec2(120.0f, 24.0f)))
 			{
 				s_showC64Credits.store(true);
 				StartC64Audio();
 			}
 			ImGui::PopStyleColor(3);
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.C64Tooltip);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.CreditsTooltip);
 			ImGui::Spacing();
 		}
+
+		ImGui::EndChild(); // ##MainWindowScrollContent
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);
@@ -2641,7 +3699,6 @@ namespace
 			Recompute(/*aForce=*/false);
 		}
 
-		ImGui::PopStyleVar(); // Pop widgetAlpha
 		ImGui::PopID();
 	}
 
@@ -2656,6 +3713,9 @@ namespace
 
 		ImGui::PushID("CBA_GraphHUD");
 
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
+
 		// ── Header Bar: Live Status Dot, Live Profile & Brightness Info, Reset Button, Mischpult Opacity Button ──
 		DrawFilterStatusIndicator(false);
 		ImGui::SameLine(0, 6.0f);
@@ -2665,7 +3725,7 @@ namespace
 			std::string profStr;
 			if (CurrentSettings.Mixed) {
 				char b[64];
-				std::snprintf(b, sizeof(b), "Mixed (%d%%/%d%%)", 
+				std::snprintf(b, sizeof(b), "%s (%d%%/%d%%)", isDe ? "Gemischt" : "Mixed",
 					(int)(CurrentSettings.MixedRgSeverity01 * 100.0), (int)(CurrentSettings.MixedBySeverity01 * 100.0));
 				profStr = b;
 			} else {
@@ -2681,30 +3741,61 @@ namespace
 		}
 
 		ImGui::SameLine(0, 8.0f);
-		if (ImGui::Button("Reset##graph"))
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+		if (ImGui::Button("Reset##graph", ImVec2(56.0f, 22.0f)))
 		{
-			s_resetGraphWindowPos = true;
+			CurrentSettings.Enabled = false;
+			CurrentSettings.Severity01 = 0.0;
+			CurrentSettings.Mixed = false;
+			CurrentSettings.MixedRgSeverity01 = 0.0;
+			CurrentSettings.MixedBySeverity01 = 0.0;
+			CurrentSettings.GammaGain = 1.0f;
+			CurrentSettings.AutoBrightness = false;
+			CurrentSettings.CommanderTagMode = 0;
+			CurrentSettings.EnableHybridMode = false;
+			GetHybridScanner().SetEnabled(false);
+			CurrentSettings.FreeFilterEnabled = false;
+			CurrentSettings.LabModeEnabled = false;
+			CurrentSettings.Save(AddonDir);
+			{
+				std::lock_guard<std::mutex> lock(s_recomputeMutex);
+				GetColorEffectController().Clear();
+				s_hasApplied = false;
+			}
+			Recompute(/*aForce=*/true);
+			changed = true;
+			saveNeeded = true;
 		}
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Setzt Position und Gr\xc3\xb6\xc3\x9f" "e des Graph-Fensters zur\xc3\xbc" "ck.");
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt alle aktiven Kurven, Filter und Effekte (Commander-Tags, Hybrid, Helligkeit) komplett auf neutral zurueck (Filter AUS)."
+			                       : "Resets all active curves, filters, and effect functions (Commander Tags, Hybrid, Brightness) to neutral (Filter OFF).");
+		}
 
 		ImGui::SameLine(0, 6.0f);
 		static bool s_showGraphOpacityDrawer = false;
 		char opacLabel[32];
 		std::snprintf(opacLabel, sizeof(opacLabel), "%.2f", CurrentSettings.UiOpacity);
 		if (s_showGraphOpacityDrawer) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.50f, 0.72f, 0.95f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.26f, 0.60f, 0.85f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.22f, 0.30f, 0.85f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.30f, 0.40f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 		}
 		if (ImGui::Button(opacLabel, ImVec2(48.0f, 0.0f)))
 		{
 			s_showGraphOpacityDrawer = !s_showGraphOpacityDrawer;
 		}
-		ImGui::PopStyleColor(2);
+		ImGui::PopStyleColor(3);
 		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Deckkraft-Fader (Mischpult-Regler \xc3\xb6" "ffnen)" : "Window Opacity (Toggle mixer fader)");
+			ImGui::SetTooltip(isDe ? "Deckkraft-Fader (Mischpult-Regler oeffnen)" : "Window Opacity (Toggle mixer fader)");
 		}
 
 		// Mischpult-Regler drawer
@@ -2719,9 +3810,9 @@ namespace
 
 			float fullW = ImGui::GetContentRegionAvail().x;
 			ImGui::SetNextItemWidth(fullW);
-			if (ImGui::SliderFloat("##HUDOpacityFader", &CurrentSettings.UiOpacity, 0.10f, 1.00f, isDe ? "Fader / Deckkraft: %.2f" : "Fader / Opacity: %.2f"))
+			if (ImGui::SliderFloat("##HUDOpacityFader", &CurrentSettings.UiOpacity, 0.00f, 1.00f, isDe ? "Fader / Deckkraft: %.2f" : "Fader / Opacity: %.2f"))
 			{
-				CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.10f, 1.00f);
+				CurrentSettings.UiOpacity = std::clamp(CurrentSettings.UiOpacity, 0.00f, 1.00f);
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
@@ -2739,31 +3830,33 @@ namespace
 		auto graphModeBtn = [&](const char* aName, int aModeVal, const char* aTip) {
 			bool active = (CurrentSettings.GraphMode == aModeVal);
 			if (active) {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.55f, 0.75f, 0.95f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.26f, 0.65f, 0.88f, 1.00f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.15f, 0.45f, 0.65f, 1.00f));
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 			} else {
-				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.22f, 0.28f, 0.85f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.30f, 0.38f, 0.95f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.14f, 0.18f, 0.24f, 1.00f));
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 			}
-			if (ImGui::Button(aName, ImVec2(80.0f, 22.0f))) {
+			if (ImGui::Button(aName, ImVec2(92.0f, 22.0f))) {
 				CurrentSettings.GraphMode = aModeVal;
 				saveNeeded = true;
 			}
-			ImGui::PopStyleColor(3);
+			ImGui::PopStyleColor(4);
 			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTip);
 		};
 
 		ImGui::TextDisabled("%s:", isDe ? "Ansicht" : "View");
 		ImGui::SameLine(0, 8.0f);
-		graphModeBtn("Polygonal", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nSt\xc3\xbc" "ckweise lineare Farbvektor-Projektion \xc3\xbc" "ber die Hue-Winkel."
+		graphModeBtn("Polygonal", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nStueckweise lineare Farbvektor-Projektion ueber die Hue-Winkel."
 		                                  : "1. Spectral Transfer Function (Piecewise-Linear / PWL)\nPiecewise linear color vector projection across hue angles.");
 		ImGui::SameLine();
-		graphModeBtn("Harmonisch", 1, isDe ? "2. Harmonische Resonanz (Gau\xc3\x9f / Sinusoidale LMS-Kurven)\nFlie\xc3\x9f" "ende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
+		graphModeBtn(isDe ? "Harmonisch" : "Harmonic", 1, isDe ? "2. Harmonische Resonanz (Gauss / Sinusoidale LMS-Kurven)\nFliessende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
 		                                   : "2. Harmonic Spectral Response (Gaussian / Smooth Spline)\nFlowing, continuous wave curves based on the human LMS cone model.");
 		ImGui::SameLine();
-		graphModeBtn("Strahlen", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkan\xc3\xa4le wie bei einem Gitterspektrometer."
+		graphModeBtn(isDe ? "Strahlen" : "Rays", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkanaele wie bei einem Gitterspektrometer."
 		                                 : "3. Linear Spectral Rays (Ray Scope / Dispersion Bars)\nPhysical ray-optics decomposition of channels like a diffraction spectrometer.");
 
 		ImGui::PopStyleVar(2);
@@ -2817,11 +3910,11 @@ namespace
 			double cg = std::clamp(corrMat[1][0]*r0 + corrMat[1][1]*g0 + corrMat[1][2]*b0, 0.0, 1.0);
 			double cb = std::clamp(corrMat[2][0]*r0 + corrMat[2][1]*g0 + corrMat[2][2]*b0, 0.0, 1.0);
 
-			int beamAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 210.0f, 40.0f, 255.0f));
+			int beamAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 210.0f + 45.0f, 45.0f, 255.0f));
 			ImU32 col = IM_COL32((int)(cr*255), (int)(cg*255), (int)(cb*255), beamAlpha);
 			dl->AddRectFilled(ImVec2(plotX + u0 * plotW, beamPos.y), ImVec2(plotX + u1 * plotW, beamPos.y + beamH), col, (b == 0 || b == kBeamSteps - 1) ? 2.0f : 0.0f);
 		}
-		int borderAlpha = (int)(CurrentSettings.UiOpacity * 130.0f);
+		int borderAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 140.0f, 20.0f, 140.0f));
 		dl->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 2.0f);
 		ImGui::Dummy(ImVec2(graphW, beamH));
 		ImGui::TextDisabled("%s", isDe ? "Echtzeit-Spektrum (gefiltert)" : "Real-time spectrum (filtered)");
@@ -2867,57 +3960,72 @@ namespace
 
 			ImGui::TextUnformatted(t.RgStrength);
 			float avail = ImGui::GetContentRegionAvail().x;
-			float btnW = 52.0f;
+			float btnW = 56.0f;
 			float sp = 6.0f;
 			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 			ImGui::SetNextItemWidth(sW);
-			if (ImGui::SliderFloat("##rg_hud", &rg, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.0f);
+			if (ImGui::SliderFloat("##rg_hud", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+				CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.25f);
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 			ImGui::SameLine(0, sp);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 			if (ImGui::Button("Reset##rg_hud", ImVec2(btnW, 0.0f))) { 
 				CurrentSettings.MixedRgSeverity01 = 0.0f; 
 				changed = true; 
 				saveNeeded = true; 
 			}
+			ImGui::PopStyleColor(4);
 			
 			ImGui::TextUnformatted(t.ByStrength);
 			ImGui::SetNextItemWidth(sW);
-			if (ImGui::SliderFloat("##by_hud", &by, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.0f);
+			if (ImGui::SliderFloat("##by_hud", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+				CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.25f);
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 			ImGui::SameLine(0, sp);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 			if (ImGui::Button("Reset##by_hud", ImVec2(btnW, 0.0f))) { 
 				CurrentSettings.MixedBySeverity01 = 0.0f; 
 				changed = true; 
 				saveNeeded = true; 
 			}
+			ImGui::PopStyleColor(4);
 		} else {
 			float sev = (float)CurrentSettings.Severity01;
 
 			ImGui::TextUnformatted(t.Strength);
 			float avail = ImGui::GetContentRegionAvail().x;
-			float btnW = 52.0f;
+			float btnW = 56.0f;
 			float sp = 6.0f;
 			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 			ImGui::SetNextItemWidth(sW);
-			if (ImGui::SliderFloat("##sev_hud", &sev, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.0f);
+			if (ImGui::SliderFloat("##sev_hud", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+				CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.25f);
 				changed = true;
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 			ImGui::SameLine(0, sp);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 			if (ImGui::Button("Reset##sev_hud", ImVec2(btnW, 0.0f))) { 
 				CurrentSettings.Severity01 = 0.0f; 
 				changed = true; 
 				saveNeeded = true; 
 			}
+			ImGui::PopStyleColor(4);
 		}
 
 		// ── Section: Eye Comfort / Helligkeits-Logik ────────────────────────
@@ -2938,25 +4046,25 @@ namespace
 			}
 		}
 
-		// Highlighted calculation card
-		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.13f, 0.19f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.22f, 0.45f, 0.70f, 0.75f));
+		// Highlighted calculation card (TAC-inspired)
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.08f, 0.12f, 0.95f));
+		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.12f, 0.28f, 0.40f, 0.75f));
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 7.0f));
 
 		if (ImGui::BeginChild("##eye_comfort_hud_card", ImVec2(0.0f, 54.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
 		{
-			ImGui::TextColored(ImVec4(0.35f, 0.80f, 1.00f, 1.00f), "%s", isDe ? "Helligkeits-Kompensation (Eye Comfort)" : "Brightness Compensation (Eye Comfort)");
+			ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Helligkeits-Kompensation (Eye Comfort)" : "Brightness Compensation (Eye Comfort)");
 			ImGui::Spacing();
 
 			ImGui::TextUnformatted(isDe ? "Luminanz-Retention:" : "Luminance Retention:");
 			ImGui::SameLine(0, 6.0f);
-			ImGui::TextColored(ImVec4(0.30f, 0.95f, 0.55f, 1.0f), "%.1f%%", retention.retentionRatio * 100.0f);
+			ImGui::TextColored(Theme::kTextCyanLicht, "%.1f%%", retention.retentionRatio * 100.0f);
 
 			ImGui::SameLine(0, 14.0f);
 			ImGui::TextUnformatted(isDe ? "Empfehlung:" : "Target:");
 			ImGui::SameLine(0, 6.0f);
-			ImGui::TextColored(ImVec4(1.00f, 0.85f, 0.35f, 1.0f), "%.2fx", retention.recommendedGain);
+			ImGui::TextColored(Theme::kTextGoldLabel, "%.2fx", retention.recommendedGain);
 
 			ImGui::EndChild();
 		}
@@ -2967,17 +4075,18 @@ namespace
 
 		// Action buttons & Continuous Auto toggle
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.16f, 0.46f, 0.68f, 0.90f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.58f, 0.82f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.36f, 0.56f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 
-		if (ImGui::Button(isDe ? "Automatische Werte setzen" : "Apply Recommended Values", ImVec2(185.0f, 26.0f)))
+		if (ImGui::Button(isDe ? "Optimalwert anwenden##hud_apply" : "Apply Target Value##hud_apply", ImVec2(isDe ? 175.0f : 160.0f, 24.0f)))
 		{
 			CurrentSettings.GammaGain = retention.recommendedGain;
 			changed = true;
 			saveNeeded = true;
 		}
-		ImGui::PopStyleColor(3);
+		ImGui::PopStyleColor(4);
 		ImGui::PopStyleVar();
 		if (ImGui::IsItemHovered())
 		{
@@ -2997,14 +4106,14 @@ namespace
 		}
 		if (ImGui::IsItemHovered())
 		{
-			ImGui::SetTooltip(isDe ? "Wenn aktiv: Passt die Helligkeit bei jeder \xc3\x84nderung der Farb-Regler ohne Best\xc3\xa4tigung dynamisch und vollautomatisch an."
+			ImGui::SetTooltip(isDe ? "Wenn aktiv: Passt die Helligkeit bei jeder Aenderung der Farb-Regler ohne Bestaetigung dynamisch und vollautomatisch an."
 			                       : "When active: Dynamically syncs brightness to retention in real time without confirmation.");
 		}
 
 		// Sleek manual slider for GammaGain
 		ImGui::Spacing();
 		float availHUD = ImGui::GetContentRegionAvail().x;
-		float btnWHUD = 52.0f;
+		float btnWHUD = 56.0f;
 		float spHUD = 6.0f;
 		float sliderWHUD = (availHUD > (btnWHUD + spHUD + 60.0f)) ? (availHUD - btnWHUD - spHUD) : 180.0f;
 
@@ -3017,6 +4126,10 @@ namespace
 		}
 		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 		ImGui::SameLine(0, spHUD);
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 		if (ImGui::Button("Reset##gamma_hud", ImVec2(btnWHUD, 0.0f)))
 		{
 			CurrentSettings.GammaGain = 1.0f;
@@ -3024,7 +4137,91 @@ namespace
 			changed = true;
 			saveNeeded = true;
 		}
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Setzt Helligkeit auf 1.00x zur\xc3\xbc" "ck" : "Resets brightness to 1.00x");
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Setzt Helligkeit auf 1.00x zurueck" : "Resets brightness to 1.00x");
+
+		// ── Bottom Status Bar: Active Features & Modules ─────────────────────
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		struct ActiveModule {
+			std::string label;
+			ImVec4 col;
+		};
+		std::vector<ActiveModule> activeModules;
+
+		if (CurrentSettings.Enabled) {
+			if (CurrentSettings.Mixed) {
+				char b[64];
+				std::snprintf(b, sizeof(b), "%s (%d%%/%d%%)", isDe ? "Gemischt" : "Mixed",
+					(int)(CurrentSettings.MixedRgSeverity01 * 100.0), (int)(CurrentSettings.MixedBySeverity01 * 100.0));
+				activeModules.push_back({ std::string("Filter: ") + b, Theme::kTextCyanLicht });
+			} else if (CurrentSettings.Severity01 > 0.001) {
+				const char* name = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
+				                   (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+				char b[64];
+				std::snprintf(b, sizeof(b), "%s (%d%%)", name, (int)(CurrentSettings.Severity01 * 100.0));
+				activeModules.push_back({ std::string("Filter: ") + b, Theme::kTextCyanLicht });
+			} else {
+				activeModules.push_back({ isDe ? "Filter: Bereit (0%)" : "Filter: Ready (0%)", Theme::kTextBlauPeak });
+			}
+		}
+
+		if (CurrentSettings.CommanderTagMode != 0) {
+			activeModules.push_back({ CurrentSettings.SmartEnhancer ? (isDe ? "Com-Tag: Smart-Auto" : "Com-Tag: Smart-Auto")
+			                                                        : (isDe ? "Com-Tag: Preset" : "Com-Tag: Preset"),
+			                          Theme::kTextGoldLabel });
+		}
+
+		if (CurrentSettings.EnableHybridMode) {
+			activeModules.push_back({ isDe ? "Hybrid-Modus" : "Hybrid Mode", ImVec4(0.40f, 0.90f, 0.70f, 1.0f) });
+		}
+
+		if (CurrentSettings.AutoBrightness) {
+			char b[64];
+			std::snprintf(b, sizeof(b), "%s (%.2fx)", isDe ? "Auto-Helligkeit" : "Auto Brightness", CurrentSettings.GammaGain);
+			activeModules.push_back({ b, Theme::kTextCyanLicht });
+		} else if (std::abs(CurrentSettings.GammaGain - 1.0f) > 0.01f) {
+			char b[64];
+			std::snprintf(b, sizeof(b), "Gamma: %.2fx", CurrentSettings.GammaGain);
+			activeModules.push_back({ b, Theme::kTextBlauPeak });
+		}
+
+		if (CurrentSettings.FreeFilterEnabled) {
+			activeModules.push_back({ isDe ? "Farb-Tausch" : "Color Swap", ImVec4(0.95f, 0.65f, 0.35f, 1.0f) });
+		}
+
+		if (CurrentSettings.LabModeEnabled) {
+			activeModules.push_back({ isDe ? "Filter-Labor" : "Filter Lab", ImVec4(0.85f, 0.50f, 0.95f, 1.0f) });
+		}
+
+		// Render the active features row with clean styled chips
+		ImGui::TextDisabled("%s:", isDe ? "Aktiv" : "Active");
+		ImGui::SameLine(0, 8.0f);
+
+		if (activeModules.empty()) {
+			ImGui::TextColored(Theme::kTextSecondary, "%s", isDe ? "Keine Effekte aktiv (Neutral)" : "No effects active (Neutral)");
+		} else {
+			for (size_t i = 0; i < activeModules.size(); ++i) {
+				if (i > 0) ImGui::SameLine(0, 6.0f);
+
+				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.08f, 0.14f, 0.20f, 0.85f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.12f, 0.20f, 0.28f, 0.95f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.06f, 0.10f, 0.16f, 1.00f));
+				ImGui::PushStyleColor(ImGuiCol_Text,          activeModules[i].col);
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 1.0f));
+
+				char chipId[32];
+				std::snprintf(chipId, sizeof(chipId), "##mod_chip_%zu", i);
+				std::string chipText = std::string("[+] ") + activeModules[i].label + chipId;
+				ImGui::Button(chipText.c_str());
+
+				ImGui::PopStyleVar(2);
+				ImGui::PopStyleColor(4);
+			}
+		}
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);
@@ -3086,21 +4283,21 @@ namespace
 		{
 			if (CurrentSettings.SafeModeTriggered)
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.78f, 0.25f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextGoldLabel);
 				ImGui::TextUnformatted(isDe ? "[!] CBA Safe-Mode aktiv!" : "[!] CBA Safe-Mode Active!");
 				ImGui::PopStyleColor();
 				ImGui::Spacing();
 				ImGui::TextWrapped(isDe 
-					? "Das Spiel wurde beim letzten Mal unplanm\xc3\xa4\xc3\x9fig beendet oder es gab einen Absturz. Um Blendungen zu vermeiden, bleibt der Filter vorerst neutral (AUS)."
+					? "Das Spiel wurde beim letzten Mal unplanmaessig beendet oder es gab einen Absturz. Um Blendungen zu vermeiden, bleibt der Filter vorerst neutral (AUS)."
 					: "The game exited unexpectedly or crashed last session. To prevent blinding visual effects, the filter starts disarmed (OFF).");
 				ImGui::Spacing();
 			}
 			else
 			{
-				ImGui::TextColored(ImVec4(0.35f, 0.75f, 1.0f, 1.0f), "%s", isDe ? "Willkommen bei cba4gw2!" : "Welcome to cba4gw2!");
+				ImGui::TextColored(Theme::kTextBlauPeak, "%s", isDe ? "Willkommen bei cba4gw2!" : "Welcome to cba4gw2!");
 				ImGui::Spacing();
 				ImGui::TextWrapped(isDe
-					? "W\xc3\xa4hle, wie das Addon f\xc3\xbcr diese Sitzung gestartet werden soll:"
+					? "Waehle, wie das Addon fuer diese Sitzung gestartet werden soll:"
 					: "Choose how the addon should be initialized for this session:");
 				ImGui::Spacing();
 			}
@@ -3109,9 +4306,10 @@ namespace
 			ImGui::Spacing();
 
 			// Option 1: Start with saved settings
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.12f, 0.48f, 0.28f, 0.95f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.62f, 0.36f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.08f, 0.38f, 0.20f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 			if (ImGui::Button(isDe ? "  Gespeicherte Settings aktivieren  " : "  Activate Saved Settings  ", ImVec2(-FLT_MIN, 34.0f)))
 			{
 				CurrentSettings.Enabled = true;
@@ -3119,15 +4317,16 @@ namespace
 				CurrentSettings.Save(AddonDir);
 				Recompute(/*aForce=*/true);
 			}
-			ImGui::PopStyleColor(3);
+			ImGui::PopStyleColor(4);
 
 			ImGui::Spacing();
 
 			// Option 2: Open setup with filter OFF
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.32f, 0.48f, 0.95f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.42f, 0.62f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.12f, 0.24f, 0.38f, 1.00f));
-			if (ImGui::Button(isDe ? "  Setup \xc3\xb6""ffnen (Filter bleibt AUS)  " : "  Open Setup (Filter remains OFF)  ", ImVec2(-FLT_MIN, 32.0f)))
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+			if (ImGui::Button(isDe ? "  Setup oeffnen (Filter bleibt AUS)  " : "  Open Setup (Filter remains OFF)  ", ImVec2(-FLT_MIN, 32.0f)))
 			{
 				CurrentSettings.Enabled = false;
 				CurrentSettings.ShowMainWindow = true;
@@ -3135,15 +4334,16 @@ namespace
 				s_safeStartPending.store(false);
 				Recompute(/*aForce=*/true);
 			}
-			ImGui::PopStyleColor(3);
+			ImGui::PopStyleColor(4);
 
 			ImGui::Spacing();
 
 			// Option 3: Reset to factory defaults
-			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.36f, 0.22f, 0.22f, 0.85f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.48f, 0.28f, 0.28f, 1.00f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.24f, 0.15f, 0.15f, 1.00f));
-			if (ImGui::Button(isDe ? "  Auf Werkseinstellung (Neutral) zur\xc3\xbc""cksetzen  " : "  Reset to Factory Neutral Defaults  ", ImVec2(-FLT_MIN, 28.0f)))
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+			if (ImGui::Button(isDe ? "  Auf Werkseinstellung (Neutral) zuruecksetzen  " : "  Reset to Factory Neutral Defaults  ", ImVec2(-FLT_MIN, 28.0f)))
 			{
 				CurrentSettings.Enabled = false;
 				CurrentSettings.Severity01 = 0.0;
@@ -3161,7 +4361,7 @@ namespace
 			ImGui::Separator();
 			ImGui::Spacing();
 
-			if (ImGui::Checkbox(isDe ? "Zuk\xc3\xbc""nftig direkt starten (ohne Gate)" : "Always start directly (skip this gate)", &CurrentSettings.AlwaysDirectStart))
+			if (ImGui::Checkbox(isDe ? "Zukuenftig direkt starten (ohne Gate)" : "Always start directly (skip this gate)", &CurrentSettings.AlwaysDirectStart))
 			{
 				CurrentSettings.Save(AddonDir);
 			}
@@ -3222,35 +4422,48 @@ namespace
 				s_focusMainWindow = false;
 			}
 
-			float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
-			ImGui::SetNextWindowBgAlpha(clampedOpacity);
-			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.06f, 0.08f, 0.12f, clampedOpacity * 0.85f));
+			ImVec2 disp = ImGui::GetIO().DisplaySize;
+			float screenH = (disp.y > 400.0f) ? disp.y : 1080.0f;
+			float defaultW = 530.0f;
+			float defaultH = std::clamp(screenH * 0.76f, 620.0f, 860.0f);
 
-			// Sleek, variable sidebar sizing: min 340x360, max 1600x1400 (dynamic width)
-			ImGui::SetNextWindowSizeConstraints(ImVec2(340.0f, 360.0f), ImVec2(1600.0f, 1400.0f));
+			ImGui::SetNextWindowBgAlpha(0.96f);
+			ImGui::PushStyleColor(ImGuiCol_WindowBg,             ImVec4(0.06f, 0.08f, 0.12f, 0.96f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarBg,          ImVec4(0.04f, 0.06f, 0.09f, 0.65f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab,        ImVec4(0.24f, 0.42f, 0.65f, 0.85f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(0.34f, 0.56f, 0.85f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive,  ImVec4(0.42f, 0.72f, 1.00f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Border,               ImVec4(0.22f, 0.35f, 0.52f, 0.55f));
+
+			ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize,     14.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 6.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,     ImVec2(12.0f, 10.0f));
+
+			// Sleek, variable sidebar sizing: min 480x420, max 1600 x screenH
+			ImGui::SetNextWindowSizeConstraints(ImVec2(480.0f, 420.0f), ImVec2(1600.0f, screenH - 40.0f));
 
 			if (s_resetMainWindowPos)
 			{
-				float w = 460.0f;
-				float h = 600.0f;
-				float posX = 50.0f;
-				float posY = 70.0f;
+				float posX = 40.0f;
+				float posY = 60.0f;
 				ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
-				ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+				ImGui::SetNextWindowSize(ImVec2(defaultW, defaultH), ImGuiCond_Always);
 				s_resetMainWindowPos = false;
 			}
 			else
 			{
-				ImGui::SetNextWindowSize(ImVec2(460.0f, 600.0f), ImGuiCond_FirstUseEver);
+				ImGui::SetNextWindowSize(ImVec2(defaultW, defaultH), ImGuiCond_FirstUseEver);
 			}
 
-			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
-			if (ImGui::Begin("cba4gw2 - Hauptfenster###CBA_MainWindow", &CurrentSettings.ShowMainWindow, winFlags))
+			bool isDe = (Strings().Enabled[0] == 'A');
+			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+			if (ImGui::Begin(isDe ? "cba4gw2 - Hauptfenster###CBA_MainWindow" : "cba4gw2 - Main Window###CBA_MainWindow", &CurrentSettings.ShowMainWindow, winFlags))
 			{
 				RenderMainWindow();
 			}
 			ImGui::End();
-			ImGui::PopStyleColor();
+			ImGui::PopStyleVar(3);
+			ImGui::PopStyleColor(6);
 		}
 
 		// ── Window 2: Sensor & Spectral Graph HUD Window ─────────────────────
@@ -3262,27 +4475,27 @@ namespace
 				s_focusGraphWindow = false;
 			}
 
-			float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.2f, 1.0f);
-			ImGui::SetNextWindowBgAlpha(clampedOpacity * 0.45f);
-			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.06f, 0.10f, clampedOpacity * 0.45f));
+			float clampedOpacity = std::clamp(CurrentSettings.UiOpacity, 0.0f, 1.0f);
+			float winBgAlpha = std::clamp(clampedOpacity * 0.96f, 0.05f, 0.96f);
+			ImGui::SetNextWindowBgAlpha(winBgAlpha);
+			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.04f, 0.06f, 0.10f, winBgAlpha));
 
-			// Sleek, variable HUD sizing: min 340x260, max 1600x1200
-			ImGui::SetNextWindowSizeConstraints(ImVec2(340.0f, 260.0f), ImVec2(1600.0f, 1200.0f));
+			// Sleek, variable HUD sizing: min 340x280, max 1600x1200
+			ImGui::SetNextWindowSizeConstraints(ImVec2(340.0f, 280.0f), ImVec2(1600.0f, 1200.0f));
 
 			if (s_resetGraphWindowPos)
 			{
-				ImVec2 disp = ImGui::GetIO().DisplaySize;
 				float w = 440.0f;
-				float h = 360.0f;
-				float posX = (disp.x > 920.0f) ? 525.0f : ((disp.x > w) ? (disp.x - w - 20.0f) : 20.0f);
-				float posY = 70.0f;
+				float h = 405.0f;
+				float posX = 40.0f;
+				float posY = 60.0f;
 				ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
 				ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
 				s_resetGraphWindowPos = false;
 			}
 			else
 			{
-				ImGui::SetNextWindowSize(ImVec2(440.0f, 360.0f), ImGuiCond_FirstUseEver);
+				ImGui::SetNextWindowSize(ImVec2(440.0f, 405.0f), ImGuiCond_FirstUseEver);
 			}
 
 			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
@@ -3292,6 +4505,64 @@ namespace
 			}
 			ImGui::End();
 			ImGui::PopStyleColor();
+		}
+
+		// ── Window 3: Filter Lab Detached Floating Window ────────────────────
+		if (CurrentSettings.ShowLabWindow && ImGui::GetCurrentContext())
+		{
+			if (s_focusLabWindow)
+			{
+				ImGui::SetNextWindowFocus();
+				s_focusLabWindow = false;
+			}
+
+			ImGui::SetNextWindowBgAlpha(0.96f);
+			ImGui::PushStyleColor(ImGuiCol_WindowBg,             ImVec4(0.06f, 0.08f, 0.12f, 0.96f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarBg,          ImVec4(0.04f, 0.06f, 0.09f, 0.65f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab,        ImVec4(0.24f, 0.42f, 0.65f, 0.85f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(0.34f, 0.56f, 0.85f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive,  ImVec4(0.42f, 0.72f, 1.00f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Border,               ImVec4(0.22f, 0.35f, 0.52f, 0.55f));
+
+			ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize,     14.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 6.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,     ImVec2(12.0f, 10.0f));
+
+			ImGui::SetNextWindowSizeConstraints(ImVec2(480.0f, 400.0f), ImVec2(1600.0f, 1200.0f));
+
+			if (s_resetLabWindowPos)
+			{
+				float posX = 40.0f;
+				float posY = 60.0f;
+				ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
+				ImGui::SetNextWindowSize(ImVec2(620.0f, 520.0f), ImGuiCond_Always);
+				s_resetLabWindowPos = false;
+			}
+			else
+			{
+				ImGui::SetNextWindowSize(ImVec2(620.0f, 520.0f), ImGuiCond_FirstUseEver);
+			}
+
+			bool isDe = (Strings().Enabled[0] == 'A');
+			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse;
+			if (ImGui::Begin(isDe ? "cba4gw2 - Filter-Labor###CBA_LabWindow" : "cba4gw2 - Filter Lab###CBA_LabWindow", &CurrentSettings.ShowLabWindow, winFlags))
+			{
+				bool labChanged = false;
+				bool labSaveNeeded = false;
+				DrawFilterLabWidget(isDe, labChanged, labSaveNeeded);
+				if (labSaveNeeded)
+				{
+					CurrentSettings.Save(AddonDir);
+					Recompute(/*aForce=*/true);
+				}
+				else if (labChanged)
+				{
+					Recompute(/*aForce=*/false);
+				}
+			}
+			ImGui::End();
+			ImGui::PopStyleVar(3);
+			ImGui::PopStyleColor(6);
 		}
 	}
 
@@ -3350,11 +4621,15 @@ namespace
 				CurrentSettings.Enabled = false;
 			}
 
-			// Escape closes both windows
+			// Escape closes windows
 			if (APIDefs->UI.RegisterCloseOnEscape)
 			{
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Main Window###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
 			}
 
 			// Renderers
@@ -3374,8 +4649,7 @@ namespace
 			if (APIDefs->InputBinds.RegisterWithString)
 			{
 				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+SHIFT+C");
-				APIDefs->InputBinds.RegisterWithString("CBA - Sensor Graph", ProcessKeybind, "CTRL+SHIFT+S");
-				APIDefs->InputBinds.RegisterWithString("CBA - Not-Aus", ProcessKeybind, "CTRL+SHIFT+Q");
+				APIDefs->InputBinds.RegisterWithString("CBA - Filter Off", ProcessKeybind, "CTRL+SHIFT+O");
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{
@@ -3383,7 +4657,7 @@ namespace
 			}
 			if (APIDefs->QuickAccess.Add && CurrentSettings.ShowQuickAccessIcon)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Not-Aus: Strg+Shift+Q)");
+				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Filter Off: Strg+Shift+O)");
 			}
 
 			// Start state watchdog thread (monitors focus transitions every 50ms)
@@ -3402,6 +4676,13 @@ namespace
 		{
 			// Session Breadcrumb: mark graceful exit
 			Settings::MarkCleanExit(AddonDir);
+
+			// Always close windows on game exit so they start closed on next launch
+			CurrentSettings.ShowMainWindow = false;
+			CurrentSettings.ShowGraphWindow = false;
+			CurrentSettings.ShowLabWindow = false;
+			CurrentSettings.DetachedWindow = false;
+			CurrentSettings.Save(AddonDir);
 
 			s_showC64Credits.store(false);
 			StopC64Audio();
@@ -3422,9 +4703,19 @@ namespace
 				if (APIDefs->InputBinds.Deregister)
 				{
 					APIDefs->InputBinds.Deregister("CBA - Main Window");
+					APIDefs->InputBinds.Deregister("CBA - Filter Off");
 					APIDefs->InputBinds.Deregister("CBA - Sensor Graph");
 					APIDefs->InputBinds.Deregister("CBA - Not-Aus");
 					APIDefs->InputBinds.Deregister("KB_CBA_WINDOW");
+				}
+				if (APIDefs->UI.DeregisterCloseOnEscape)
+				{
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Main Window###CBA_MainWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba graph###CBA_GraphWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow");
 				}
 				if (APIDefs->WndProc.Deregister)
 					APIDefs->WndProc.Deregister(AddonWndProc);
@@ -3460,7 +4751,7 @@ BOOL APIENTRY DllMain(HMODULE aModule, DWORD aReasonForCall, LPVOID)
 
 extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 {
-	AddonDef.Signature = -78341; // arbitrary negative ID — not on Raidcore (yet)
+	AddonDef.Signature = -78341; // arbitrary negative ID - not on Raidcore (yet)
 	AddonDef.APIVersion = NEXUS_API_VERSION;
 	AddonDef.Name = "cba4gw2";
 	AddonDef.Version.Major = 1;

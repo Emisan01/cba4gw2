@@ -20,3 +20,6 @@ release-*/
 
 # Nexus plugin build output
 plugins/nexus/build/
+
+# Temporary scratch and audit scripts
+scratch/

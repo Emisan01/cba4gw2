@@ -17,8 +17,11 @@ namespace cba
 
 	struct TargetColor 
 	{
-		float r, g, b;            // Search color (0-1)
-		uint8_t repR, repG, repB; // Replacement color
+		float r = 0.0f, g = 0.0f, b = 0.0f; // Search color (0-1)
+		uint8_t repR = 255, repG = 255, repB = 255; // Replacement color
+		float tolerance = 0.0f;             // Individual color tolerance (0 = use global, >0 = individual)
+		float diffusion = 0.0f;             // Soft diffusion falloff (0.0 = sharp cut, 1.0 = smooth fade)
+		int actionType = 0;                 // 0 = replace, 1 = complement, 2 = invert, 3 = luminance boost
 	};
 
 	class HybridScanner

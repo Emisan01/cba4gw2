@@ -32,14 +32,15 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
 - **Performance & I/O Throttling:**
   - **DWM IPC Capped at 60 Hz:** Sliders can be dragged rapidly without causing Desktop Window Manager stutter.
   - **Deferred Disk Writes:** Settings are written to disk only when sliders are released or buttons are clicked, preventing unnecessary SSD I/O.
-- **Modern Interactive UI:**
-  - **32-Sample Transfer Curves:** Antialiased, clipped graph displaying real-time R/G/B channel gains.
-  - **Live Filtered Spectrum Beam:** Real-time rainbow bar demonstrating the transformation across the entire visible spectrum.
+- **Modern Interactive UI & Controls:**
+  - **Fixed Header Bar:** Always-accessible Master ON/OFF toggle with animated pulse indicator, 3-slot Profile Quickbar (color-coded empty/saved/full states), and one-click `Reset UI` button.
+  - **Detachable Filter Laboratory (`Filter-Labor`):** Interactive XY Color Ray Matrix with live tone mapping, stackable custom filter instances with tone radius ($\pm 1$ to $\pm 32$) and soft diffusion feathering.
+  - **Commander Tag & Squad UI Enhancer:** Contrast amplification for squad commander tags (Blue/Red/Green) in large Zergs and WvW.
+  - **Adaptive Eye Comfort:** Dynamic brightness and gamma compensation to prevent eye strain between bright and dark game environments.
+  - **3 Scientific Graph Modes:** Polygonal (PWL), Harmonisch (Gauss/LMS), and Strahlen (Ray Scope) with 32-sample transfer curves and live filtered spectrum beam.
   - **Spacious Live-Feedback Status Card:** Displays active profile, exact percentages, and clinical HRR / Farnsworth severity classifications.
-  - **Animated Save Feedback:** Smooth arc spinner transitioning into a glowing green checkmark with graceful fade-out.
-  - **UI Opacity Slider:** Real-time transparency adjustment for the CBA options panel.
-  - **Window-Mode Detection:** Explicit warning when Guild Wars 2 is running in Exclusive Fullscreen (which bypasses DWM filters).
-  - **Keybind Toggle:** Default `Ctrl+Alt+C`, fully rebindable through Nexus.
+  - **Ergonomic Hotkeys:** `Ctrl+Shift+C` (Toggle Main UI), `Ctrl+Shift+G` (Toggle Sensor Graph), `Ctrl+Shift+O` (Filter Emergency Off).
+  - **100% Clean ASCII Typography:** Fully centered button labels with generous margins and zero font glyph rendering glitches (`?`).
   - **Bilingual:** Automatic system detection for German and English with manual overrides.
 
 ---
