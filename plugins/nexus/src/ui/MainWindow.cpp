@@ -771,7 +771,7 @@ namespace cba
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(56.0f, 0.0f))) {
+					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(0.0f, 0.0f))) {
 						s_activeSlotIdx = sIdx;
 						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
 						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
@@ -864,7 +864,8 @@ namespace cba
 				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 6));
 
-				if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(0.0f, 58.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+				float feedbackCardH = ImGui::GetTextLineHeightWithSpacing() * 2.0f + 24.0f;
+				if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(0.0f, feedbackCardH), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
 					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "- %s - %s", profileName.c_str(), severityDesc.c_str());
 					ImGui::Spacing();
 					ImGui::TextColored(
@@ -1169,7 +1170,7 @@ namespace cba
 						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					}
-					if (ImGui::Button(aName, ImVec2(92.0f, 22.0f))) {
+					if (ImGui::Button(aName, ImVec2(0.0f, 22.0f))) {
 						CurrentSettings.MainGraphMode = aModeVal;
 						saveNeeded = true;
 					}
@@ -1334,6 +1335,7 @@ namespace cba
 				ImGui::EndChild();
 
 				if (cardW < availW) ImGui::SameLine(0, 12.0f);
+				else ImGui::Spacing();
 
 				if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
 				{
@@ -1369,7 +1371,7 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-				if (ImGui::Button(isDe ? "Reset auf Neutral##det" : "Reset to Neutral##det", ImVec2(180.0f, 24.0f)))
+				if (ImGui::Button(isDe ? "Reset auf Neutral##det" : "Reset to Neutral##det", ImVec2(0.0f, 24.0f)))
 				{
 					EnsureDeferredInitialized();
 					CurrentSettings.CommanderTagMode = 0;
@@ -1556,7 +1558,8 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.18f, 0.32f, 0.45f, 0.70f));
 				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 6.0f));
-				if (ImGui::BeginChild("##debug_perf_panel", ImVec2(0.0f, 74.0f), true, ImGuiWindowFlags_NoScrollbar))
+				float perfPanelH = ImGui::GetTextLineHeightWithSpacing() * 3.0f + 26.0f;
+				if (ImGui::BeginChild("##debug_perf_panel", ImVec2(0.0f, perfPanelH), true, ImGuiWindowFlags_NoScrollbar))
 				{
 					ImGui::TextColored(Theme::kTextCyanLicht, "[*] Performance Watchdog (Per-Window Metrics):");
 					ImGui::Text("  Hauptfenster (Main):  %.2f ms", g_perfMainWindowMs);

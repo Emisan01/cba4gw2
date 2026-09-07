@@ -359,7 +359,8 @@ namespace cba
 					ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
 
-					if (ImGui::BeginChild("##anom_result_box", ImVec2(fullW, 46.0f), true, ImGuiWindowFlags_NoScrollbar))
+					float anomBoxH = ImGui::GetTextLineHeightWithSpacing() * 2.0f + 18.0f;
+					if (ImGui::BeginChild("##anom_result_box", ImVec2(fullW, anomBoxH), true, ImGuiWindowFlags_NoScrollbar))
 					{
 						if (s_anomMode == 0)
 							ImGui::Text(isDe ? "Errechneter Anomalie-Quotient (AQ): %.2f (Normal: 0.70 - 1.40)" 
@@ -521,7 +522,8 @@ namespace cba
 					ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
 
-					if (ImGui::BeginChild("##icd_summary_card", ImVec2(availW, 62.0f), true, ImGuiWindowFlags_NoScrollbar))
+					float icdCardH = ImGui::GetTextLineHeightWithSpacing() * 4.0f + 20.0f;
+					if (ImGui::BeginChild("##icd_summary_card", ImVec2(availW, icdCardH), true, ImGuiWindowFlags_NoScrollbar))
 					{
 						ImGui::TextColored(Theme::kTextGoldLabel, "%s", icdCode);
 						double targetSev = (s_repSeverity == 0) ? 0.35 :
@@ -866,6 +868,7 @@ namespace cba
 
 					drawScenario(false, "##gw2_card_raw", isDe ? "Ohne CBA-Filter (CVD-Simulation)" : "Without Filter (CVD Simulation)");
 					if (cardW < availW) ImGui::SameLine(0, 12.0f);
+					else ImGui::Spacing();
 					drawScenario(true, "##gw2_card_cba", isDe ? "Mit CBA-Filter (Kompensation & Boost)" : "With CBA Filter (Compensation & Boost)");
 
 					ImGui::EndTabItem();

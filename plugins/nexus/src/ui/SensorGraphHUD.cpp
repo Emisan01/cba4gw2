@@ -704,7 +704,8 @@ namespace cba
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 7.0f));
 
-		if (ImGui::BeginChild("##eye_comfort_hud_card", ImVec2(0.0f, 54.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+		float hudCardH = ImGui::GetTextLineHeightWithSpacing() * 2.0f + 20.0f;
+		if (ImGui::BeginChild("##eye_comfort_hud_card", ImVec2(0.0f, hudCardH), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
 		{
 			ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Helligkeits-Kompensation (Eye Comfort)" : "Brightness Compensation (Eye Comfort)");
 			ImGui::Spacing();

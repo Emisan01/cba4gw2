@@ -117,6 +117,7 @@ namespace cba
 		ImGui::EndChild();
 
 		if (cardW < availW) ImGui::SameLine(0, 12.0f);
+		else ImGui::Spacing();
 
 		// Card 2: Mit CBA Filter (Kompensation)
 		if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
@@ -498,7 +499,7 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-				if (ImGui::Button(isDe ? "Filter duplizieren" : "Duplicate Filter", ImVec2(150.0f, 24.0f)))
+				if (ImGui::Button(isDe ? "Filter duplizieren" : "Duplicate Filter", ImVec2(0.0f, 24.0f)))
 				{
 					Settings::LabFilter dupF = curF;
 					dupF.Name += isDe ? " (Kopie)" : " (Copy)";
@@ -517,7 +518,7 @@ namespace cba
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
 					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-					if (ImGui::Button(isDe ? "Filter loeschen" : "Delete Filter", ImVec2(125.0f, 24.0f)))
+					if (ImGui::Button(isDe ? "Filter loeschen" : "Delete Filter", ImVec2(0.0f, 24.0f)))
 					{
 						CurrentSettings.LabFilters.erase(CurrentSettings.LabFilters.begin() + selIdx);
 						CurrentSettings.SelectedLabFilterIndex = std::max(0, selIdx - 1);
@@ -536,12 +537,15 @@ namespace cba
 				ImGui::TextDisabled("%s:", isDe ? "Automatiken fuer ausgewaehlten Filter" : "Automatics for Selected Filter");
 				ImGui::Spacing();
 
+				float availAct = ImGui::GetContentRegionAvail().x;
+				bool fitSideBySide = (availAct >= 430.0f);
+
 				// Auto-Complementary (CVD Opt)
 				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-				if (ImGui::Button(isDe ? "Auto-Komplementaer (CVD Opt)##lab" : "Auto-Complementary (CVD Opt)##lab", ImVec2(225.0f, 26.0f)))
+				if (ImGui::Button(isDe ? "Auto-Komplementaer (CVD Opt)##lab" : "Auto-Complementary (CVD Opt)##lab", ImVec2(fitSideBySide ? 0.0f : availAct, 26.0f)))
 				{
 					float h=0, s=0, v=0;
 					RgbToHsv(curF.TargetRgb[0], curF.TargetRgb[1], curF.TargetRgb[2], h, s, v);
@@ -562,13 +566,15 @@ namespace cba
 					                       : "Computes the complementary color for maximum CVD distinction.");
 				}
 
-				ImGui::SameLine(0, 10.0f);
+				if (fitSideBySide) ImGui::SameLine(0, 10.0f);
+				else ImGui::Spacing();
+
 				// Auto-Luminance
 				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-				if (ImGui::Button(isDe ? "Auto-Luminanz (WCAG)##lab" : "Auto-Luminance (WCAG)##lab", ImVec2(190.0f, 26.0f)))
+				if (ImGui::Button(isDe ? "Auto-Luminanz (WCAG)##lab" : "Auto-Luminance (WCAG)##lab", ImVec2(fitSideBySide ? 0.0f : availAct, 26.0f)))
 				{
 					float lum = RelativeLuma(curF.TargetRgb[0], curF.TargetRgb[1], curF.TargetRgb[2]);
 					if (lum > 0.45f) {
