@@ -224,7 +224,7 @@ namespace cba
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 				for (int i = 0; i < count; ++i)
 				{
-					if (i > 0) ImGui::SameLine(0, 4.0f);
+					if (i > 0) ImGui::SameLine(0, 5.0f);
 					ImGui::PushID(i + 200);
 
 					bool isSel = (i == selIdx);
@@ -240,14 +240,30 @@ namespace cba
 						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					}
 
-					char btnLbl[64];
-					std::snprintf(btnLbl, sizeof(btnLbl), "%s %s", CurrentSettings.LabFilters[i].Enabled ? "[*]" : "[ ]", CurrentSettings.LabFilters[i].Name.c_str());
-					if (ImGui::Button(btnLbl, ImVec2(0.0f, 22.0f)))
+					char btnLbl[80];
+					std::snprintf(btnLbl, sizeof(btnLbl), "    %s %s", CurrentSettings.LabFilters[i].Enabled ? "[x]" : "[ ]", CurrentSettings.LabFilters[i].Name.c_str());
+					if (ImGui::Button(btnLbl, ImVec2(0.0f, 23.0f)))
 					{
 						CurrentSettings.SelectedLabFilterIndex = i;
 						selIdx = i;
 						saveNeeded = true;
 					}
+
+					// Draw dual-color indicator dot inside chip: center = target color, border = replacement color
+					ImVec2 bMin = ImGui::GetItemRectMin();
+					ImVec2 bMax = ImGui::GetItemRectMax();
+					float swatchY = (bMin.y + bMax.y) * 0.5f;
+					float swatchX = bMin.x + 9.0f;
+					ImU32 tCol = IM_COL32((int)(CurrentSettings.LabFilters[i].TargetRgb[0] * 255),
+					                      (int)(CurrentSettings.LabFilters[i].TargetRgb[1] * 255),
+					                      (int)(CurrentSettings.LabFilters[i].TargetRgb[2] * 255), 255);
+					ImU32 rCol = IM_COL32((int)(CurrentSettings.LabFilters[i].ReplaceRgb[0] * 255),
+					                      (int)(CurrentSettings.LabFilters[i].ReplaceRgb[1] * 255),
+					                      (int)(CurrentSettings.LabFilters[i].ReplaceRgb[2] * 255), 255);
+					ImDrawList* dlChips = ImGui::GetWindowDrawList();
+					dlChips->AddCircleFilled(ImVec2(swatchX, swatchY), 4.5f, tCol);
+					dlChips->AddCircle(ImVec2(swatchX, swatchY), 4.5f, rCol, 0, 1.6f);
+
 					ImGui::PopStyleColor(4);
 					ImGui::PopID();
 				}
@@ -257,7 +273,7 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-				if (ImGui::Button("+##add_lab_filter", ImVec2(26.0f, 22.0f)))
+				if (ImGui::Button("+##add_lab_filter", ImVec2(26.0f, 23.0f)))
 				{
 					Settings::LabFilter newF;
 					newF.Enabled = true;
@@ -337,7 +353,7 @@ namespace cba
 				// Right column: XY Color Ray Matrix Diagram
 				ImGui::SameLine(0, 14.0f);
 				ImGui::BeginGroup();
-				ImGui::TextColored(Theme::kTextCyanLicht, "%s:", isDe ? "XY Farbstrahl-Matrix" : "XY Color Ray Matrix");
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "XY Farbstrahl-Matrix (Hue -> Luma):" : "XY Color Ray Matrix (Hue -> Luma):");
 
 				ImVec2 p0 = ImGui::GetCursorScreenPos();
 				ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -373,14 +389,11 @@ namespace cba
 				dl->AddText(ImVec2(ox + 0.5f * spanX - 10.0f, oy + 4.0f), IM_COL32(90, 115, 140, 170), "180");
 				dl->AddText(ImVec2(ox - 10.0f, oy + 4.0f), IM_COL32(90, 115, 140, 170), "0");
 
-				// Canvas title
-				dl->AddText(ImVec2(ox + 4.0f, ty - 8.0f), IM_COL32(120, 145, 175, 190), isDe ? "Farb-Vektorraum (Hue -> Luma)" : "Color Vector Space (Hue -> Luma)");
-
 				// Draw each filter as a color ray originating from (ox, oy)
 				for (size_t fIdx = 0; fIdx < CurrentSettings.LabFilters.size(); ++fIdx)
 				{
 					const auto& f = CurrentSettings.LabFilters[fIdx];
-					if (!f.Enabled) continue;
+					if (!f.Enabled && (int)fIdx != selIdx) continue;
 
 					float th=0, ts=0, tv=0;
 					RgbToHsv(f.TargetRgb[0], f.TargetRgb[1], f.TargetRgb[2], th, ts, tv);
@@ -427,7 +440,13 @@ namespace cba
 				char dScoreBuf[64];
 				std::snprintf(dScoreBuf, sizeof(dScoreBuf), "Delta-E: %.2f", dScore);
 				ImVec2 dSize = ImGui::CalcTextSize(dScoreBuf);
-				dl->AddText(ImVec2(tx - dSize.x - 2.0f, ty - 8.0f), IM_COL32(140, 235, 230, 240), dScoreBuf);
+
+				// Sleek Delta-E badge in top-right corner of canvas
+				float badgeX = tx - dSize.x - 10.0f;
+				float badgeY = p0.y + 6.0f;
+				dl->AddRectFilled(ImVec2(badgeX - 5.0f, badgeY - 2.0f), ImVec2(badgeX + dSize.x + 5.0f, badgeY + dSize.y + 2.0f), IM_COL32(12, 20, 32, 220), 4.0f);
+				dl->AddRect(ImVec2(badgeX - 5.0f, badgeY - 2.0f), ImVec2(badgeX + dSize.x + 5.0f, badgeY + dSize.y + 2.0f), IM_COL32(26, 75, 105, 200), 4.0f);
+				dl->AddText(ImVec2(badgeX, badgeY), IM_COL32(140, 235, 230, 240), dScoreBuf);
 
 				ImGui::Dummy(ImVec2(rayCanvasW, canvasH));
 				ImGui::EndGroup();
@@ -438,22 +457,34 @@ namespace cba
 				ImGui::TextUnformatted(isDe ? "2. Begrenzungsradius & Praezision (Schwellenwert):" 
 				                            : "2. Boundary Radius & Precision (Threshold):");
 				ImGui::SetNextItemWidth(fullW);
-				if (ImGui::SliderInt("##lab_tol_slider", &curF.ToleranceTones, 1, 32, isDe ? "+/- %d Farbtoene (Hex-Toleranz)" : "+/- %d Color Tones (Hex-Tolerance)"))
+				bool hasTol = (curF.ToleranceTones > 0);
+				if (hasTol) {
+					ImGui::PushStyleColor(ImGuiCol_SliderGrab,       Theme::kBtnStateActiveIdle);
+					ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, Theme::kBtnStateActiveHover);
+				}
+				if (ImGui::SliderInt("##lab_tol_slider", &curF.ToleranceTones, 0, 32, isDe ? "+/- %d Farbtoene (Hex-Toleranz)" : "+/- %d Color Tones (Hex-Tolerance)"))
 				{
 					UpdateTagEnhancerConflicts();
 					changed = true;
 				}
+				if (hasTol) ImGui::PopStyleColor(2);
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 				ImGui::Spacing();
-				ImGui::TextUnformatted(isDe ? "3. Leichte Diffusion / Sanfter Uebergang (Feathering):" 
+				ImGui::TextUnformatted(isDe ? "3. Weiche Kanten / Diffusion (Feathering):" 
 				                            : "3. Soft Diffusion / Smooth Edge (Feathering):");
 				ImGui::SetNextItemWidth(fullW);
+				bool hasDiff = (curF.Diffusion > 0.01f);
+				if (hasDiff) {
+					ImGui::PushStyleColor(ImGuiCol_SliderGrab,       Theme::kBtnStateActiveIdle);
+					ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, Theme::kBtnStateActiveHover);
+				}
 				if (ImGui::SliderFloat("##lab_diff_slider", &curF.Diffusion, 0.0f, 1.0f, "%.0f%% (Diffusion)"))
 				{
 					UpdateTagEnhancerConflicts();
 					changed = true;
 				}
+				if (hasDiff) ImGui::PopStyleColor(2);
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 				ImGui::EndTabItem();

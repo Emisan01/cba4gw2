@@ -192,13 +192,13 @@ namespace cba
 
 			// Section Headers
 			"1. Farbprofil & Balance",
-			"2. Commander-Tag Enhancer",
-			"3. Kontrast-Kombinationen (Ueberlappende Farbfelder)",
-			"4. Eye Comfort (Helligkeit)",
-			"5. Spiel- & Fenstermodus",
-			"6. Hybrid Modus (Beta)",
-			"7. Filter-Labor & Experimentierfeld",
-			"8. Ueber CBA, Referenzen & Credits"
+			"2. Commander-Tag & Kontrast-Profile",
+			"3. Eye Comfort (Helligkeit)",
+			"4. Spiel- & Fenstermodus",
+			"5. Hybrid Modus (Beta)",
+			"6. Filter-Labor & Experimentierfeld",
+			"7. Ueber CBA, Referenzen & Credits",
+			""
 		};
 
 		static const L10n en{
@@ -274,13 +274,13 @@ namespace cba
 
 			// Section Headers
 			"1. Color Profile & Balance",
-			"2. Commander Tag Enhancer",
-			"3. Contrast Combinations (Overlapping Swatches)",
-			"4. Eye Comfort (Brightness)",
-			"5. Game & Window Mode",
-			"6. Hybrid Mode (Beta)",
-			"7. Filter Lab & Experiment Field",
-			"8. About CBA, References & Credits"
+			"2. Commander Tag & Contrast Profiles",
+			"3. Eye Comfort (Brightness)",
+			"4. Game & Window Mode",
+			"5. Hybrid Mode (Beta)",
+			"6. Filter Lab & Experiment Field",
+			"7. About CBA, References & Credits",
+			""
 		};
 
 		if (CurrentSettings.Language == 2) return de; // Deutsch (explicit)
