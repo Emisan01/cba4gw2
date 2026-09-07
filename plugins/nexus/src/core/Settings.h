@@ -53,6 +53,7 @@ namespace cba
 		bool ShowMainWindow = false;
 		bool ShowGraphWindow = false;
 		bool ShowLabWindow = false;
+		bool ShowVisionLabWindow = false;
 		bool DetachedWindow = false; // backward compatibility
 		bool ShowQuickAccessIcon = true;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab

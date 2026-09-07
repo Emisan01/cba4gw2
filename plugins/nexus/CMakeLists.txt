@@ -16,6 +16,7 @@ add_library(cba SHARED
     src/ui/MainWindow.cpp
     src/ui/SensorGraphHUD.cpp
     src/ui/FilterLab.cpp
+    src/ui/VisionLab.cpp
     src/ui/SafeStartGate.cpp
     src/ui/CreditsDialog.cpp
     thirdparty/imgui/imgui.cpp

@@ -124,6 +124,7 @@ namespace cba
 			else if (key == "ShowMainWindow")   s.ShowMainWindow = (value == "1");
 			else if (key == "ShowGraphWindow")  s.ShowGraphWindow = (value == "1");
 			else if (key == "ShowLabWindow")    s.ShowLabWindow = (value == "1");
+			else if (key == "ShowVisionLab")    s.ShowVisionLabWindow = (value == "1");
 			else if (key == "DetachedWindow")   s.DetachedWindow = (value == "1");
 			else if (key == "ShowQuickAccess")   s.ShowQuickAccessIcon = (value == "1");
 			else if (key == "SystemWide")        s.SystemWide = (value == "1");
@@ -266,6 +267,7 @@ namespace cba
 		file << "ShowMainWindow=" << (ShowMainWindow ? "1" : "0") << "\n";
 		file << "ShowGraphWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";
 		file << "ShowLabWindow=" << (ShowLabWindow ? "1" : "0") << "\n";
+		file << "ShowVisionLab=" << (ShowVisionLabWindow ? "1" : "0") << "\n";
 		file << "DetachedWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";
 		file << "ShowQuickAccess=" << (ShowQuickAccessIcon ? "1" : "0") << "\n";
 		file << "SystemWide=" << (SystemWide ? "1" : "0") << "\n";

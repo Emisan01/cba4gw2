@@ -15,6 +15,7 @@
 #include "MainWindow.h"
 #include "SensorGraphHUD.h"
 #include "FilterLab.h"
+#include "VisionLab.h"
 #include "SafeStartGate.h"
 #include "CreditsDialog.h"
 
@@ -905,6 +906,19 @@ namespace cba
 			g_perfFilterLabMs = 0.0;
 		}
 
+		// ── Window 4: Vision Lab Floating Window ─────────────────────────────
+		if (CurrentSettings.ShowVisionLabWindow && ImGui::GetCurrentContext())
+		{
+			auto t0 = std::chrono::high_resolution_clock::now();
+			RenderVisionLabWindow();
+			auto t1 = std::chrono::high_resolution_clock::now();
+			g_perfVisionLabMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
+		}
+		else
+		{
+			g_perfVisionLabMs = 0.0;
+		}
+
 		auto tEndTotal = std::chrono::high_resolution_clock::now();
 		g_perfTotalImGuiMs = std::chrono::duration<double, std::milli>(tEndTotal - tStartTotal).count();
 	}
@@ -973,6 +987,7 @@ namespace cba
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
+				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Vision Lab###CBA_VisionLabWindow", &CurrentSettings.ShowVisionLabWindow);
 			}
 
 			// Renderers

@@ -320,7 +320,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(isDe ? "Sensor-Graph##main_top" : "Sensor Graph##main_top", ImVec2(106.0f, 24.0f))) {
+		if (ImGui::Button(isDe ? "Sensor-Graph##main_top" : "Sensor Graph##main_top", ImVec2(0.0f, 24.0f))) {
 			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
 			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 			saveNeeded = true;
@@ -343,7 +343,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(isDe ? "Filter-Labor##main_top" : "Filter Lab##main_top", ImVec2(96.0f, 24.0f))) {
+		if (ImGui::Button(isDe ? "Filter-Labor##main_top" : "Filter Lab##main_top", ImVec2(0.0f, 24.0f))) {
 			CurrentSettings.ShowLabWindow = !CurrentSettings.ShowLabWindow;
 			if (CurrentSettings.ShowLabWindow) s_focusLabWindow = true;
 			saveNeeded = true;
@@ -354,19 +354,44 @@ namespace cba
 		}
 
 		ImGui::SameLine(0, 5.0f);
+		bool visionOpen = CurrentSettings.ShowVisionLabWindow;
+		if (visionOpen) {
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+		}
+		if (ImGui::Button(isDe ? "Vision-Lab##main_top" : "Vision Lab##main_top", ImVec2(0.0f, 24.0f))) {
+			CurrentSettings.ShowVisionLabWindow = !CurrentSettings.ShowVisionLabWindow;
+			if (CurrentSettings.ShowVisionLabWindow) s_focusVisionLabWindow = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Vision-Lab (Klinischer Farbtest, Anomaloskop & GW2-Praxistest) oeffnen" 
+			                       : "Open Vision Lab (Clinical color tests, Anomaloscope & GW2 usability test bench)");
+		}
+
+		ImGui::SameLine(0, 5.0f);
 		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		if (ImGui::Button("Reset UI##main", ImVec2(84.0f, 24.0f))) {
+		if (ImGui::Button("Reset UI##main", ImVec2(0.0f, 24.0f))) {
 			s_resetMainWindowPos = true;
 			s_resetGraphWindowPos = true;
 			s_resetLabWindowPos = true;
+			s_resetVisionLabWindowPos = true;
 		}
 		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardposition links oben zurueck."
-			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left position.");
+			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) auf Standardposition links oben zurueck."
+			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) to default top-left position.");
 		}
 
 		ImGui::PopStyleVar(2);
