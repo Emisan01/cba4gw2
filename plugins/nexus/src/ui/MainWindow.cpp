@@ -614,7 +614,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  btnActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          textCol);
 
-			if (ImGui::Button(isDe ? "Speichern##tiny_prof" : "Save##tiny_prof", ImVec2(isDe ? 72.0f : 52.0f, 22.0f)))
+			if (ImGui::Button(isDe ? "Speichern##tiny_prof" : "Save##tiny_prof", ImVec2(0.0f, 22.0f)))
 			{
 				int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : std::clamp(s_activeSlotIdx, 0, 2);
 				CurrentSettings.Slots[targetSlot].Used = true;
@@ -919,8 +919,29 @@ namespace cba
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
 				float availRow2 = ImGui::GetContentRegionAvail().x;
-				bool compactRow2 = (availRow2 < 440.0f);
-				float btnW = compactRow2 ? std::max(70.0f, (availRow2 - 12.0f) / 3.0f) : std::clamp((availRow2 - 175.0f) / 3.0f, 75.0f, 105.0f);
+				const char* name1 = isDe ? "Profil 1 (Rot)" : "Profile 1 (Red)";
+				const char* name2 = isDe ? "Profil 2 (Gruen)" : "Profile 2 (Green)";
+				const char* name3 = isDe ? "Profil 3 (Blau)" : "Profile 3 (Blue)";
+				const char* saveText = isDe ? "Speichern" : "Save";
+				const char* startupText = isDe ? "Beim Start laden" : "Load on startup";
+
+				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
+				float spacingX = ImGui::GetStyle().ItemSpacing.x;
+
+				// Dynamic button widths computed directly from localized text size
+				float w1 = ImGui::CalcTextSize(name1).x + padX + 8.0f;
+				float w2 = ImGui::CalcTextSize(name2).x + padX + 8.0f;
+				float w3 = ImGui::CalcTextSize(name3).x + padX + 8.0f;
+				float maxProfileW = std::max({ w1, w2, w3 });
+
+				float saveW = ImGui::CalcTextSize(saveText).x + padX + 12.0f;
+				float startupW = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(startupText).x + 4.0f;
+
+				// Compute total width needed if all 5 elements are on a single line
+				float totalNeededSingleLine = (maxProfileW * 3.0f) + saveW + startupW + (4.0f * spacingX);
+				bool fitsSingleLine = (availRow2 >= totalNeededSingleLine);
+
+				float btnW = fitsSingleLine ? maxProfileW : std::max(maxProfileW, (availRow2 - 2.0f * spacingX) / 3.0f);
 
 				// Row 2: 3 Com-Tag Profile Activation Buttons (Red / Green / Blue)
 				auto comTagProfileBtn = [&](const char* name, BalanceType dType, int profNum) {
@@ -957,18 +978,18 @@ namespace cba
 					}
 				};
 
-				comTagProfileBtn(isDe ? "Profil 1 (Rot)" : "Profile 1 (Red)", BalanceType::Protan, 1);
+				comTagProfileBtn(name1, BalanceType::Protan, 1);
 				ImGui::SameLine(0, 4.0f);
-				comTagProfileBtn(isDe ? "Profil 2 (Gruen)" : "Profile 2 (Green)", BalanceType::Deutan, 2);
+				comTagProfileBtn(name2, BalanceType::Deutan, 2);
 				ImGui::SameLine(0, 4.0f);
-				comTagProfileBtn(isDe ? "Profil 3 (Blau)" : "Profile 3 (Blue)", BalanceType::Tritan, 3);
+				comTagProfileBtn(name3, BalanceType::Tritan, 3);
 
 				auto renderSaveAndStartup = [&]() {
 					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-					if (ImGui::Button(isDe ? "Speichern##save_com_bank" : "Save##save_com_bank", ImVec2(compactRow2 ? 110.0f : 66.0f, 23.0f)))
+					if (ImGui::Button(isDe ? "Speichern##save_com_bank" : "Save##save_com_bank", ImVec2(saveW, 23.0f)))
 					{
 						EnsureDeferredInitialized();
 						int targetSlot = (CurrentSettings.Type == BalanceType::Protan) ? 0 :
@@ -1011,7 +1032,7 @@ namespace cba
 					}
 				};
 
-				if (!compactRow2)
+				if (fitsSingleLine)
 				{
 					ImGui::SameLine(0, 6.0f);
 					renderSaveAndStartup();
@@ -1019,7 +1040,7 @@ namespace cba
 
 				ImGui::Spacing();
 
-				// Row 3: Smart-Auto toggle (and Save/Startup if compact)
+				// Row 3: Smart-Auto toggle (and Save/Startup if wrapped)
 				if (ImGui::Checkbox(isDe ? "Smart-Auto##smart_toggle" : "Smart Auto##smart_toggle", &CurrentSettings.SmartEnhancer)) {
 					EnsureDeferredInitialized();
 					UpdateTagEnhancerConflicts();
@@ -1029,7 +1050,7 @@ namespace cba
 				}
 				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.SmartEnhancerDesc);
 
-				if (compactRow2)
+				if (!fitsSingleLine)
 				{
 					ImGui::SameLine(0, 10.0f);
 					renderSaveAndStartup();
@@ -1429,7 +1450,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-			if (ImGui::Button(t.EyeComfortApply, ImVec2(isDe ? 175.0f : 165.0f, 24.0f)))
+			if (ImGui::Button(t.EyeComfortApply, ImVec2(0.0f, 24.0f)))
 			{
 				CurrentSettings.GammaGain = retention.recommendedGain;
 				changed = true;
