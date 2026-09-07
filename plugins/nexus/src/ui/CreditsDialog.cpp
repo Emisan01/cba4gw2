@@ -179,9 +179,8 @@ namespace cba
 				ImGui::TextColored(ImVec4(0.95f, 0.85f, 0.35f, 1.0f), "+++ ENDLESS RETRO CREDITS LOOPING... THANK YOU ALL! +++");
 				ImGui::Spacing();
 				ImGui::Spacing();
-
-				ImGui::EndChild();
 			}
+			ImGui::EndChild();
 
 			ImGui::Spacing();
 			ImGui::Separator();

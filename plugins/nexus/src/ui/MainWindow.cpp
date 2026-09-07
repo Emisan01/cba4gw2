@@ -419,11 +419,6 @@ namespace cba
 			ImGui::Spacing();
 
 			bool isOpen = ImGui::CollapsingHeader(label, flags);
-			if (ImGui::IsItemClicked()) {
-				if (!wasOpen) {
-					ImGui::SetScrollHereY(0.0f);
-				}
-			}
 			s_secOpen[secIdx] = isOpen;
 			return isOpen;
 		};
@@ -878,8 +873,8 @@ namespace cba
 						t.ClassificationLabel,
 						clinicalGrade.c_str()
 					);
-					ImGui::EndChild();
 				}
+				ImGui::EndChild();
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
 
@@ -1335,9 +1330,8 @@ namespace cba
 					ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Identisch /" : "Identical /");
 					ImGui::SetCursorScreenPos(ImVec2(sp.x + 84.0f, sp.y + 24.0f));
 					ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Verwechselbar" : "Confusable");
-
-					ImGui::EndChild();
 				}
+				ImGui::EndChild();
 
 				if (cardW < availW) ImGui::SameLine(0, 12.0f);
 
@@ -1364,9 +1358,8 @@ namespace cba
 					ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Absolut" : "Distinct /");
 					ImGui::SetCursorScreenPos(ImVec2(sp.x + 84.0f, sp.y + 24.0f));
 					ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "verschieden!" : "Separated!");
-
-					ImGui::EndChild();
 				}
+				ImGui::EndChild();
 
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
@@ -1574,8 +1567,8 @@ namespace cba
 					ImGui::Text("  Filter-Labor (Lab):   %.2f ms", g_perfFilterLabMs);
 					ImGui::SameLine(0, 16.0f);
 					ImGui::Text("  Total ImGui CBA:     %.2f ms", g_perfTotalImGuiMs);
-					ImGui::EndChild();
 				}
+				ImGui::EndChild();
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
 			}

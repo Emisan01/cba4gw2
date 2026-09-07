@@ -369,8 +369,8 @@ namespace cba
 							                 : "Moreland Index: %.2f (Normal range: ~0.45 - 0.55)", s_morelandMix);
 
 						ImGui::TextColored(diagCol, "%s: %s", isDe ? "Befund" : "Diagnostic", diagText);
-						ImGui::EndChild();
 					}
+					ImGui::EndChild();
 					ImGui::PopStyleVar(2);
 					ImGui::PopStyleColor(2);
 
@@ -533,8 +533,8 @@ namespace cba
 
 						ImGui::TextDisabled("%s", isDe ? "Entspricht dem klinischen Standardprofil fuer optimale Zapfenunterstuetzung in Guild Wars 2."
 						                               : "Matches the clinical baseline profile for optimal cone differentiation in Guild Wars 2.");
-						ImGui::EndChild();
 					}
+					ImGui::EndChild();
 					ImGui::PopStyleVar(2);
 					ImGui::PopStyleColor(2);
 
@@ -858,9 +858,8 @@ namespace cba
 								cdl->AddLine(ImVec2(aCenter.x - r - 4, aCenter.y), ImVec2(aCenter.x + r + 4, aCenter.y), allyCol, 1.5f);
 								cdl->AddLine(ImVec2(aCenter.x, aCenter.y - r - 4), ImVec2(aCenter.x, aCenter.y + r + 4), allyCol, 1.5f);
 							}
-
-							ImGui::EndChild();
 						}
+						ImGui::EndChild();
 						ImGui::PopStyleVar(2);
 						ImGui::PopStyleColor(2);
 					};

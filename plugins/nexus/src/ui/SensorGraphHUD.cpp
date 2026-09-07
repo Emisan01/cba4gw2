@@ -717,9 +717,8 @@ namespace cba
 			ImGui::TextUnformatted(isDe ? "Empfehlung:" : "Target:");
 			ImGui::SameLine(0, 6.0f);
 			ImGui::TextColored(Theme::kTextGoldLabel, "%.2fx", retention.recommendedGain);
-
-			ImGui::EndChild();
 		}
+		ImGui::EndChild();
 		ImGui::PopStyleVar(2);
 		ImGui::PopStyleColor(2);
 
