@@ -4,4 +4,5 @@ namespace cba
 {
 	void RenderMainWindow();
 	void RenderEmbeddedOptions();
+	void RenderMovableToolbarIcon();
 }

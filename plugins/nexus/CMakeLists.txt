@@ -46,3 +46,14 @@ set_target_properties(cba PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
 )
+
+# Automatic hot-load deployment to local Guild Wars 2 addons directory
+set(GW2_ADDONS_DIR "C:/GAMES/Guild Wars 2/addons")
+if(EXISTS "${GW2_ADDONS_DIR}")
+    add_custom_command(TARGET cba POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:cba>
+            "${GW2_ADDONS_DIR}/cba.dll"
+        COMMENT "Auto-deploying cba.dll to Guild Wars 2 addons directory for hot-reloading..."
+    )
+endif()

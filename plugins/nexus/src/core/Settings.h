@@ -56,6 +56,9 @@ namespace cba
 		bool ShowVisionLabWindow = false;
 		bool DetachedWindow = false; // backward compatibility
 		bool ShowQuickAccessIcon = true;
+		bool MovableToolbarIcon = true;
+		float ToolbarIconPosX = 405.0f;
+		float ToolbarIconPosY = 8.0f;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
 		// Free-Filter-Design (Selective Color Isolation & Shift with HSV Color Wheel / Artistic Color Selector, inspired by Krita-style wheel)
@@ -105,5 +108,8 @@ namespace cba
 		// Preset export / import via compact ASCII string (Clipboard exchange)
 		std::string ExportPresetString() const;
 		bool ImportPresetString(const std::string& aPresetStr, std::string* aOutError = nullptr);
+
+		// Reset all parameters to defaults (Factory Reset)
+		void FactoryReset();
 	};
 }

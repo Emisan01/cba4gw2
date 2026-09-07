@@ -113,6 +113,7 @@ namespace cba
 				CurrentSettings.Enabled = !CurrentSettings.Enabled;
 				CurrentSettings.Save(AddonDir);
 				Recompute(/*aForce=*/true);
+				UpdateQuickAccessIcon();
 				changed    = true;
 				saveNeeded = false;
 			}
@@ -171,6 +172,65 @@ namespace cba
 		}
 		ImGui::PopStyleColor(4);
 
+		ImGui::SameLine(0, 8.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.55f, 0.15f, 0.15f, 0.80f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.20f, 0.20f, 0.90f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.40f, 0.10f, 0.10f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.0f, 0.9f, 0.9f, 1.0f));
+		if (ImGui::Button("Factory Reset", ImVec2(0.0f, 26.0f)))
+		{
+			CurrentSettings.FactoryReset();
+			CurrentSettings.Save(AddonDir);
+			GetColorEffectController().Clear();
+			Recompute(/*aForce=*/true);
+			s_resetMainWindowPos = true;
+			s_resetGraphWindowPos = true;
+			s_resetLabWindowPos = true;
+			s_resetVisionLabWindowPos = true;
+			UpdateQuickAccessIcon();
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt ALLE Einstellungen, Profile und Fenster auf Werkseinstellungen zurueck."
+			                       : "Resets ALL settings, profiles and windows to factory defaults.");
+		}
+		ImGui::PopStyleColor(4);
+
+		ImGui::Spacing();
+		if (ImGui::Button(isDe ? "Profil exportieren (Copy)" : "Export Preset (Copy)", ImVec2(0.0f, 26.0f)))
+		{
+			std::string presetStr = CurrentSettings.ExportPresetString();
+			ImGui::SetClipboardText(presetStr.c_str());
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Kopiert dein aktuelles Filter-Profil in die Zwischenablage."
+			                       : "Copies your current filter profile to the clipboard.");
+		}
+		
+		ImGui::SameLine(0, 8.0f);
+		if (ImGui::Button(isDe ? "Profil importieren (Paste)" : "Import Preset (Paste)", ImVec2(0.0f, 26.0f)))
+		{
+			const char* clip = ImGui::GetClipboardText();
+			if (clip)
+			{
+				std::string err;
+				if (CurrentSettings.ImportPresetString(clip, &err))
+				{
+					CurrentSettings.Save(AddonDir);
+					GetColorEffectController().Clear();
+					Recompute(/*aForce=*/true);
+					saveNeeded = true;
+				}
+			}
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Ueberschreibt die aktuellen Settings mit einem kopierten CBA-Profil."
+			                       : "Overwrites current settings with a copied CBA profile string.");
+		}
+
 		ImGui::PopStyleVar(2);
 
 		ImGui::Spacing();
@@ -189,6 +249,33 @@ namespace cba
 			saveNeeded = true;
 		}
 		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.ShowQuickAccessTooltip);
+
+		if (CurrentSettings.ShowQuickAccessIcon) {
+			ImGui::Indent(16.0f);
+			if (ImGui::Checkbox(isDe ? "Eigenes Toolbar-Icon erzwingen##movable_opt"
+			                         : "Force custom toolbar icon##movable_opt", &CurrentSettings.MovableToolbarIcon)) {
+				UpdateQuickAccessIcon();
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip(isDe ? "Zeigt ein unabhaengiges Icon anstelle des statischen Nexus-Icons."
+				                       : "Shows an independent icon instead of the static Nexus icon.");
+			}
+			
+			if (CurrentSettings.MovableToolbarIcon) {
+				ImGui::SameLine(0, 16.0f);
+				ImGui::SetNextItemWidth(120.0f);
+				if (ImGui::SliderFloat("X-Position", &CurrentSettings.ToolbarIconPosX, 0.0f, 2500.0f, "%.0f")) {
+					saveNeeded = true;
+				}
+				ImGui::SameLine(0, 10.0f);
+				if (ImGui::Button(isDe ? "Reset##rst_pos_opt" : "Reset##rst_pos_opt", ImVec2(0.0f, 0.0f))) {
+					CurrentSettings.ToolbarIconPosX = 405.0f;
+					saveNeeded = true;
+				}
+			}
+			ImGui::Unindent(16.0f);
+		}
 
 		if (ImGui::Checkbox(t.LoadOnStartup, &CurrentSettings.LoadOnStartup)) {
 			saveNeeded = true;
@@ -258,6 +345,7 @@ namespace cba
 				CurrentSettings.Enabled = !CurrentSettings.Enabled;
 				CurrentSettings.Save(AddonDir);
 				Recompute(/*aForce=*/true);
+				UpdateQuickAccessIcon();
 				changed    = true;
 				saveNeeded = false;
 			}
@@ -391,11 +479,102 @@ namespace cba
 			s_resetGraphWindowPos = true;
 			s_resetLabWindowPos = true;
 			s_resetVisionLabWindowPos = true;
+			CurrentSettings.ToolbarIconPosX = 405.0f;
+			CurrentSettings.ToolbarIconPosY = 8.0f;
+			saveNeeded = true;
 		}
 		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) {
 			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) auf Standardposition links oben zurueck."
 			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) to default top-left position.");
+		}
+
+		ImGui::SameLine(0, 5.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.55f, 0.15f, 0.15f, 0.80f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.20f, 0.20f, 0.90f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.40f, 0.10f, 0.10f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.0f, 0.9f, 0.9f, 1.0f));
+		if (ImGui::Button("Factory Reset", ImVec2(0.0f, 24.0f))) {
+			CurrentSettings.FactoryReset();
+			CurrentSettings.Save(AddonDir);
+			GetColorEffectController().Clear();
+			Recompute(/*aForce=*/true);
+			s_resetMainWindowPos = true;
+			s_resetGraphWindowPos = true;
+			s_resetLabWindowPos = true;
+			s_resetVisionLabWindowPos = true;
+			UpdateQuickAccessIcon();
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Werkseinstellungen laden (loescht alle Parameter, Profile und verschobene Fenster)"
+			                       : "Load factory defaults (clears all parameters, profiles and moved windows)");
+		}
+
+		ImGui::SameLine(0, 5.0f);
+		if (ImGui::Button(isDe ? "Export" : "Export", ImVec2(0.0f, 24.0f))) {
+			std::string presetStr = CurrentSettings.ExportPresetString();
+			ImGui::SetClipboardText(presetStr.c_str());
+		}
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Aktuelles Profil in die Zwischenablage kopieren" : "Copy current profile to clipboard");
+		}
+
+		ImGui::SameLine(0, 5.0f);
+		if (ImGui::Button(isDe ? "Import" : "Import", ImVec2(0.0f, 24.0f))) {
+			const char* clip = ImGui::GetClipboardText();
+			if (clip) {
+				std::string err;
+				if (CurrentSettings.ImportPresetString(clip, &err)) {
+					CurrentSettings.Save(AddonDir);
+					GetColorEffectController().Clear();
+					Recompute(/*aForce=*/true);
+					saveNeeded = true;
+				}
+			}
+		}
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Profil aus der Zwischenablage laden" : "Load profile from clipboard");
+		}
+
+		ImGui::SameLine(0, 5.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+		const char* curLangBtnText = (CurrentSettings.Language == 2) ? "Deutsch##main_top_lang" :
+		                             (CurrentSettings.Language == 0) ? "System##main_top_lang" : "English##main_top_lang";
+		if (ImGui::Button(curLangBtnText, ImVec2(0.0f, 24.0f))) {
+			ImGui::OpenPopup("##LangSelectPopupTop");
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Sprache waehlen (English / Deutsch / System)" 
+			                       : "Select Language (English / Deutsch / System)");
+		}
+
+		if (ImGui::BeginPopup("##LangSelectPopupTop")) {
+			int currentLang = CurrentSettings.Language;
+			if (ImGui::Selectable("English", currentLang == 1)) {
+				CurrentSettings.Language = 1;
+				UpdateQuickAccessIcon();
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::Selectable(isDe ? "System (Windows)" : "System (Windows)", currentLang == 0)) {
+				CurrentSettings.Language = 0;
+				UpdateQuickAccessIcon();
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::Selectable("Deutsch", currentLang == 2)) {
+				CurrentSettings.Language = 2;
+				UpdateQuickAccessIcon();
+				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::EndPopup();
 		}
 
 		ImGui::PopStyleVar(2);
@@ -413,7 +592,7 @@ namespace cba
 		ImGui::BeginChild("##MainWindowScrollContent", ImVec2(0, 0), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 		ImGui::PopStyleVar();
 
-		static bool s_secOpen[8] = { true, true, false, false, false, false, false, false };
+		static bool s_secOpen[8] = { true, false, false, false, false, false, false, false };
 
 		auto renderSectionHeader = [&](int secIdx, const char* label, ImGuiTreeNodeFlags extraFlags = 0) -> bool {
 			bool wasOpen = s_secOpen[secIdx];
@@ -464,8 +643,8 @@ namespace cba
 			if (gameCtx.isWvW && CurrentSettings.CommanderTagMode == 0)
 			{
 				ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe 
-					? "[Tipp] WvW erkannt! Der Commander-Tag Enhancer in Sektion 2 wird empfohlen."
-					: "[Tip] WvW detected! Commander-Tag Enhancer in Section 2 is recommended.");
+					? "[Tipp] WvW erkannt! Der Commander-Tag Enhancer in Sektion 1 wird empfohlen."
+					: "[Tip] WvW detected! Commander-Tag Enhancer in Section 1 is recommended.");
 			}
 			ImGui::Spacing();
 		}
@@ -473,36 +652,6 @@ namespace cba
 		// ── Section 1: Farbprofil & Korrektur ────────────────────────────────
 		if (renderSectionHeader(0, t.HeaderSection1, ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			// Language selector row
-			{
-				ImGui::TextDisabled("%s:", t.Language);
-				ImGui::SameLine(0, 8.0f);
-
-				int langComboIdx = 0;
-				if (CurrentSettings.Language == 0) langComboIdx = 1;      // System (Windows)
-				else if (CurrentSettings.Language == 2) langComboIdx = 2; // Deutsch
-				else langComboIdx = 0;                                     // English (1)
-
-				const char* langComboItems[] = {
-					"English",
-					"System (Windows)",
-					"Deutsch"
-				};
-
-				ImGui::SetNextItemWidth(140.0f);
-				if (ImGui::Combo("##LangComboMain", &langComboIdx, langComboItems, IM_ARRAYSIZE(langComboItems)))
-				{
-					if (langComboIdx == 0) CurrentSettings.Language = 1;
-					else if (langComboIdx == 1) CurrentSettings.Language = 0;
-					else if (langComboIdx == 2) CurrentSettings.Language = 2;
-					changed = true;
-					saveNeeded = true;
-				}
-				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.Language);
-			}
-
-			ImGui::Spacing();
-
 			// Radio buttons for balance types
 			auto typeBtn = [&](const char* aLabel, bool aActive, BalanceType aType) {
 				if (ImGui::RadioButton(aLabel, aActive)) {
@@ -614,408 +763,7 @@ namespace cba
 			ImGui::Separator();
 			ImGui::Spacing();
 
-			int usedCount = 0;
-			int firstEmptySlot = -1;
-			for (int i = 0; i < 3; ++i) {
-				if (CurrentSettings.Slots[i].Used) usedCount++;
-				else if (firstEmptySlot == -1) firstEmptySlot = i;
-			}
-
-			static BalanceType s_baseType = CurrentSettings.Type;
-			static double s_baseSev = CurrentSettings.Severity01;
-			static bool s_baseMixed = CurrentSettings.Mixed;
-			static double s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
-			static double s_baseMixedBy = CurrentSettings.MixedBySeverity01;
-			static float s_baseGamma = CurrentSettings.GammaGain;
-			static int s_activeSlotIdx = 0;
-			static bool s_hasBaseline = false;
-			if (!s_hasBaseline) {
-				s_baseType = CurrentSettings.Type;
-				s_baseSev = CurrentSettings.Severity01;
-				s_baseMixed = CurrentSettings.Mixed;
-				s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
-				s_baseMixedBy = CurrentSettings.MixedBySeverity01;
-				s_baseGamma = CurrentSettings.GammaGain;
-				s_hasBaseline = true;
-			}
-
-			bool isDirty = (CurrentSettings.Type != s_baseType ||
-			                std::abs(CurrentSettings.Severity01 - s_baseSev) > 0.005 ||
-			                CurrentSettings.Mixed != s_baseMixed ||
-			                std::abs(CurrentSettings.MixedRgSeverity01 - s_baseMixedRg) > 0.005 ||
-			                std::abs(CurrentSettings.MixedBySeverity01 - s_baseMixedBy) > 0.005 ||
-			                std::abs(CurrentSettings.GammaGain - s_baseGamma) > 0.005f);
-
-			static auto s_profileFeedbackTime = std::chrono::steady_clock::time_point{};
-			static std::string s_profileFeedbackMsg = "";
-
-			ImGui::TextDisabled("%s:", isDe ? "Profile" : "Profiles");
-			ImGui::SameLine(0, 8.0f);
-
-			ImVec4 btnCol, btnHover, btnActive, textCol;
-			const char* saveTip = "";
-
-			if (!isDirty) {
-				btnCol    = Theme::kBtnNeutralIdle;
-				btnHover  = Theme::kBtnNeutralHover;
-				btnActive = Theme::kBtnNeutralPress;
-				textCol   = Theme::kTextSecondary;
-				saveTip   = isDe ? "Profil unveraendert / aktuell" : "Profile up to date (no unsaved changes)";
-			} else if (usedCount < 3) {
-				btnCol    = ImVec4(0.12f, 0.46f, 0.26f, 0.95f);
-				btnHover  = ImVec4(0.16f, 0.58f, 0.34f, 1.00f);
-				btnActive = ImVec4(0.09f, 0.36f, 0.20f, 1.00f);
-				textCol   = Theme::GetContrastTextColor(btnCol);
-				saveTip   = isDe ? "Einstellung geaendert! Klicke zum Speichern in freien Slot" : "Settings changed! Click to save to empty slot";
-			} else {
-				btnCol    = ImVec4(0.72f, 0.36f, 0.08f, 0.95f);
-				btnHover  = ImVec4(0.85f, 0.44f, 0.10f, 1.00f);
-				btnActive = ImVec4(0.58f, 0.28f, 0.06f, 1.00f);
-				textCol   = Theme::GetContrastTextColor(btnCol);
-				saveTip   = isDe ? "Alle Slots voll! Klicke zum Ueberschreiben des aktiven Slots" : "All 3 slots full! Click to overwrite active slot";
-			}
-
-			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-			ImGui::PushStyleColor(ImGuiCol_Button,        btnCol);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, btnHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  btnActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          textCol);
-
-			if (ImGui::Button(isDe ? "Speichern##tiny_prof" : "Save##tiny_prof", ImVec2(0.0f, 22.0f)))
-			{
-				int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : std::clamp(s_activeSlotIdx, 0, 2);
-				CurrentSettings.Slots[targetSlot].Used = true;
-				char defaultName[64];
-				if (CurrentSettings.Mixed) {
-					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
-						(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
-				} else {
-					const char* tn = (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
-					                 (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
-					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
-				}
-				if (CurrentSettings.Slots[targetSlot].Name.empty()) {
-					CurrentSettings.Slots[targetSlot].Name = defaultName;
-				}
-				CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
-				CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
-				CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
-				CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
-				CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
-				CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
-
-				s_baseType = CurrentSettings.Type;
-				s_baseSev = CurrentSettings.Severity01;
-				s_baseMixed = CurrentSettings.Mixed;
-				s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
-				s_baseMixedBy = CurrentSettings.MixedBySeverity01;
-				s_baseGamma = CurrentSettings.GammaGain;
-				s_activeSlotIdx = targetSlot;
-
-				CurrentSettings.Save(AddonDir);
-				s_profileFeedbackTime = std::chrono::steady_clock::now();
-				s_profileFeedbackMsg = isDe ? "[OK] Gespeichert in Slot " + std::to_string(targetSlot + 1) : "[OK] Saved to Slot " + std::to_string(targetSlot + 1);
-			}
-			ImGui::PopStyleColor(4);
-			ImGui::PopStyleVar();
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", saveTip);
-
-			for (int sIdx = 0; sIdx < 3; ++sIdx)
-			{
-				ImGui::SameLine(0, 4.0f);
-				ImGui::PushID(sIdx + 450);
-				bool used = CurrentSettings.Slots[sIdx].Used;
-				bool isActive = (s_activeSlotIdx == sIdx);
-
-				if (isActive) {
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-				} else if (used) {
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-				} else {
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-				}
-
-				char slotChip[32];
-				std::snprintf(slotChip, sizeof(slotChip), "[%d]", sIdx + 1);
-				if (ImGui::Button(slotChip, ImVec2(32.0f, 22.0f)))
-				{
-					s_activeSlotIdx = sIdx;
-					if (used)
-					{
-						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
-						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
-						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
-						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
-						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
-						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
-
-						s_baseType = CurrentSettings.Type;
-						s_baseSev = CurrentSettings.Severity01;
-						s_baseMixed = CurrentSettings.Mixed;
-						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
-						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
-						s_baseGamma = CurrentSettings.GammaGain;
-
-						changed = true;
-						saveNeeded = true;
-					}
-				}
-				ImGui::PopStyleColor(4);
-				if (ImGui::IsItemHovered())
-				{
-					if (used)
-						ImGui::SetTooltip("Slot %d: %s\n%s", sIdx + 1, CurrentSettings.Slots[sIdx].Name.c_str(), isDe ? "Klicken zum Laden" : "Click to load");
-					else
-						ImGui::SetTooltip("Slot %d: %s", sIdx + 1, isDe ? "Frei" : "Empty");
-				}
-				ImGui::PopID();
-			}
-
-			if (s_profileFeedbackTime.time_since_epoch().count() > 0) {
-				auto now = std::chrono::steady_clock::now();
-				float elapsed = std::chrono::duration<float>(now - s_profileFeedbackTime).count();
-				if (elapsed >= 0.0f && elapsed < 4.5f) {
-					float alpha = (elapsed > 3.0f) ? (4.5f - elapsed) / 1.5f : 1.0f;
-					alpha = std::clamp(alpha, 0.0f, 1.0f);
-					std::string savePath = AddonDir.empty() ? "settings.ini" : (AddonDir + "\\settings.ini");
-
-					ImGui::SameLine(0, 10.0f);
-					ImVec4 feedbackCol = Theme::kTextCyanLicht;
-					feedbackCol.w = alpha;
-					ImGui::TextColored(feedbackCol, "%s", s_profileFeedbackMsg.c_str());
-					ImVec4 pathCol = Theme::kTextSecondary;
-					pathCol.w = alpha;
-					ImGui::TextColored(pathCol, isDe ? "  Pfad: %s" : "  Path: %s", savePath.c_str());
-				}
-			}
-
-			ImGui::Spacing();
-			for (int sIdx = 0; sIdx < 3; ++sIdx) {
-				ImGui::PushID(sIdx + 300);
-				if (CurrentSettings.Slots[sIdx].Used) {
-					char nameBuf[64];
-					std::snprintf(nameBuf, sizeof(nameBuf), "%s", CurrentSettings.Slots[sIdx].Name.c_str());
-					float cardAvail = ImGui::GetContentRegionAvail().x;
-					float actionW = 90.0f;
-					float nameW = (cardAvail > 214.0f) ? (cardAvail - actionW - 8.0f) : 120.0f;
-
-					ImGui::SetNextItemWidth(nameW);
-					if (ImGui::InputText("##slot_name", nameBuf, sizeof(nameBuf))) {
-						CurrentSettings.Slots[sIdx].Name = nameBuf;
-						saveNeeded = true;
-					}
-					ImGui::SameLine(0, 4.0f);
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(0.0f, 0.0f))) {
-						s_activeSlotIdx = sIdx;
-						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
-						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
-						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
-						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
-						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
-						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
-
-						s_baseType = CurrentSettings.Type;
-						s_baseSev = CurrentSettings.Severity01;
-						s_baseMixed = CurrentSettings.Mixed;
-						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
-						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
-						s_baseGamma = CurrentSettings.GammaGain;
-
-						changed = true;
-						saveNeeded = true;
-					}
-					ImGui::PopStyleColor(4);
-
-					ImGui::SameLine(0, 4.0f);
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-					float xBtnW = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f + 6.0f;
-					if (ImGui::Button("X##clr_slot", ImVec2(xBtnW, 0.0f))) {
-						CurrentSettings.Slots[sIdx].Used = false;
-						CurrentSettings.Slots[sIdx].Name = "";
-						saveNeeded = true;
-					}
-					ImGui::PopStyleColor(4);
-					if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Slot leeren" : "Clear slot");
-				} else {
-					ImGui::TextDisabled("Slot %d: [%s]", sIdx + 1, isDe ? "Leer" : "Empty");
-				}
-				ImGui::PopID();
-			}
-
-			ImGui::Spacing();
-			{
-				std::string profileName;
-				std::string severityDesc;
-				std::string clinicalGrade;
-				bool isNeutral = false;
-
-				if (CurrentSettings.Mixed) {
-					profileName = isDe ? "Gemischt (Mixed)" : "Mixed Balance";
-					char buf[96];
-					std::snprintf(buf, sizeof(buf), "RG: %.0f%% | BY: %.0f%%", 
-						CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
-					severityDesc = buf;
-					double avgSev = (CurrentSettings.MixedRgSeverity01 + CurrentSettings.MixedBySeverity01) * 0.5;
-					if (avgSev <= 0.005) {
-						clinicalGrade = isDe ? "Neutral (Originalfarben)" : "Neutral (Original Colors)";
-						isNeutral = true;
-					} else if (avgSev <= 0.35) {
-						clinicalGrade = isDe ? "Stufe 1 (Sanfte Balance)" : "Level 1 (Subtle Balance)";
-					} else if (avgSev <= 0.70) {
-						clinicalGrade = isDe ? "Stufe 2 (Ausgeglichen)" : "Level 2 (Balanced)";
-					} else {
-						clinicalGrade = isDe ? "Stufe 3 (Fokus-Kontrast)" : "Level 3 (Focus Contrast)";
-					}
-				} else {
-					if (CurrentSettings.Type == BalanceType::Protan) {
-						profileName = isDe ? "Protan (Rot-Fokus)" : "Protan (Red Focus)";
-					} else if (CurrentSettings.Type == BalanceType::Deutan) {
-						profileName = isDe ? "Deutan (Gruen-Fokus)" : "Deutan (Green Focus)";
-					} else {
-						profileName = isDe ? "Tritan (Blau-Fokus)" : "Tritan (Blue Focus)";
-					}
-
-					char buf[64];
-					std::snprintf(buf, sizeof(buf), "%.1f%%", CurrentSettings.Severity01 * 100.0);
-					severityDesc = buf;
-
-					if (CurrentSettings.Severity01 <= 0.005) {
-						clinicalGrade = isDe ? "Neutral (Originalfarben)" : "Neutral (Original Colors)";
-						isNeutral = true;
-					} else if (CurrentSettings.Severity01 <= 0.35) {
-						clinicalGrade = isDe ? "Stufe 1 (Sanfte Balance)" : "Level 1 (Subtle Balance)";
-					} else if (CurrentSettings.Severity01 <= 0.70) {
-						clinicalGrade = isDe ? "Stufe 2 (Ausgeglichen)" : "Level 2 (Balanced)";
-					} else {
-						clinicalGrade = isDe ? "Stufe 3 (Fokus-Kontrast)" : "Level 3 (Focus Contrast)";
-					}
-				}
-
-				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.12f, 0.18f, 0.95f));
-				ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.24f, 0.38f, 0.58f, 0.65f));
-				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
-				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 6));
-
-				float feedbackCardH = ImGui::GetTextLineHeightWithSpacing() * 2.0f + 24.0f;
-				if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(0.0f, feedbackCardH), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "- %s - %s", profileName.c_str(), severityDesc.c_str());
-					ImGui::Spacing();
-					ImGui::TextColored(
-						!isNeutral ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.65f, 0.72f, 0.82f, 0.90f),
-						"%s %s",
-						t.ClassificationLabel,
-						clinicalGrade.c_str()
-					);
-				}
-				ImGui::EndChild();
-				ImGui::PopStyleVar(2);
-				ImGui::PopStyleColor(2);
-
-				ImGui::Spacing();
-				const char* defaultHint = CurrentSettings.Mixed ? "RG: 50% | BY: 50%" :
-					(CurrentSettings.Type == BalanceType::Protan ? "AQ: 0.35 | HRR: 8/10" :
-					(CurrentSettings.Type == BalanceType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
-
-				ImGui::TextDisabled("%s:", isDe ? "Referenzwerte / Kalibrierung (AQ / HRR)" : "Reference Values / Calibration (AQ / HRR)");
-				char diagBuf[128]{};
-				std::snprintf(diagBuf, sizeof(diagBuf), "%s", CurrentSettings.DiagnosisHint.c_str());
-
-				ImGui::SetNextItemWidth(-FLT_MIN);
-				if (ImGui::InputTextWithHint("##ref_values_input", defaultHint, diagBuf, sizeof(diagBuf)))
-				{
-					CurrentSettings.DiagnosisHint = diagBuf;
-					changed = true;
-					saveNeeded = true;
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip(isDe 
-						? "Optionales Eingabefeld fuer persoenliche Kalibrier- oder Benchmarkwerte (z.B. Nagel-AQ, HRR-Plates).\nTypische Standardwerte fuer dieses Profil: %s"
-						: "Optional input field for personal calibration or test benchmark scores (e.g. Nagel AQ, HRR plates).\nTypical default values for this profile: %s",
-						defaultHint);
-				}
-
-				// Preset Exchange (Clipboard)
-				ImGui::Spacing();
-				ImGui::Separator();
-				ImGui::Spacing();
-				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Profil-Austausch (Zwischenablage):" : "Profile Exchange (Clipboard):");
-				ImGui::Spacing();
-
-				if (ImGui::Button(isDe ? "Profil in Zwischenablage kopieren##exp" : "Copy profile to clipboard##exp", ImVec2(0.0f, 24.0f)))
-				{
-					std::string expStr = CurrentSettings.ExportPresetString();
-					ImGui::SetClipboardText(expStr.c_str());
-					s_profileFeedbackTime = std::chrono::steady_clock::now();
-					s_profileFeedbackMsg = isDe ? "[OK] Profil in Zwischenablage kopiert!" : "[OK] Profile copied to clipboard!";
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip(isDe 
-						? "Kopiert dein aktuelles Farbprofil als kompakten String zum Teilen in Discord oder Chat."
-						: "Copies your current color profile as a compact string to share in Discord or chat.");
-				}
-
-				ImGui::SameLine(0, 8.0f);
-
-				if (ImGui::Button(isDe ? "Aus Zwischenablage importieren##imp" : "Import from clipboard##imp", ImVec2(0.0f, 24.0f)))
-				{
-					const char* clip = ImGui::GetClipboardText();
-					if (clip && clip[0] != '\0')
-					{
-						std::string err;
-						if (CurrentSettings.ImportPresetString(clip, &err))
-						{
-							EnsureDeferredInitialized();
-							CurrentSettings.Save(AddonDir);
-							Recompute(/*aForce=*/true);
-							s_profileFeedbackTime = std::chrono::steady_clock::now();
-							s_profileFeedbackMsg = isDe ? "[OK] Profil erfolgreich importiert!" : "[OK] Profile imported successfully!";
-							changed = true;
-							saveNeeded = true;
-						}
-						else
-						{
-							s_profileFeedbackTime = std::chrono::steady_clock::now();
-							s_profileFeedbackMsg = isDe ? "[FEHLER] Ungueltiger Profil-String!" : "[ERROR] Invalid profile string!";
-						}
-					}
-					else
-					{
-						s_profileFeedbackTime = std::chrono::steady_clock::now();
-						s_profileFeedbackMsg = isDe ? "[FEHLER] Zwischenablage ist leer!" : "[ERROR] Clipboard is empty!";
-					}
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip(isDe 
-						? "Liest ein vorher kopiertes CBA-Profil (CBA1:...) aus der Zwischenablage ein und wendet es an."
-						: "Reads a previously copied CBA profile (CBA1:...) from the clipboard and applies it.");
-				}
-			}
-			endSection();
-		}
-
-		// ── Section 2: Commander-Tag Enhancer ────────────────────────────────
-		if (renderSectionHeader(1, t.HeaderSection2, ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			// Row 1: Automatic Contrast Profile Master Toggle
+			// ── Commander-Tag & Contrast Enhancer Block ─────────────────────
 			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
 			if (ImGui::Checkbox(isDe ? "Aktiv: Automatisches Kontrast-Profil##enhancer_toggle" 
 			                         : "Active: Automatic Contrast Profile##enhancer_toggle", &enhancerActive)) {
@@ -1494,11 +1242,411 @@ namespace cba
 					ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurueck" : "Resets Commander Tag Enhancer to Off / Neutral");
 				}
 			}
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			int usedCount = 0;
+			int firstEmptySlot = -1;
+			for (int i = 0; i < 3; ++i) {
+				if (CurrentSettings.Slots[i].Used) usedCount++;
+				else if (firstEmptySlot == -1) firstEmptySlot = i;
+			}
+
+			static BalanceType s_baseType = CurrentSettings.Type;
+			static double s_baseSev = CurrentSettings.Severity01;
+			static bool s_baseMixed = CurrentSettings.Mixed;
+			static double s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+			static double s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+			static float s_baseGamma = CurrentSettings.GammaGain;
+			static int s_activeSlotIdx = 0;
+			static bool s_hasBaseline = false;
+			if (!s_hasBaseline) {
+				s_baseType = CurrentSettings.Type;
+				s_baseSev = CurrentSettings.Severity01;
+				s_baseMixed = CurrentSettings.Mixed;
+				s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+				s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+				s_baseGamma = CurrentSettings.GammaGain;
+				s_hasBaseline = true;
+			}
+
+			bool isDirty = (CurrentSettings.Type != s_baseType ||
+			                std::abs(CurrentSettings.Severity01 - s_baseSev) > 0.005 ||
+			                CurrentSettings.Mixed != s_baseMixed ||
+			                std::abs(CurrentSettings.MixedRgSeverity01 - s_baseMixedRg) > 0.005 ||
+			                std::abs(CurrentSettings.MixedBySeverity01 - s_baseMixedBy) > 0.005 ||
+			                std::abs(CurrentSettings.GammaGain - s_baseGamma) > 0.005f);
+
+			static auto s_profileFeedbackTime = std::chrono::steady_clock::time_point{};
+			static std::string s_profileFeedbackMsg = "";
+
+			ImGui::TextDisabled("%s:", isDe ? "Profile" : "Profiles");
+			ImGui::SameLine(0, 8.0f);
+
+			ImVec4 btnCol, btnHover, btnActive, textCol;
+			const char* saveTip = "";
+
+			if (!isDirty) {
+				btnCol    = Theme::kBtnNeutralIdle;
+				btnHover  = Theme::kBtnNeutralHover;
+				btnActive = Theme::kBtnNeutralPress;
+				textCol   = Theme::kTextSecondary;
+				saveTip   = isDe ? "Profil unveraendert / aktuell" : "Profile up to date (no unsaved changes)";
+			} else if (usedCount < 3) {
+				btnCol    = ImVec4(0.12f, 0.46f, 0.26f, 0.95f);
+				btnHover  = ImVec4(0.16f, 0.58f, 0.34f, 1.00f);
+				btnActive = ImVec4(0.09f, 0.36f, 0.20f, 1.00f);
+				textCol   = Theme::GetContrastTextColor(btnCol);
+				saveTip   = isDe ? "Einstellung geaendert! Klicke zum Speichern in freien Slot" : "Settings changed! Click to save to empty slot";
+			} else {
+				btnCol    = ImVec4(0.72f, 0.36f, 0.08f, 0.95f);
+				btnHover  = ImVec4(0.85f, 0.44f, 0.10f, 1.00f);
+				btnActive = ImVec4(0.58f, 0.28f, 0.06f, 1.00f);
+				textCol   = Theme::GetContrastTextColor(btnCol);
+				saveTip   = isDe ? "Alle Slots voll! Klicke zum Ueberschreiben des aktiven Slots" : "All 3 slots full! Click to overwrite active slot";
+			}
+
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+			ImGui::PushStyleColor(ImGuiCol_Button,        btnCol);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, btnHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  btnActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          textCol);
+
+			if (ImGui::Button(isDe ? "Speichern##tiny_prof" : "Save##tiny_prof", ImVec2(0.0f, 22.0f)))
+			{
+				int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : std::clamp(s_activeSlotIdx, 0, 2);
+				CurrentSettings.Slots[targetSlot].Used = true;
+				char defaultName[64];
+				if (CurrentSettings.Mixed) {
+					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
+						(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
+				} else {
+					const char* tn = (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
+					                 (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
+					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
+				}
+				if (CurrentSettings.Slots[targetSlot].Name.empty()) {
+					CurrentSettings.Slots[targetSlot].Name = defaultName;
+				}
+				CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
+				CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
+				CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
+				CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
+				CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
+				CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+
+				s_baseType = CurrentSettings.Type;
+				s_baseSev = CurrentSettings.Severity01;
+				s_baseMixed = CurrentSettings.Mixed;
+				s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+				s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+				s_baseGamma = CurrentSettings.GammaGain;
+				s_activeSlotIdx = targetSlot;
+
+				CurrentSettings.Save(AddonDir);
+				s_profileFeedbackTime = std::chrono::steady_clock::now();
+				s_profileFeedbackMsg = isDe ? "[OK] Gespeichert in Slot " + std::to_string(targetSlot + 1) : "[OK] Saved to Slot " + std::to_string(targetSlot + 1);
+			}
+			ImGui::PopStyleColor(4);
+			ImGui::PopStyleVar();
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", saveTip);
+
+			for (int sIdx = 0; sIdx < 3; ++sIdx)
+			{
+				ImGui::SameLine(0, 4.0f);
+				ImGui::PushID(sIdx + 450);
+				bool used = CurrentSettings.Slots[sIdx].Used;
+				bool isActive = (s_activeSlotIdx == sIdx);
+
+				if (isActive) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				} else if (used) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+				} else {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+				}
+
+				char slotChip[32];
+				std::snprintf(slotChip, sizeof(slotChip), "[%d]", sIdx + 1);
+				if (ImGui::Button(slotChip, ImVec2(32.0f, 22.0f)))
+				{
+					s_activeSlotIdx = sIdx;
+					if (used)
+					{
+						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
+						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
+						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
+						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
+						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
+						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+
+						s_baseType = CurrentSettings.Type;
+						s_baseSev = CurrentSettings.Severity01;
+						s_baseMixed = CurrentSettings.Mixed;
+						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+						s_baseGamma = CurrentSettings.GammaGain;
+
+						changed = true;
+						saveNeeded = true;
+					}
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
+				{
+					if (used)
+						ImGui::SetTooltip("Slot %d: %s\n%s", sIdx + 1, CurrentSettings.Slots[sIdx].Name.c_str(), isDe ? "Klicken zum Laden" : "Click to load");
+					else
+						ImGui::SetTooltip("Slot %d: %s", sIdx + 1, isDe ? "Frei" : "Empty");
+				}
+				ImGui::PopID();
+			}
+
+			if (s_profileFeedbackTime.time_since_epoch().count() > 0) {
+				auto now = std::chrono::steady_clock::now();
+				float elapsed = std::chrono::duration<float>(now - s_profileFeedbackTime).count();
+				if (elapsed >= 0.0f && elapsed < 4.5f) {
+					float alpha = (elapsed > 3.0f) ? (4.5f - elapsed) / 1.5f : 1.0f;
+					alpha = std::clamp(alpha, 0.0f, 1.0f);
+					std::string savePath = AddonDir.empty() ? "settings.ini" : (AddonDir + "\\settings.ini");
+
+					ImGui::SameLine(0, 10.0f);
+					ImVec4 feedbackCol = Theme::kTextCyanLicht;
+					feedbackCol.w = alpha;
+					ImGui::TextColored(feedbackCol, "%s", s_profileFeedbackMsg.c_str());
+					ImVec4 pathCol = Theme::kTextSecondary;
+					pathCol.w = alpha;
+					ImGui::TextColored(pathCol, isDe ? "  Pfad: %s" : "  Path: %s", savePath.c_str());
+				}
+			}
+
+			ImGui::Spacing();
+			for (int sIdx = 0; sIdx < 3; ++sIdx) {
+				ImGui::PushID(sIdx + 300);
+				if (CurrentSettings.Slots[sIdx].Used) {
+					char nameBuf[64];
+					std::snprintf(nameBuf, sizeof(nameBuf), "%s", CurrentSettings.Slots[sIdx].Name.c_str());
+					float cardAvail = ImGui::GetContentRegionAvail().x;
+					float actionW = 90.0f;
+					float nameW = (cardAvail > 214.0f) ? (cardAvail - actionW - 8.0f) : 120.0f;
+
+					ImGui::SetNextItemWidth(nameW);
+					if (ImGui::InputText("##slot_name", nameBuf, sizeof(nameBuf))) {
+						CurrentSettings.Slots[sIdx].Name = nameBuf;
+						saveNeeded = true;
+					}
+					ImGui::SameLine(0, 4.0f);
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(0.0f, 0.0f))) {
+						s_activeSlotIdx = sIdx;
+						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
+						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
+						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
+						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
+						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
+						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+
+						s_baseType = CurrentSettings.Type;
+						s_baseSev = CurrentSettings.Severity01;
+						s_baseMixed = CurrentSettings.Mixed;
+						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+						s_baseGamma = CurrentSettings.GammaGain;
+
+						changed = true;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+
+					ImGui::SameLine(0, 4.0f);
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+					float xBtnW = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f + 6.0f;
+					if (ImGui::Button("X##clr_slot", ImVec2(xBtnW, 0.0f))) {
+						CurrentSettings.Slots[sIdx].Used = false;
+						CurrentSettings.Slots[sIdx].Name = "";
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Slot leeren" : "Clear slot");
+				} else {
+					ImGui::TextDisabled("Slot %d: [%s]", sIdx + 1, isDe ? "Leer" : "Empty");
+				}
+				ImGui::PopID();
+			}
+
+			ImGui::Spacing();
+			{
+				std::string profileName;
+				std::string severityDesc;
+				std::string clinicalGrade;
+				bool isNeutral = false;
+
+				if (CurrentSettings.Mixed) {
+					profileName = isDe ? "Gemischt (Mixed)" : "Mixed Balance";
+					char buf[96];
+					std::snprintf(buf, sizeof(buf), "RG: %.0f%% | BY: %.0f%%", 
+						CurrentSettings.MixedRgSeverity01 * 100.0, CurrentSettings.MixedBySeverity01 * 100.0);
+					severityDesc = buf;
+					double avgSev = (CurrentSettings.MixedRgSeverity01 + CurrentSettings.MixedBySeverity01) * 0.5;
+					if (avgSev <= 0.005) {
+						clinicalGrade = isDe ? "Neutral (Originalfarben)" : "Neutral (Original Colors)";
+						isNeutral = true;
+					} else if (avgSev <= 0.35) {
+						clinicalGrade = isDe ? "Stufe 1 (Sanfte Balance)" : "Level 1 (Subtle Balance)";
+					} else if (avgSev <= 0.70) {
+						clinicalGrade = isDe ? "Stufe 2 (Ausgeglichen)" : "Level 2 (Balanced)";
+					} else {
+						clinicalGrade = isDe ? "Stufe 3 (Fokus-Kontrast)" : "Level 3 (Focus Contrast)";
+					}
+				} else {
+					if (CurrentSettings.Type == BalanceType::Protan) {
+						profileName = isDe ? "Protan (Rot-Fokus)" : "Protan (Red Focus)";
+					} else if (CurrentSettings.Type == BalanceType::Deutan) {
+						profileName = isDe ? "Deutan (Gruen-Fokus)" : "Deutan (Green Focus)";
+					} else {
+						profileName = isDe ? "Tritan (Blau-Fokus)" : "Tritan (Blue Focus)";
+					}
+
+					char buf[64];
+					std::snprintf(buf, sizeof(buf), "%.1f%%", CurrentSettings.Severity01 * 100.0);
+					severityDesc = buf;
+
+					if (CurrentSettings.Severity01 <= 0.005) {
+						clinicalGrade = isDe ? "Neutral (Originalfarben)" : "Neutral (Original Colors)";
+						isNeutral = true;
+					} else if (CurrentSettings.Severity01 <= 0.35) {
+						clinicalGrade = isDe ? "Stufe 1 (Sanfte Balance)" : "Level 1 (Subtle Balance)";
+					} else if (CurrentSettings.Severity01 <= 0.70) {
+						clinicalGrade = isDe ? "Stufe 2 (Ausgeglichen)" : "Level 2 (Balanced)";
+					} else {
+						clinicalGrade = isDe ? "Stufe 3 (Fokus-Kontrast)" : "Level 3 (Focus Contrast)";
+					}
+				}
+
+				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.12f, 0.18f, 0.95f));
+				ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.24f, 0.38f, 0.58f, 0.65f));
+				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 6));
+
+				float feedbackCardH = ImGui::GetTextLineHeightWithSpacing() * 2.0f + 24.0f;
+				if (ImGui::BeginChild("##status_feedback_card_main", ImVec2(0.0f, feedbackCardH), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+					ImGui::TextColored(ImVec4(0.95f, 0.95f, 1.0f, 1.0f), "- %s - %s", profileName.c_str(), severityDesc.c_str());
+					ImGui::Spacing();
+					ImGui::TextColored(
+						!isNeutral ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.65f, 0.72f, 0.82f, 0.90f),
+						"%s %s",
+						t.ClassificationLabel,
+						clinicalGrade.c_str()
+					);
+				}
+				ImGui::EndChild();
+				ImGui::PopStyleVar(2);
+				ImGui::PopStyleColor(2);
+
+				ImGui::Spacing();
+				const char* defaultHint = CurrentSettings.Mixed ? "RG: 50% | BY: 50%" :
+					(CurrentSettings.Type == BalanceType::Protan ? "AQ: 0.35 | HRR: 8/10" :
+					(CurrentSettings.Type == BalanceType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
+
+				ImGui::TextDisabled("%s:", isDe ? "Referenzwerte / Kalibrierung (AQ / HRR)" : "Reference Values / Calibration (AQ / HRR)");
+				char diagBuf[128]{};
+				std::snprintf(diagBuf, sizeof(diagBuf), "%s", CurrentSettings.DiagnosisHint.c_str());
+
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				if (ImGui::InputTextWithHint("##ref_values_input", defaultHint, diagBuf, sizeof(diagBuf)))
+				{
+					CurrentSettings.DiagnosisHint = diagBuf;
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe 
+						? "Optionales Eingabefeld fuer persoenliche Kalibrier- oder Benchmarkwerte (z.B. Nagel-AQ, HRR-Plates).\nTypische Standardwerte fuer dieses Profil: %s"
+						: "Optional input field for personal calibration or test benchmark scores (e.g. Nagel AQ, HRR plates).\nTypical default values for this profile: %s",
+						defaultHint);
+				}
+
+				// Preset Exchange (Clipboard)
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Profil-Austausch (Zwischenablage):" : "Profile Exchange (Clipboard):");
+				ImGui::Spacing();
+
+				if (ImGui::Button(isDe ? "Profil in Zwischenablage kopieren##exp" : "Copy profile to clipboard##exp", ImVec2(0.0f, 24.0f)))
+				{
+					std::string expStr = CurrentSettings.ExportPresetString();
+					ImGui::SetClipboardText(expStr.c_str());
+					s_profileFeedbackTime = std::chrono::steady_clock::now();
+					s_profileFeedbackMsg = isDe ? "[OK] Profil in Zwischenablage kopiert!" : "[OK] Profile copied to clipboard!";
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe 
+						? "Kopiert dein aktuelles Farbprofil als kompakten String zum Teilen in Discord oder Chat."
+						: "Copies your current color profile as a compact string to share in Discord or chat.");
+				}
+
+				ImGui::SameLine(0, 8.0f);
+
+				if (ImGui::Button(isDe ? "Aus Zwischenablage importieren##imp" : "Import from clipboard##imp", ImVec2(0.0f, 24.0f)))
+				{
+					const char* clip = ImGui::GetClipboardText();
+					if (clip && clip[0] != '\0')
+					{
+						std::string err;
+						if (CurrentSettings.ImportPresetString(clip, &err))
+						{
+							EnsureDeferredInitialized();
+							CurrentSettings.Save(AddonDir);
+							Recompute(/*aForce=*/true);
+							s_profileFeedbackTime = std::chrono::steady_clock::now();
+							s_profileFeedbackMsg = isDe ? "[OK] Profil erfolgreich importiert!" : "[OK] Profile imported successfully!";
+							changed = true;
+							saveNeeded = true;
+						}
+						else
+						{
+							s_profileFeedbackTime = std::chrono::steady_clock::now();
+							s_profileFeedbackMsg = isDe ? "[FEHLER] Ungueltiger Profil-String!" : "[ERROR] Invalid profile string!";
+						}
+					}
+					else
+					{
+						s_profileFeedbackTime = std::chrono::steady_clock::now();
+						s_profileFeedbackMsg = isDe ? "[FEHLER] Zwischenablage ist leer!" : "[ERROR] Clipboard is empty!";
+					}
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe 
+						? "Liest ein vorher kopiertes CBA-Profil (CBA1:...) aus der Zwischenablage ein und wendet es an."
+						: "Reads a previously copied CBA profile (CBA1:...) from the clipboard and applies it.");
+				}
+			}
 			endSection();
 		}
 
-		// ── Section 3: Eye Comfort (Helligkeit) ──────────────────────────────
-		if (renderSectionHeader(2, t.HeaderSection3))
+		// ── Section 2: Eye Comfort (Helligkeit) ──────────────────────────────
+		if (renderSectionHeader(1, t.HeaderSection2))
 		{
 			static int s_lastHdrCheckFrameDet = -1;
 			static bool s_cachedHdrDetectedDet = false;
@@ -1598,8 +1746,8 @@ namespace cba
 			endSection();
 		}
 
-		// ── Section 4: Spiel- & Fenstermodus ──────────────────────────────────
-		if (renderSectionHeader(3, t.HeaderSection4))
+		// ── Section 3: Spiel- & Fenstermodus ──────────────────────────────────
+		if (renderSectionHeader(2, t.HeaderSection3))
 		{
 			WindowMode mode = DetectWindowMode(
 				APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
@@ -1628,8 +1776,8 @@ namespace cba
 			endSection();
 		}
 
-		// ── Section 5: Hybrid Modus (Beta) ────────────────────────────────────
-		if (renderSectionHeader(4, t.HeaderSection5))
+		// ── Section 4: Hybrid Modus (Beta) ────────────────────────────────────
+		if (renderSectionHeader(3, t.HeaderSection4))
 		{
 			if (ImGui::Checkbox(t.HybridMode, &CurrentSettings.EnableHybridMode)) {
 				GetHybridScanner().SetEnabled(CurrentSettings.EnableHybridMode);
@@ -1644,15 +1792,15 @@ namespace cba
 			endSection();
 		}
 
-		// ── Section 6: Filter-Labor & Experimentierfeld ──────────────────────
-		if (renderSectionHeader(5, t.HeaderSection6))
+		// ── Section 5: Filter-Labor & Experimentierfeld ──────────────────────
+		if (renderSectionHeader(4, t.HeaderSection5))
 		{
 			DrawFilterLabWidget(isDe, changed, saveNeeded);
 			endSection();
 		}
 
-		// ── Section 7: Über, Diagnose & Credits ──────────────────────────────
-		if (renderSectionHeader(6, t.HeaderSection7))
+		// ── Section 6: Über, Diagnose & Credits ──────────────────────────────
+		if (renderSectionHeader(5, t.HeaderSection6))
 		{
 			if (ImGui::Checkbox(t.DebugModeCheckbox, &CurrentSettings.DebugMode)) {
 				changed = true;
@@ -1764,5 +1912,91 @@ namespace cba
 		}
 
 		ImGui::PopID();
+	}
+
+	void RenderMovableToolbarIcon()
+	{
+		if (!ImGui::GetCurrentContext()) return;
+		if (!CurrentSettings.ShowQuickAccessIcon) return;
+		if (!CurrentSettings.MovableToolbarIcon) return;
+
+		Texture* tex = nullptr;
+		if (APIDefs && APIDefs->Textures.Get)
+		{
+			bool isActive = CurrentSettings.Enabled;
+			tex = APIDefs->Textures.Get(isActive ? "CBA_ICON" : "CBA_ICON_INACTIVE");
+		}
+		if (!tex || !tex->Resource) return;
+
+		const float iconDim = 32.0f;
+		const float fixedRowY = 2.0f; // Adjusted to align better with Nexus QA bar
+
+		ImGuiIO& io = ImGui::GetIO();
+		// Clamp X to screen width so the icon can never get lost or pushed offscreen
+		float maxW = (io.DisplaySize.x > 100.0f) ? (io.DisplaySize.x - iconDim - 4.0f) : 1920.0f;
+		CurrentSettings.ToolbarIconPosX = std::clamp(CurrentSettings.ToolbarIconPosX, 0.0f, maxW);
+		CurrentSettings.ToolbarIconPosY = fixedRowY;
+
+		ImGui::SetNextWindowPos(ImVec2(CurrentSettings.ToolbarIconPosX, fixedRowY), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(iconDim + 4.0f, iconDim + 4.0f));
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
+		                         ImGuiWindowFlags_NoBackground |
+		                         ImGuiWindowFlags_NoScrollWithMouse |
+		                         ImGuiWindowFlags_NoSavedSettings |
+		                         ImGuiWindowFlags_AlwaysAutoResize |
+		                         ImGuiWindowFlags_NoFocusOnAppearing;
+
+		if (ImGui::Begin("##CBA_MovableToolbarIcon", nullptr, flags))
+		{
+			ImGui::InvisibleButton("##cba_tb_hit", ImVec2(iconDim, iconDim));
+			bool isHovered = ImGui::IsItemHovered();
+			bool isClickedLeft = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+			bool isClickedRight = ImGui::IsItemClicked(ImGuiMouseButton_Right);
+
+			// Left Click: Toggle Main Window
+			if (isClickedLeft)
+			{
+				EnsureDeferredInitialized();
+				CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+				if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
+			}
+
+			// Right Click: Master Filter Toggle
+			if (isClickedRight)
+			{
+				EnsureDeferredInitialized();
+				CurrentSettings.Enabled = !CurrentSettings.Enabled;
+				CurrentSettings.Save(AddonDir);
+				Recompute(/*aForce=*/true);
+				UpdateQuickAccessIcon();
+			}
+
+			// Rendering the Icon Image
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			ImVec2 pMin = ImGui::GetItemRectMin();
+			ImVec2 pMax = ImGui::GetItemRectMax();
+
+			void* drawSrv = tex->Resource;
+			if (!CurrentSettings.Enabled && isHovered)
+			{
+				Texture* hovTex = APIDefs ? APIDefs->Textures.Get("CBA_ICON_INACTIVE_HOVER") : nullptr;
+				if (hovTex && hovTex->Resource) drawSrv = hovTex->Resource;
+			}
+
+			dl->AddImage((ImTextureID)drawSrv, pMin, pMax);
+
+			if (isHovered)
+			{
+				dl->AddRect(pMin, pMax, IM_COL32(230, 210, 120, 200), 4.0f, 0, 1.5f);
+			}
+		}
+		ImGui::End();
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar(2);
 	}
 }

@@ -407,6 +407,15 @@ namespace cba
 
 		UpdateTagEnhancerConflicts();
 
+		static bool s_lastKnownQaActive = false;
+		static bool s_qaInitDone = false;
+		if (!s_qaInitDone || s_lastKnownQaActive != CurrentSettings.Enabled)
+		{
+			s_lastKnownQaActive = CurrentSettings.Enabled;
+			s_qaInitDone = true;
+			UpdateQuickAccessIcon();
+		}
+
 		if (!CurrentSettings.Enabled)
 		{
 			controller.Clear();
@@ -623,11 +632,33 @@ namespace cba
 	void UpdateQuickAccessIcon()
 	{
 		if (!APIDefs) return;
+
+		// If movable toolbar icon is active, remove stationary shortcut from Nexus
+		// so there is never a duplicate stationary icon!
+		if (CurrentSettings.ShowQuickAccessIcon && CurrentSettings.MovableToolbarIcon)
+		{
+			if (APIDefs->QuickAccess.Remove)
+			{
+				APIDefs->QuickAccess.Remove("QA_CBA");
+			}
+			return;
+		}
+
 		if (CurrentSettings.ShowQuickAccessIcon)
 		{
+			bool isDe = (Strings().Enabled[0] == 'A');
+			bool isActive = CurrentSettings.Enabled;
+			const char* texNormal = isActive ? "CBA_ICON" : "CBA_ICON_INACTIVE";
+			const char* texHover  = isActive ? "CBA_ICON" : "CBA_ICON_INACTIVE_HOVER";
+			const char* tooltip   = isDe
+				? (isActive ? "cba4gw2 [Aktiv] (Strg+Shift+C / Filter Aus: Strg+Shift+O)"
+				            : "cba4gw2 [Inaktiv] (Strg+Shift+C / Filter Ein: Strg+Shift+C)")
+				: (isActive ? "cba4gw2 [Active] (Ctrl+Shift+C / Filter Off: Ctrl+Shift+O)"
+				            : "cba4gw2 [Inactive] (Ctrl+Shift+C / Filter On: Ctrl+Shift+C)");
+
 			if (APIDefs->QuickAccess.Add)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Filter Off: Strg+Shift+O)");
+				APIDefs->QuickAccess.Add("QA_CBA", texNormal, texHover, "CBA - Main Window", tooltip);
 			}
 		}
 		else
@@ -697,6 +728,9 @@ namespace cba
 		{
 			RenderC64CreditsOverlay();
 		}
+
+		// ── Movable Toolbar Icon (Shift + LMB Drag) ──────────────────────────
+		RenderMovableToolbarIcon();
 
 		// ── Window 1: CBA Main Window ─────────────────────────────────────────
 		if (CurrentSettings.ShowMainWindow && ImGui::GetCurrentContext())
@@ -984,11 +1018,13 @@ namespace cba
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{
-				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON", (void*)kCbaIconPng, kCbaIconPngSize);
+				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON", (void*)kCbaIconPng, sizeof(kCbaIconPng));
+				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON_INACTIVE", (void*)kCbaIconInactivePng, sizeof(kCbaIconInactivePng));
+				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON_INACTIVE_HOVER", (void*)kCbaIconInactiveHoverPng, sizeof(kCbaIconInactiveHoverPng));
 			}
-			if (APIDefs->QuickAccess.Add && CurrentSettings.ShowQuickAccessIcon)
+			if (CurrentSettings.ShowQuickAccessIcon)
 			{
-				APIDefs->QuickAccess.Add("QA_CBA", "CBA_ICON", "CBA_ICON", "CBA - Main Window", "cba4gw2 (Strg+Shift+C / Filter Off: Strg+Shift+O)");
+				UpdateQuickAccessIcon();
 			}
 
 			// Start state watchdog thread (monitors focus transitions every 50ms)

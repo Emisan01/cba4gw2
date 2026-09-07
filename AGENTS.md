@@ -78,3 +78,11 @@ Keep the modular folder structure established in `plugins/nexus/src/`:
 - `platform/`: OS interop, Windows Magnification API, Window mode detection, DirectX capture.
 - `ui/`: Dear ImGui windows, widgets, and theme styling.
 - `ModuleMain.cpp`: Nexus addon lifecycle, WndProc, and keybind dispatch.
+
+---
+
+## 6. Build Deployment & Hot-Reload Workflow
+
+- **Automatic Post-Build Deployment**:
+  - `CMakeLists.txt` is configured to automatically copy `cba.dll` directly to the Guild Wars 2 addons directory (`C:/GAMES/Guild Wars 2/addons/cba.dll`) as a post-build step.
+  - Every agent or developer must ensure that any compiled build is deployed to `C:\GAMES\Guild Wars 2\addons\cba.dll` so that hot-reloading in the running game via Nexus works seamlessly and reliably.

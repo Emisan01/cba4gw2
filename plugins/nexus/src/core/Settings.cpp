@@ -127,6 +127,9 @@ namespace cba
 			else if (key == "ShowVisionLab")    s.ShowVisionLabWindow = (value == "1");
 			else if (key == "DetachedWindow")   s.DetachedWindow = (value == "1");
 			else if (key == "ShowQuickAccess")   s.ShowQuickAccessIcon = (value == "1");
+			else if (key == "MovableToolbarIcon") s.MovableToolbarIcon = (value == "1");
+			else if (key == "ToolbarIconPosX")     s.ToolbarIconPosX = safeStof(value, 405.0f);
+			else if (key == "ToolbarIconPosY")     s.ToolbarIconPosY = safeStof(value, 8.0f);
 			else if (key == "SystemWide")        s.SystemWide = (value == "1");
 			else if (key == "FreeFilterEnabled") s.FreeFilterEnabled = (value == "1");
 			else if (key == "FreeFilterTargetR") s.FreeFilterTargetRgb[0] = safeStof(value, 0.25f);
@@ -270,6 +273,9 @@ namespace cba
 		file << "ShowVisionLab=" << (ShowVisionLabWindow ? "1" : "0") << "\n";
 		file << "DetachedWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";
 		file << "ShowQuickAccess=" << (ShowQuickAccessIcon ? "1" : "0") << "\n";
+		file << "MovableToolbarIcon=" << (MovableToolbarIcon ? "1" : "0") << "\n";
+		file << "ToolbarIconPosX=" << ToolbarIconPosX << "\n";
+		file << "ToolbarIconPosY=" << ToolbarIconPosY << "\n";
 		file << "SystemWide=" << (SystemWide ? "1" : "0") << "\n";
 		file << "FreeFilterEnabled=" << (FreeFilterEnabled ? "1" : "0") << "\n";
 		file << "FreeFilterTargetR=" << FreeFilterTargetRgb[0] << "\n";
@@ -432,5 +438,23 @@ namespace cba
 			}
 		}
 		return true;
+	}
+
+	void Settings::FactoryReset()
+	{
+		// Preserve variables that shouldn't be touched by a reset
+		bool currentLoadOnStartup = LoadOnStartup;
+		std::string currentToggleKeybind = ToggleKeybind;
+		int currentLanguage = Language;
+		bool currentSafeModeTriggered = SafeModeTriggered;
+		
+		// Reset to default constructor state
+		*this = Settings();
+		
+		// Restore preserved variables
+		LoadOnStartup = currentLoadOnStartup;
+		ToggleKeybind = currentToggleKeybind;
+		Language = currentLanguage;
+		SafeModeTriggered = currentSafeModeTriggered;
 	}
 }
