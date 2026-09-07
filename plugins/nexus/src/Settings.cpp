@@ -24,20 +24,20 @@ namespace cba
 			return aAddonDir + "\\cba_session.lock";
 		}
 
-		DeficiencyType ParseType(const std::string& aValue)
+		BalanceType ParseType(const std::string& aValue)
 		{
-			if (aValue == "Protan") return DeficiencyType::Protan;
-			if (aValue == "Tritan") return DeficiencyType::Tritan;
-			return DeficiencyType::Deutan;
+			if (aValue == "Protan") return BalanceType::Protan;
+			if (aValue == "Tritan") return BalanceType::Tritan;
+			return BalanceType::Deutan;
 		}
 
-		const char* TypeName(DeficiencyType aType)
+		const char* TypeName(BalanceType aType)
 		{
 			switch (aType)
 			{
-				case DeficiencyType::Protan: return "Protan";
-				case DeficiencyType::Tritan: return "Tritan";
-				default:                     return "Deutan";
+				case BalanceType::Protan: return "Protan";
+				case BalanceType::Tritan: return "Tritan";
+				default:                  return "Deutan";
 			}
 		}
 	}

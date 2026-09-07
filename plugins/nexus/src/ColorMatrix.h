@@ -6,7 +6,7 @@ namespace cba
 	// Same three axes as the exe. "Mixed" is not a fourth simulation matrix —
 	// it's Deutan (red-green axis) and Tritan (blue-yellow axis) applied in
 	// sequence, exactly like MixedCorrectionMatrix() below did in C#.
-	enum class DeficiencyType
+	enum class BalanceType
 	{
 		Protan,
 		Deutan,
@@ -14,7 +14,7 @@ namespace cba
 	};
 
 	// Calculates daltonization matrices using the Fidaner, Lin, and Ozguven
-	// approach (2005): simulate the deficiency, calculate the color error, and
+	// approach (2005): simulate the color balance profile, calculate the color error, and
 	// redistribute that error through the remaining channels.
 	//
 	// This is a practical approximation, not a clinically calibrated solution.
@@ -23,7 +23,7 @@ namespace cba
 	namespace ColorMatrix
 	{
 		// severity01: 0.0 = no correction, 1.0 = full correction for anopia.
-		void CorrectionMatrix(DeficiencyType aType, double aSeverity01, double aOut3x3[3][3]);
+		void CorrectionMatrix(BalanceType aType, double aSeverity01, double aOut3x3[3][3]);
 
 		// Mixed mode: red-green uses Deutan as its base type, blue-yellow uses Tritan.
 		void MixedCorrectionMatrix(double aRgSeverity01, double aBySeverity01, double aOut3x3[3][3]);
@@ -34,9 +34,9 @@ namespace cba
 		MAGCOLOREFFECT ToMagColorEffect(const double aM3x3[3][3]);
 
 		// Physiological simulation (LMS/Brettel): shows how the colour appears to
-		// someone with the given deficiency at full anopia severity.
+		// someone with the given balance profile at full anopia severity.
 		void SimulatePixel(double aR, double aG, double aB,
-		                   DeficiencyType aType,
+		                   BalanceType aType,
 		                   double& aOutR, double& aOutG, double& aOutB);
 
 		// Applies a pre-computed 3×3 correction matrix to a single pixel.

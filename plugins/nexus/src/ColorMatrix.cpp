@@ -91,12 +91,12 @@ namespace cba
 			CopyMatrix(result, aOut);
 		}
 
-		void SimulationMatrix(DeficiencyType aType, double aOut[3][3])
+		void SimulationMatrix(BalanceType aType, double aOut[3][3])
 		{
 			// Computes: LmsToRgb * CvdSpace * RgbToLms
 			const double (*cvd)[3] =
-				(aType == DeficiencyType::Deutan) ? kCvdDeutan :
-				(aType == DeficiencyType::Protan) ? kCvdProtan : kCvdTritan;
+				(aType == BalanceType::Deutan) ? kCvdDeutan :
+				(aType == BalanceType::Protan) ? kCvdProtan : kCvdTritan;
 
 			double temp[3][3];
 			Multiply(cvd, kRgbToLms, temp);
@@ -138,7 +138,7 @@ namespace cba
 		// (Simulation is now fully consistent since both use the Brettel LMS matrices)
 	}
 
-	void ColorMatrix::CorrectionMatrix(DeficiencyType aType, double aSeverity01, double aOut3x3[3][3])
+	void ColorMatrix::CorrectionMatrix(BalanceType aType, double aSeverity01, double aOut3x3[3][3])
 	{
 		double clampedSev = std::clamp(aSeverity01, 0.0, 1.25);
 		if (clampedSev <= 0.0001)
@@ -151,8 +151,8 @@ namespace cba
 		SimulationMatrix(aType, sim);
 
 		const double (*shift)[3] =
-			(aType == DeficiencyType::Deutan) ? ShiftDeutan :
-			(aType == DeficiencyType::Protan) ? ShiftProtan : ShiftTritan;
+			(aType == BalanceType::Deutan) ? ShiftDeutan :
+			(aType == BalanceType::Protan) ? ShiftProtan : ShiftTritan;
 
 		// Out = In + (In - In*Sim) * Shift
 		// As column vectors: Out = In + Shift * (In - Sim*In) = (I + Shift - Shift*Sim) * In
@@ -175,10 +175,10 @@ namespace cba
 	void ColorMatrix::MixedCorrectionMatrix(double aRgSeverity01, double aBySeverity01, double aOut3x3[3][3])
 	{
 		double rg[3][3];
-		CorrectionMatrix(DeficiencyType::Deutan, aRgSeverity01, rg);
+		CorrectionMatrix(BalanceType::Deutan, aRgSeverity01, rg);
 
 		double by[3][3];
-		CorrectionMatrix(DeficiencyType::Tritan, aBySeverity01, by);
+		CorrectionMatrix(BalanceType::Tritan, aBySeverity01, by);
 
 		Multiply(by, rg, aOut3x3);
 	}
@@ -204,15 +204,15 @@ namespace cba
 	}
 
 	void ColorMatrix::SimulatePixel(double aR, double aG, double aB,
-	                                DeficiencyType aType,
+	                                BalanceType aType,
 	                                double& aOutR, double& aOutG, double& aOutB)
 	{
 		// LMS-based physiological simulation (Brettel et al.).
-		// This shows what a person with the given deficiency actually perceives —
-		// full anopia severity, because we want to make the worst case visible.
+		// This shows what a person with the given balance profile actually perceives -
+		// full anopia severity, because we want to make the contrast difference visible.
 		const double (*cvd)[3] =
-			(aType == DeficiencyType::Deutan) ? kCvdDeutan :
-			(aType == DeficiencyType::Protan) ? kCvdProtan : kCvdTritan;
+			(aType == BalanceType::Deutan) ? kCvdDeutan :
+			(aType == BalanceType::Protan) ? kCvdProtan : kCvdTritan;
 
 		// RGB → LMS
 		double l = kRgbToLms[0][0]*aR + kRgbToLms[0][1]*aG + kRgbToLms[0][2]*aB;

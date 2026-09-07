@@ -11,7 +11,7 @@ namespace cba
 	struct Settings
 	{
 		bool Enabled = false;
-		DeficiencyType Type = DeficiencyType::Protan;
+		BalanceType Type = BalanceType::Protan;
 		double Severity01 = 0.0;
 		double MixedRgSeverity01 = 0.0;
 		double MixedBySeverity01 = 0.0;
@@ -85,7 +85,7 @@ namespace cba
 		{
 			bool Used = false;
 			std::string Name = "";
-			DeficiencyType Type = DeficiencyType::Protan;
+			BalanceType Type = BalanceType::Protan;
 			double Severity01 = 0.0;
 			bool Mixed = false;
 			double MixedRg01 = 0.0;

@@ -541,14 +541,14 @@ namespace
 
 		if (CurrentSettings.CommanderTagMode != 0)
 		{
-			DeficiencyType defType = CurrentSettings.Mixed 
-				? (CurrentSettings.MixedBySeverity01 > CurrentSettings.MixedRgSeverity01 ? DeficiencyType::Tritan : DeficiencyType::Deutan)
+			BalanceType defType = CurrentSettings.Mixed 
+				? (CurrentSettings.MixedBySeverity01 > CurrentSettings.MixedRgSeverity01 ? BalanceType::Tritan : BalanceType::Deutan)
 				: CurrentSettings.Type;
 			double sev = CurrentSettings.Mixed 
 				? (CurrentSettings.MixedRgSeverity01 > CurrentSettings.MixedBySeverity01 ? CurrentSettings.MixedRgSeverity01 : CurrentSettings.MixedBySeverity01)
 				: CurrentSettings.Severity01;
 
-			// 4a: Simulate each tag color under the user's deficiency and severity
+			// 4a: Simulate each tag color under the user's balance profile and severity
 			struct SimTag {
 				float origR, origG, origB;
 				float simR, simG, simB;
@@ -575,14 +575,14 @@ namespace
 			std::array<bool, 9> hasConflict{};
 			if (CurrentSettings.SmartEnhancer)
 			{
-				if (defType == DeficiencyType::Protan) {
+				if (defType == BalanceType::Protan) {
 					// Protanopie: 5 von 9 verschoben (Rot, Orange, Grün, Blau, Lila)
 					hasConflict[0] = true; // Rot
 					hasConflict[1] = true; // Orange
 					hasConflict[3] = true; // Grün
 					hasConflict[5] = true; // Blau
 					hasConflict[6] = true; // Lila
-				} else if (defType == DeficiencyType::Deutan) {
+				} else if (defType == BalanceType::Deutan) {
 					// Deuteranopie: 3 von 9 verschoben (Rot, Orange, Grün)
 					hasConflict[0] = true; // Rot
 					hasConflict[1] = true; // Orange
@@ -2756,8 +2756,8 @@ namespace
 
 			ImGui::Spacing();
 
-			// Radio buttons for deficiency types
-			auto typeBtn = [&](const char* aLabel, bool aActive, DeficiencyType aType) {
+			// Radio buttons for balance types
+			auto typeBtn = [&](const char* aLabel, bool aActive, BalanceType aType) {
 				if (ImGui::RadioButton(aLabel, aActive)) {
 					if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
 						CurrentSettings.Mixed = false;
@@ -2767,11 +2767,11 @@ namespace
 					}
 				}
 			};
-			typeBtn(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Protan, DeficiencyType::Protan);
+			typeBtn(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Protan, BalanceType::Protan);
 			ImGui::SameLine();
-			typeBtn(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Deutan, DeficiencyType::Deutan);
+			typeBtn(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Deutan, BalanceType::Deutan);
 			ImGui::SameLine();
-			typeBtn(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Tritan, DeficiencyType::Tritan);
+			typeBtn(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Tritan, BalanceType::Tritan);
 			ImGui::SameLine();
 			if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
 				if (!CurrentSettings.Mixed) {
@@ -2852,7 +2852,7 @@ namespace
 				else if (firstEmptySlot == -1) firstEmptySlot = i;
 			}
 
-			static DeficiencyType s_baseType = CurrentSettings.Type;
+			static BalanceType s_baseType = CurrentSettings.Type;
 			static double s_baseSev = CurrentSettings.Severity01;
 			static bool s_baseMixed = CurrentSettings.Mixed;
 			static double s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
@@ -2926,8 +2926,8 @@ namespace
 					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
 						(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
 				} else {
-					const char* tn = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
-					                 (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+					const char* tn = (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
+					                 (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
 					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
 				}
 				if (CurrentSettings.Slots[targetSlot].Name.empty()) {
@@ -3122,9 +3122,9 @@ namespace
 						clinicalGrade = isDe ? "Stufe 3 (Fokus-Kontrast)" : "Level 3 (Focus Contrast)";
 					}
 				} else {
-					if (CurrentSettings.Type == DeficiencyType::Protan) {
+					if (CurrentSettings.Type == BalanceType::Protan) {
 						profileName = isDe ? "Protan (Rot-Fokus)" : "Protan (Red Focus)";
-					} else if (CurrentSettings.Type == DeficiencyType::Deutan) {
+					} else if (CurrentSettings.Type == BalanceType::Deutan) {
 						profileName = isDe ? "Deutan (Gruen-Fokus)" : "Deutan (Green Focus)";
 					} else {
 						profileName = isDe ? "Tritan (Blau-Fokus)" : "Tritan (Blue Focus)";
@@ -3168,8 +3168,8 @@ namespace
 				// Eingabefeld fuer persoenliche Kalibrier- / Referenzwerte (AQ / HRR)
 				ImGui::Spacing();
 				const char* defaultHint = CurrentSettings.Mixed ? "RG: 50% | BY: 50%" :
-					(CurrentSettings.Type == DeficiencyType::Protan ? "AQ: 0.35 | HRR: 8/10" :
-					(CurrentSettings.Type == DeficiencyType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
+					(CurrentSettings.Type == BalanceType::Protan ? "AQ: 0.35 | HRR: 8/10" :
+					(CurrentSettings.Type == BalanceType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
 
 				ImGui::TextDisabled("%s:", isDe ? "Referenzwerte / Kalibrierung (AQ / HRR)" : "Reference Values / Calibration (AQ / HRR)");
 				char diagBuf[128]{};
@@ -3210,8 +3210,8 @@ namespace
 				if (s_tagConflictStates[i].inConflict) shiftedCount++;
 			}
 			ImGui::SameLine(0, 14.0f);
-			const char* curDefName = CurrentSettings.Type == DeficiencyType::Protan ? (isDe ? "Protan (Rot)" : "Protan (Red)") 
-				: (CurrentSettings.Type == DeficiencyType::Deutan ? (isDe ? "Deutan (Gruen)" : "Deutan (Green)") : (isDe ? "Tritan (Blau)" : "Tritan (Blue)"));
+			const char* curDefName = CurrentSettings.Type == BalanceType::Protan ? (isDe ? "Protan (Rot)" : "Protan (Red)") 
+				: (CurrentSettings.Type == BalanceType::Deutan ? (isDe ? "Deutan (Gruen)" : "Deutan (Green)") : (isDe ? "Tritan (Blau)" : "Tritan (Blue)"));
 			ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "%s - %d von 9 Farben verschoben" : "%s - %d of 9 colors shifted", curDefName, shiftedCount);
 
 			if (enhancerActive)
@@ -3219,7 +3219,7 @@ namespace
 				ImGui::Spacing();
 				// 3 Preset Buttons from Mockup
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-				auto presetBtn = [&](const char* name, DeficiencyType dType) {
+				auto presetBtn = [&](const char* name, BalanceType dType) {
 					bool act = (!CurrentSettings.Mixed && CurrentSettings.Type == dType);
 					if (act) {
 						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
@@ -3243,11 +3243,11 @@ namespace
 					}
 					ImGui::PopStyleColor(4);
 				};
-				presetBtn(isDe ? "Protan (Rot)" : "Protan (Red)", DeficiencyType::Protan);
+				presetBtn(isDe ? "Protan (Rot)" : "Protan (Red)", BalanceType::Protan);
 				ImGui::SameLine(0, 6.0f);
-				presetBtn(isDe ? "Deutan (Gruen)" : "Deutan (Green)", DeficiencyType::Deutan);
+				presetBtn(isDe ? "Deutan (Gruen)" : "Deutan (Green)", BalanceType::Deutan);
 				ImGui::SameLine(0, 6.0f);
-				presetBtn(isDe ? "Tritan (Blau)" : "Tritan (Blue)", DeficiencyType::Tritan);
+				presetBtn(isDe ? "Tritan (Blau)" : "Tritan (Blue)", BalanceType::Tritan);
 				ImGui::PopStyleVar();
 
 				ImGui::Spacing();
@@ -3424,7 +3424,7 @@ namespace
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 				if (ImGui::Button(isDe ? "Tag-Kontrast Protan" : "Tag Contrast Protan", ImVec2(140.0f, 22.0f)))
 				{
-					CurrentSettings.Type = DeficiencyType::Protan;
+					CurrentSettings.Type = BalanceType::Protan;
 					CurrentSettings.Mixed = false;
 					CurrentSettings.Severity01 = 1.0f;
 					CurrentSettings.CommanderTagMode = 1;
@@ -3435,7 +3435,7 @@ namespace
 				ImGui::SameLine(0, 6.0f);
 				if (ImGui::Button(isDe ? "Mein WvW Setup" : "My WvW Setup", ImVec2(120.0f, 22.0f)))
 				{
-					CurrentSettings.Type = DeficiencyType::Protan;
+					CurrentSettings.Type = BalanceType::Protan;
 					CurrentSettings.Mixed = false;
 					CurrentSettings.Severity01 = 1.25f; // +25% Boost
 					CurrentSettings.CommanderTagMode = 1;
@@ -3470,7 +3470,7 @@ namespace
 					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					if (ImGui::Button(isDe ? "Laden##det" : "Load##det", ImVec2(52.0f, 0.0f)))
 					{
-						CurrentSettings.Type = static_cast<DeficiencyType>(CurrentSettings.Presets[pIdx].Type);
+						CurrentSettings.Type = static_cast<BalanceType>(CurrentSettings.Presets[pIdx].Type);
 						CurrentSettings.Severity01 = CurrentSettings.Presets[pIdx].Severity;
 						CurrentSettings.EnhancerTolerance = CurrentSettings.Presets[pIdx].Tolerance;
 						CurrentSettings.CommanderTagMode = 1;
@@ -3754,8 +3754,8 @@ namespace
 					(int)(CurrentSettings.MixedRgSeverity01 * 100.0), (int)(CurrentSettings.MixedBySeverity01 * 100.0));
 				profStr = b;
 			} else {
-				const char* name = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
-				                   (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+				const char* name = (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
+				                   (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
 				char b[64];
 				std::snprintf(b, sizeof(b), "%s (%d%%)", name, (int)(CurrentSettings.Severity01 * 100.0));
 				profStr = b;
@@ -3949,8 +3949,8 @@ namespace
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		// Radio buttons for deficiency types
-		auto typeBtnHUD = [&](const char* aLabel, bool aActive, DeficiencyType aType) {
+		// Radio buttons for balance types
+		auto typeBtnHUD = [&](const char* aLabel, bool aActive, BalanceType aType) {
 			if (ImGui::RadioButton(aLabel, aActive)) {
 				if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
 					CurrentSettings.Mixed = false;
@@ -3961,11 +3961,11 @@ namespace
 				}
 			}
 		};
-		typeBtnHUD(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Protan, DeficiencyType::Protan);
+		typeBtnHUD(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Protan, BalanceType::Protan);
 		ImGui::SameLine();
-		typeBtnHUD(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Deutan, DeficiencyType::Deutan);
+		typeBtnHUD(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Deutan, BalanceType::Deutan);
 		ImGui::SameLine();
-		typeBtnHUD(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == DeficiencyType::Tritan, DeficiencyType::Tritan);
+		typeBtnHUD(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Tritan, BalanceType::Tritan);
 		ImGui::SameLine();
 		if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
 			if (!CurrentSettings.Mixed) {
@@ -4199,8 +4199,8 @@ namespace
 					(int)(CurrentSettings.MixedRgSeverity01 * 100.0), (int)(CurrentSettings.MixedBySeverity01 * 100.0));
 				activeModules.push_back({ std::string("Filter: ") + b, Theme::kTextCyanLicht });
 			} else if (CurrentSettings.Severity01 > 0.001) {
-				const char* name = (CurrentSettings.Type == DeficiencyType::Protan) ? "Protan" :
-				                   (CurrentSettings.Type == DeficiencyType::Deutan) ? "Deutan" : "Tritan";
+				const char* name = (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
+				                   (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
 				char b[64];
 				std::snprintf(b, sizeof(b), "%s (%d%%)", name, (int)(CurrentSettings.Severity01 * 100.0));
 				activeModules.push_back({ std::string("Filter: ") + b, Theme::kTextCyanLicht });
