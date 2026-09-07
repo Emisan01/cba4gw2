@@ -54,6 +54,8 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
 4. In Nexus → **Addons** → **cba4gw2**, click **Options** to configure your profile.
 
 > **Important:** Set Guild Wars 2 to **Windowed** or **Windowed Fullscreen (Borderless)** in Graphics Options. The Windows Magnification API cannot apply to Exclusive Fullscreen windows.
+>
+> **ArenaNet Policy Notice:** Third-party addon, used at your own risk per ArenaNet's Third-Party Programs Policy — no automation, no game-memory access, visual-only.
 
 ---
 

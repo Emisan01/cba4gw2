@@ -6,12 +6,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(cba SHARED
     src/ModuleMain.cpp
-    src/Shared.cpp
-    src/ColorMatrix.cpp
-    src/Magnification.cpp
-    src/Settings.cpp
-    src/WindowMode.cpp
-    src/HybridScanner.cpp
+    src/core/Shared.cpp
+    src/core/ColorMatrix.cpp
+    src/core/Settings.cpp
+    src/platform/Magnification.cpp
+    src/platform/WindowMode.cpp
+    src/platform/HybridScanner.cpp
+    src/ui/UIState.cpp
+    src/ui/MainWindow.cpp
+    src/ui/SensorGraphHUD.cpp
+    src/ui/FilterLab.cpp
+    src/ui/SafeStartGate.cpp
+    src/ui/CreditsDialog.cpp
     thirdparty/imgui/imgui.cpp
     thirdparty/imgui/imgui_draw.cpp
     thirdparty/imgui/imgui_tables.cpp
@@ -20,6 +26,9 @@ add_library(cba SHARED
 
 target_include_directories(cba PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/nexus-api
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/imgui
 )

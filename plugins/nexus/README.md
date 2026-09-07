@@ -59,3 +59,5 @@ The resulting `cba.dll` is compiled to `build/bin/Release/cba.dll`. All dependen
 3. Launch Guild Wars 2 through Nexus.
 4. Press `Ctrl + Shift + C` or click the CBA icon in the Nexus top bar to open options.
 5. Ensure Guild Wars 2 is set to **Windowed** or **Windowed Fullscreen (Borderless)** in Graphics Options (Exclusive Fullscreen bypasses Desktop Window Manager filters).
+>
+> **ArenaNet Policy Notice:** Third-party addon, used at your own risk per ArenaNet's Third-Party Programs Policy — no automation, no game-memory access, visual-only.
