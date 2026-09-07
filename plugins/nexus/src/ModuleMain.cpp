@@ -2025,7 +2025,7 @@ namespace
 
 				// Left column: Color Picker & Replacement Color
 				ImGui::BeginGroup();
-				ImGui::TextDisabled("%s:", isDe ? "1. Ziel-Farbe (Hue-Wheel)" : "1. Target Color (Hue Wheel)");
+				ImGui::TextDisabled("%s:", isDe ? "1. Ziel-Farbe (HSV-Farbrad)" : "1. Target Color (HSV Color Wheel)");
 				ImGuiColorEditFlags pickerFlags = ImGuiColorEditFlags_PickerHueWheel 
 				                                | ImGuiColorEditFlags_NoSidePreview 
 				                                | ImGuiColorEditFlags_NoSmallPreview 

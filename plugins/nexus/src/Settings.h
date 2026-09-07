@@ -57,7 +57,7 @@ namespace cba
 		bool ShowQuickAccessIcon = true;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
-		// Free-Filter-Design (Selective Color Isolation & Shift with Krita-style Hue Wheel)
+		// Free-Filter-Design (Selective Color Isolation & Shift with HSV Color Wheel / Artistic Color Selector, inspired by Krita-style wheel)
 		bool FreeFilterEnabled = false;
 		float FreeFilterTargetRgb[3] = { 0.25f, 0.62f, 0.30f };  // Default Ziel: GW2 Grün #3f9d4d
 		float FreeFilterReplaceRgb[3] = { 0.85f, 0.28f, 0.24f }; // Default Ersatz: GW2 Rot #d9463c
