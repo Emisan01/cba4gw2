@@ -347,4 +347,90 @@ namespace cba
 		std::error_code ec;
 		std::filesystem::remove(lockPath, ec);
 	}
+
+	std::string Settings::ExportPresetString() const
+	{
+		char buf[256];
+		std::snprintf(buf, sizeof(buf), "CBA1:T=%d;S=%.2f;M=%d;RG=%.2f;BY=%.2f;G=%.2f;CT=%d;SE=%d;ET=%.2f",
+			static_cast<int>(Type),
+			static_cast<float>(Severity01),
+			Mixed ? 1 : 0,
+			static_cast<float>(MixedRgSeverity01),
+			static_cast<float>(MixedBySeverity01),
+			GammaGain,
+			CommanderTagMode,
+			SmartEnhancer ? 1 : 0,
+			EnhancerTolerance);
+		std::string out = buf;
+		if (!DiagnosisHint.empty())
+		{
+			std::string safeHint = DiagnosisHint;
+			for (char& c : safeHint) {
+				if (c == ';' || c == ':' || c == '\n' || c == '\r') c = ' ';
+			}
+			out += ";H=" + safeHint;
+		}
+		return out;
+	}
+
+	bool Settings::ImportPresetString(const std::string& aPresetStr, std::string* aOutError)
+	{
+		size_t start = aPresetStr.find_first_not_of(" \t\r\n");
+		if (start == std::string::npos)
+		{
+			if (aOutError) *aOutError = "Empty string";
+			return false;
+		}
+		std::string s = aPresetStr.substr(start);
+		size_t end = s.find_last_not_of(" \t\r\n");
+		if (end != std::string::npos) s = s.substr(0, end + 1);
+
+		if (s.rfind("CBA1:", 0) != 0)
+		{
+			if (aOutError) *aOutError = "Invalid header (must start with CBA1:)";
+			return false;
+		}
+
+		std::string payload = s.substr(5);
+		std::stringstream ss(payload);
+		std::string item;
+		while (std::getline(ss, item, ';'))
+		{
+			size_t eq = item.find('=');
+			if (eq == std::string::npos) continue;
+			std::string k = item.substr(0, eq);
+			std::string v = item.substr(eq + 1);
+
+			try
+			{
+				if (k == "T") {
+					int t = std::stoi(v);
+					if (t >= 0 && t <= 2) Type = static_cast<BalanceType>(t);
+				} else if (k == "S") {
+					Severity01 = std::clamp(std::stod(v), 0.0, 1.0);
+				} else if (k == "M") {
+					Mixed = (std::stoi(v) != 0);
+				} else if (k == "RG") {
+					MixedRgSeverity01 = std::clamp(std::stod(v), 0.0, 1.0);
+				} else if (k == "BY") {
+					MixedBySeverity01 = std::clamp(std::stod(v), 0.0, 1.0);
+				} else if (k == "G") {
+					GammaGain = std::clamp(std::stof(v), 0.50f, 2.00f);
+				} else if (k == "CT") {
+					CommanderTagMode = (std::stoi(v) != 0) ? 1 : 0;
+				} else if (k == "SE") {
+					SmartEnhancer = (std::stoi(v) != 0);
+				} else if (k == "ET") {
+					EnhancerTolerance = std::clamp(std::stof(v), 0.04f, 0.30f);
+				} else if (k == "H") {
+					DiagnosisHint = v;
+				}
+			}
+			catch (...)
+			{
+				// Ignore individual malformed tokens
+			}
+		}
+		return true;
+	}
 }

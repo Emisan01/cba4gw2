@@ -101,5 +101,9 @@ namespace cba
 		void Save(const std::string& aAddonDir) const;
 		static void MarkRunning(const std::string& aAddonDir);
 		static void MarkCleanExit(const std::string& aAddonDir);
+
+		// Preset export / import via compact ASCII string (Clipboard exchange)
+		std::string ExportPresetString() const;
+		bool ImportPresetString(const std::string& aPresetStr, std::string* aOutError = nullptr);
 	};
 }

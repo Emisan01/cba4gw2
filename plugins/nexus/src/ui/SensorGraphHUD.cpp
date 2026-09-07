@@ -447,7 +447,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(isDe ? "Mischpult" : "Deck", ImVec2(68.0f, 22.0f)))
+		if (ImGui::Button(isDe ? "Mischpult" : "Deck", ImVec2(0.0f, 22.0f)))
 		{
 			s_showGraphOpacityDrawer = !s_showGraphOpacityDrawer;
 		}
@@ -490,7 +490,7 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 			}
-			if (ImGui::Button(aName, ImVec2(92.0f, 22.0f))) {
+			if (ImGui::Button(aName, ImVec2(0.0f, 22.0f))) {
 				CurrentSettings.GraphMode = aModeVal;
 				saveNeeded = true;
 			}

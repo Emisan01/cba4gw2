@@ -36,6 +36,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts/cba4gw2-nexus-plugin | Out-Null
           Copy-Item plugins/nexus/build/bin/Release/cba.dll artifacts/cba4gw2-nexus-plugin/
           Copy-Item README.md artifacts/cba4gw2-nexus-plugin/
+          Copy-Item SECURITY_COMPLIANCE.md artifacts/cba4gw2-nexus-plugin/
           Copy-Item plugins/nexus/README.md artifacts/cba4gw2-nexus-plugin/
           Compress-Archive -Path artifacts/cba4gw2-nexus-plugin/* -DestinationPath artifacts/cba4gw2-nexus-plugin-win-x64.zip
           Copy-Item plugins/nexus/build/bin/Release/cba.dll artifacts/cba.dll

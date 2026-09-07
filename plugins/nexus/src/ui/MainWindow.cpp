@@ -51,7 +51,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(t.OpenMainWindow, ImVec2(120.0f, 26.0f)))
+		if (ImGui::Button(t.OpenMainWindow, ImVec2(0.0f, 26.0f)))
 		{
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
@@ -78,7 +78,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(t.OpenSensorGraph, ImVec2(120.0f, 26.0f)))
+		if (ImGui::Button(t.OpenSensorGraph, ImVec2(0.0f, 26.0f)))
 		{
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
@@ -253,7 +253,7 @@ namespace cba
 			}
 			const char* masterBtnLabel = isDe ? (wasEnabled ? "EIN##main_master" : "AUS##main_master")
 			                                  : (wasEnabled ? "ON##main_master"  : "OFF##main_master");
-			if (ImGui::Button(masterBtnLabel, ImVec2(56.0f, 24.0f))) {
+			if (ImGui::Button(masterBtnLabel, ImVec2(0.0f, 24.0f))) {
 				EnsureDeferredInitialized();
 				CurrentSettings.Enabled = !CurrentSettings.Enabled;
 				CurrentSettings.Save(AddonDir);
@@ -431,6 +431,44 @@ namespace cba
 			ImGui::Spacing();
 			ImGui::Dummy(ImVec2(0.0f, 12.0f));
 		};
+
+		// ── Exclusive Fullscreen Warning Banner ──────────────────────────────
+		WindowMode curWinMode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
+		if (curWinMode == WindowMode::ExclusiveFullscreen)
+		{
+			ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.35f, 0.20f, 0.05f, 0.85f));
+			ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.95f, 0.65f, 0.20f, 0.90f));
+			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+			if (ImGui::BeginChild("##excl_fullscreen_warning", ImVec2(0.0f, 46.0f), true, ImGuiWindowFlags_NoScrollbar))
+			{
+				ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.35f, 1.0f), "%s", isDe ? "[WARNUNG] GW2 laeuft im exklusiven Vollbildmodus!" : "[WARNING] GW2 is running in exclusive fullscreen!");
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe 
+					? "DWM-Filter pausiert. Bitte in den GW2-Optionen auf 'Fenster' oder 'Rahmenlos' stellen."
+					: "DWM filter paused. Please set GW2 Graphics Options to 'Windowed' or 'Borderless'.");
+			}
+			ImGui::EndChild();
+			ImGui::PopStyleVar();
+			ImGui::PopStyleColor(2);
+			ImGui::Spacing();
+		}
+
+		// ── Live Game Mode Context Indicator ──────────────────────────────────
+		MumbleGameContext gameCtx = GetCurrentGameContext();
+		if (gameCtx.mapId != 0)
+		{
+			ImGui::TextColored(Theme::kTextCyanLicht, "%s: %s (Map %u)%s",
+				isDe ? "Aktiver Spielmodus" : "Active Game Mode",
+				isDe ? gameCtx.modeNameDe : gameCtx.modeNameEn,
+				gameCtx.mapId,
+				gameCtx.isInCombat ? (isDe ? " [Im Kampf]" : " [In Combat]") : "");
+			if (gameCtx.isWvW && CurrentSettings.CommanderTagMode == 0)
+			{
+				ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe 
+					? "[Tipp] WvW erkannt! Der Commander-Tag Enhancer in Sektion 2 wird empfohlen."
+					: "[Tip] WvW detected! Commander-Tag Enhancer in Section 2 is recommended.");
+			}
+			ImGui::Spacing();
+		}
 
 		// ── Section 1: Farbprofil & Korrektur ────────────────────────────────
 		if (renderSectionHeader(0, t.HeaderSection1, ImGuiTreeNodeFlags_DefaultOpen))
@@ -911,6 +949,64 @@ namespace cba
 						? "Optionales Eingabefeld fuer persoenliche Kalibrier- oder Benchmarkwerte (z.B. Nagel-AQ, HRR-Plates).\nTypische Standardwerte fuer dieses Profil: %s"
 						: "Optional input field for personal calibration or test benchmark scores (e.g. Nagel AQ, HRR plates).\nTypical default values for this profile: %s",
 						defaultHint);
+				}
+
+				// Preset Exchange (Clipboard)
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Profil-Austausch (Zwischenablage):" : "Profile Exchange (Clipboard):");
+				ImGui::Spacing();
+
+				if (ImGui::Button(isDe ? "Profil in Zwischenablage kopieren##exp" : "Copy profile to clipboard##exp", ImVec2(0.0f, 24.0f)))
+				{
+					std::string expStr = CurrentSettings.ExportPresetString();
+					ImGui::SetClipboardText(expStr.c_str());
+					s_profileFeedbackTime = std::chrono::steady_clock::now();
+					s_profileFeedbackMsg = isDe ? "[OK] Profil in Zwischenablage kopiert!" : "[OK] Profile copied to clipboard!";
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe 
+						? "Kopiert dein aktuelles Farbprofil als kompakten String zum Teilen in Discord oder Chat."
+						: "Copies your current color profile as a compact string to share in Discord or chat.");
+				}
+
+				ImGui::SameLine(0, 8.0f);
+
+				if (ImGui::Button(isDe ? "Aus Zwischenablage importieren##imp" : "Import from clipboard##imp", ImVec2(0.0f, 24.0f)))
+				{
+					const char* clip = ImGui::GetClipboardText();
+					if (clip && clip[0] != '\0')
+					{
+						std::string err;
+						if (CurrentSettings.ImportPresetString(clip, &err))
+						{
+							EnsureDeferredInitialized();
+							CurrentSettings.Save(AddonDir);
+							Recompute(/*aForce=*/true);
+							s_profileFeedbackTime = std::chrono::steady_clock::now();
+							s_profileFeedbackMsg = isDe ? "[OK] Profil erfolgreich importiert!" : "[OK] Profile imported successfully!";
+							changed = true;
+							saveNeeded = true;
+						}
+						else
+						{
+							s_profileFeedbackTime = std::chrono::steady_clock::now();
+							s_profileFeedbackMsg = isDe ? "[FEHLER] Ungueltiger Profil-String!" : "[ERROR] Invalid profile string!";
+						}
+					}
+					else
+					{
+						s_profileFeedbackTime = std::chrono::steady_clock::now();
+						s_profileFeedbackMsg = isDe ? "[FEHLER] Zwischenablage ist leer!" : "[ERROR] Clipboard is empty!";
+					}
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe 
+						? "Liest ein vorher kopiertes CBA-Profil (CBA1:...) aus der Zwischenablage ein und wendet es an."
+						: "Reads a previously copied CBA profile (CBA1:...) from the clipboard and applies it.");
 				}
 			}
 			endSection();
@@ -1587,6 +1683,55 @@ namespace cba
 				ImGui::EndChild();
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
+
+				ImGui::Spacing();
+				static std::chrono::steady_clock::time_point s_diagFeedbackTime{};
+				if (ImGui::Button(isDe ? "System-Diagnose in Zwischenablage kopieren##diag_copy" : "Copy System Diagnostics to Clipboard##diag_copy", ImVec2(0.0f, 24.0f)))
+				{
+					MumbleGameContext gctx = GetCurrentGameContext();
+					WindowMode wMode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
+					bool hdr = DetectHdrColorSpace(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
+
+					char report[1024];
+					std::snprintf(report, sizeof(report),
+						"============================================================\n"
+						" CBA4GW2 SYSTEM & DIAGNOSTIC REPORT\n"
+						"============================================================\n"
+						"- Addon Version: 1.0.2.0 (Build 2) | Nexus API: %d\n"
+						"- Profile: %s | Severity: %.1f%% | Enabled: %s\n"
+						"- Magnification API: Initialized: %s | Filter Applied: %s\n"
+						"- Window Mode: %s | HDR Detected: %s\n"
+						"- MumbleLink: Map ID %u (%s) | In Combat: %s\n"
+						"- Performance Timings: Main: %.2f ms | HUD: %.2f ms | Curves: %.2f ms | Lab: %.2f ms | Total: %.2f ms\n"
+						"============================================================",
+						NEXUS_API_VERSION,
+						(CurrentSettings.Mixed ? "Mixed" : (CurrentSettings.Type == BalanceType::Protan ? "Protan" : (CurrentSettings.Type == BalanceType::Deutan ? "Deutan" : "Tritan"))),
+						CurrentSettings.Severity01 * 100.0,
+						CurrentSettings.Enabled ? "YES" : "NO",
+						s_deferredInitDone.load() ? "YES" : "NO",
+						CurrentSettings.Enabled ? "ACTIVE" : "INACTIVE",
+						ToDisplayString(wMode, false),
+						hdr ? "YES" : "NO",
+						gctx.mapId, gctx.modeNameEn,
+						gctx.isInCombat ? "YES" : "NO",
+						g_perfMainWindowMs, g_perfSensorGraphMs, g_perfCurvesMs, g_perfFilterLabMs, g_perfTotalImGuiMs);
+
+					ImGui::SetClipboardText(report);
+					s_diagFeedbackTime = std::chrono::steady_clock::now();
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe 
+						? "Kopiert einen detaillierten, anonymisierten Diagnose-Report in die Zwischenablage (ideal fuer Bug-Reports auf GitHub oder Discord)."
+						: "Copies a detailed, anonymized diagnostic report to the clipboard (ideal for bug reports on GitHub or Discord).");
+				}
+
+				auto nowDiag = std::chrono::steady_clock::now();
+				if (std::chrono::duration_cast<std::chrono::seconds>(nowDiag - s_diagFeedbackTime).count() < 3)
+				{
+					ImGui::SameLine(0, 8.0f);
+					ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "[OK] Diagnose kopiert!" : "[OK] Diagnostics copied!");
+				}
 			}
 
 			ImGui::Spacing();

@@ -14,6 +14,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run ArenaNet & Raidcore Pro Audit Test Suite
+        run: |
+          python tools/audit_pro_review.py
+
       - name: Build Nexus plugin
         run: |
           cmake -S plugins/nexus -B plugins/nexus/build -A x64
@@ -25,6 +34,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
           Copy-Item plugins/nexus/build/bin/Release/cba.dll artifacts/
           Copy-Item README.md artifacts/
+          Copy-Item SECURITY_COMPLIANCE.md artifacts/
           Compress-Archive -Path artifacts/* -DestinationPath artifacts/cba4gw2-nexus-plugin.zip
 
       - name: Upload build artifacts

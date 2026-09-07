@@ -7,8 +7,63 @@
 #include "Nexus.h"
 #include "Settings.h"
 #include <string>
+#include <cstdint>
+
+namespace cba
+{
+	struct MumbleContext {
+		unsigned char serverAddress[28];
+		uint32_t mapId;
+		uint32_t mapType;
+		uint32_t shardId;
+		uint32_t instance;
+		uint32_t buildId;
+		uint32_t uiState;
+		uint16_t compassWidth;
+		uint16_t compassHeight;
+		float compassRotation;
+		float playerX;
+		float playerY;
+		float mapCenterX;
+		float mapCenterY;
+		float mapScale;
+		uint32_t processId;
+		uint8_t mountIndex;
+	};
+
+	struct GW2MumbleLink {
+		uint32_t uiVersion;
+		uint32_t uiTick;
+		float fAvatarPosition[3];
+		float fAvatarFront[3];
+		float fAvatarTop[3];
+		wchar_t name[256];
+		float fCameraPosition[3];
+		float fCameraFront[3];
+		float fCameraTop[3];
+		wchar_t identity[256];
+		uint32_t context_len;
+		MumbleContext context;
+		wchar_t description[2048];
+	};
+
+	struct MumbleGameContext
+	{
+		uint32_t mapId = 0;
+		uint32_t mapType = 0;
+		bool isInCombat = false;
+		bool isWvW = false;
+		bool isInstance = false;
+		const char* modeNameEn = "Unknown";
+		const char* modeNameDe = "Unbekannt";
+	};
+
+	MumbleGameContext GetCurrentGameContext();
+}
 
 extern AddonAPI* APIDefs;
 extern HMODULE   AddonModuleHandle;
 extern cba::Settings CurrentSettings;
 extern std::string   AddonDir;
+extern NexusLinkData* NexusLink;
+extern cba::GW2MumbleLink* MumbleLinkData;
