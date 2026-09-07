@@ -118,6 +118,7 @@ namespace cba
 
 	void RenderVisionLabWindow()
 	{
+		if (!ImGui::GetCurrentContext()) return;
 		const L10n& t = Strings();
 		bool isDe = (t.Enabled[0] == 'A');
 

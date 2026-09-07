@@ -20,6 +20,7 @@ namespace cba
 	// ── Kontrast-Kombinationen (Überlappende Farbfelder Widget) ────────────────
 	void DrawContrastCombinationsWidget(bool isDe, bool& changed, bool& saveNeeded)
 	{
+		if (!ImGui::GetCurrentContext()) return;
 		const char* pairNamesDe[] = {
 			"Blau / Gruen (GW2 Standard)",
 			"Rot / Gruen (Protan / Deutan Test)",
@@ -166,6 +167,7 @@ namespace cba
 	// ── Filter-Labor & Experimentierfeld Widget ───────────────────────────────
 	void DrawFilterLabWidget(bool isDe, bool& changed, bool& saveNeeded)
 	{
+		if (!ImGui::GetCurrentContext()) return;
 		bool labActive = CurrentSettings.LabModeEnabled;
 		if (ImGui::Checkbox(isDe ? "Filter-Labor aktiv (Mehrfach-Filter & Erfassung)##lab_master" 
 		                         : "Filter Lab Active (Multi-Filter & Capture)##lab_master", &labActive))
