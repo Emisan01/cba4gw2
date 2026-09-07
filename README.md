@@ -1,6 +1,6 @@
 # cba4gw2 — Color Balance Assist for Guild Wars 2 (v1.0)
 
-A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. Applies a real-time, hardware-accelerated color balance and contrast assistance filter to the game window via the Windows Desktop Window Manager (DWM).
+A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. Applies a real-time, hardware-accelerated color balance and contrast assistance filter [...]
 
 ---
 
@@ -9,7 +9,7 @@ A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://rai
 cba4gw2 v1.0 implements a mathematically verified, clinically grounded color correction pipeline:
 
 * **Color Space:** Standard sRGB is transformed into the physiological **LMS (Long, Medium, Short) cone response space** using the **Hunt-Pointer-Estévez (HPE)** conversion matrix.
-* **Dichromacy Simulation:** Missing cone channels are projected according to **Viénot, Brettel & Mollon (1999)**, ensuring that the equi-energy neutral axis (white, gray, black) remains completely invariant ($Sim(White) = White$).
+* **Dichromacy Simulation:** Missing cone channels are projected according to **Viénot, Brettel & Mollon (1999)**, ensuring that the equi-energy neutral axis (white, gray, black) remains complete[...]
 * **Daltonization Compensation:** Lost contrasts are calculated and redistributed into visible channels using type-specific shift matrices based on **Fidaner, Lin & Özgüven (2005)**.
 * **Contrast Standards:** Optimized in accordance with **W3C WCAG 2.1** color contrast recommendations and **HRR / Farnsworth-Munsell** clinical scales.
 
@@ -19,7 +19,7 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
 
 ## ⚡ Key Features (v1.0)
 
-- **100% Hookless & Safe (Weg A):** Zero DirectX / D3D11 present hooks, zero shader injection, zero game memory tampering. Applies strictly via the Windows Magnification API (`MagSetFullscreenColorEffect`).
+- **100% Hookless & Safe (Weg A):** Zero DirectX / D3D11 present hooks, zero shader injection, zero game memory tampering. Applies strictly via the Windows Magnification API (`MagSetFullscreenColo[...]
 - **Color Balance Profiles:**
   - **Protan** (Rot-Fokus / Red Contrast Focus)
   - **Deutan** (Grün-Fokus / Green Contrast Focus)
@@ -34,8 +34,8 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
   - **Deferred Disk Writes:** Settings are written to disk only when sliders are released or buttons are clicked, preventing unnecessary SSD I/O.
 - **Modern Interactive UI & Controls:**
   - **Fixed Header Bar:** Always-accessible Master ON/OFF toggle with animated pulse indicator, 3-slot Profile Quickbar (color-coded empty/saved/full states), and one-click `Reset UI` button.
-  - **Detachable Filter Laboratory (`Filter-Labor`):** Interactive XY Color Ray Matrix with live tone mapping, stackable custom filter instances with tone radius ($\pm 1$ to $\pm 32$) and soft diffusion feathering.
-  - **Clinical Vision Lab (`Vision-Lab`):** Interactive Nagel & Moreland Anomaloscope with split eyepiece disc and live Anomalous Quotient (AQ) calculation, ICD-10 medical report translator, HRR/Ishihara dot plate test bench, and GW2 game usability bench (AoE hazards, tag stacks, health bars, target reticles).
+  - **Detachable Filter Laboratory (`Filter-Labor`):** Interactive XY Color Ray Matrix with live tone mapping, stackable custom filter instances with tone radius ($\pm 1$ to $\pm 32$) and soft dif[...]
+  - **Clinical Vision Lab (`Vision-Lab`):** Interactive Nagel & Moreland Anomaloscope with split eyepiece disc and live Anomalous Quotient (AQ) calculation, ICD-10 medical report translator, HRR/I[...]
   - **Commander Tag & Squad UI Enhancer:** Contrast amplification for squad commander tags (Blue/Red/Green) in large Zergs and WvW.
   - **Adaptive Eye Comfort:** Dynamic brightness and gamma compensation to prevent eye strain between bright and dark game environments.
   - **3 Scientific Graph Modes:** Polygonal (PWL), Harmonisch (Gauss/LMS), and Strahlen (Ray Scope) with 32-sample transfer curves and live filtered spectrum beam.
@@ -48,7 +48,7 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
 
 ## 📦 Installation
 
-1. Download `cba.dll` from the latest [Release](https://github.com/Emisan01/cba4gw2/releases).
+1. Download `cba.dll` from the latest Release: https://github.com/Emisan01/cba4gw2/releases/download/v1.0.2-pre/cba.dll (v1.0.2-pre)
 2. Place `cba.dll` into your Nexus addons folder:
    `<Guild Wars 2>/addons/`
 3. Launch Guild Wars 2 through Nexus.
