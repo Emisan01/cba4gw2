@@ -1,6 +1,6 @@
 # AGENTS.md — Development Guidelines & Core Rules for CBA (cba4gw2)
 
-This document contains mandatory architectural guidelines, UI rules, and best practices for all AI agents and developers working on the **cba4gw2** (ColorblindAssist for Guild Wars 2) codebase.
+This document contains mandatory architectural guidelines, UI rules, and best practices for all AI agents and developers working on the **cba4gw2** (ColorBalanceAssist for Guild Wars 2) codebase.
 
 ---
 

@@ -290,4 +290,11 @@ namespace cba
 		}
 		return en; // English (1, default)
 	}
+
+	inline bool IsGerman()
+	{
+		if (CurrentSettings.Language == 2) return true;
+		if (CurrentSettings.Language == 0) return (strcmp(DetectSystemLanguage(), "de") == 0);
+		return false;
+	}
 }

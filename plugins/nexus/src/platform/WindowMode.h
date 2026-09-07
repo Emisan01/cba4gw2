@@ -17,7 +17,7 @@ namespace cba
 	// window or gets bypassed. No window-style heuristics, no hooking.
 	WindowMode DetectWindowMode(IDXGISwapChain* aSwapChain);
 
-	const char* ToDisplayString(WindowMode aMode);
+	const char* ToDisplayString(WindowMode aMode, bool aIsGerman = false);
 
 	// Queries IDXGIOutput6::GetDesc1() to detect if the GW2 swapchain's output display is running in HDR mode.
 	bool DetectHdrColorSpace(IDXGISwapChain* aSwapChain);

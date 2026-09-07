@@ -196,7 +196,7 @@ namespace cba
 		{
 			Settings::LabFilter f1;
 			f1.Enabled = true;
-			f1.Name = "AoE Rot zu Signal-Cyan";
+			f1.Name = isDe ? "AoE Rot zu Signal-Cyan" : "AoE Red to Signal Cyan";
 			f1.TargetRgb[0] = 0.851f; f1.TargetRgb[1] = 0.275f; f1.TargetRgb[2] = 0.235f;
 			f1.ReplaceRgb[0] = 0.149f; f1.ReplaceRgb[1] = 0.682f; f1.ReplaceRgb[2] = 0.741f;
 			f1.ToleranceTones = 4;
@@ -219,11 +219,17 @@ namespace cba
 				ImGui::TextDisabled("%s (%d %s):", isDe ? "Filter-Instanzen" : "Filter Instances", count, isDe ? "Instanzen" : "instances");
 				ImGui::Spacing();
 
-				// Filter instances chip bar
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 				for (int i = 0; i < count; ++i)
 				{
-					if (i > 0) ImGui::SameLine(0, 5.0f);
+					char btnLbl[80];
+					std::snprintf(btnLbl, sizeof(btnLbl), "    %s %s", CurrentSettings.LabFilters[i].Enabled ? "[x]" : "[ ]", CurrentSettings.LabFilters[i].Name.c_str());
+					float chipW = ImGui::CalcTextSize(btnLbl).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+
+					if (i > 0) {
+						if (ImGui::GetContentRegionAvail().x >= chipW + 5.0f) ImGui::SameLine(0, 5.0f);
+						else ImGui::Spacing();
+					}
 					ImGui::PushID(i + 200);
 
 					bool isSel = (i == selIdx);
@@ -239,8 +245,6 @@ namespace cba
 						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					}
 
-					char btnLbl[80];
-					std::snprintf(btnLbl, sizeof(btnLbl), "    %s %s", CurrentSettings.LabFilters[i].Enabled ? "[x]" : "[ ]", CurrentSettings.LabFilters[i].Name.c_str());
 					if (ImGui::Button(btnLbl, ImVec2(0.0f, 23.0f)))
 					{
 						CurrentSettings.SelectedLabFilterIndex = i;
@@ -267,7 +271,8 @@ namespace cba
 					ImGui::PopID();
 				}
 
-				ImGui::SameLine(0, 6.0f);
+				if (ImGui::GetContentRegionAvail().x >= 32.0f) ImGui::SameLine(0, 6.0f);
+				else ImGui::Spacing();
 				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
@@ -602,20 +607,22 @@ namespace cba
 				ImGui::Separator();
 				ImGui::Spacing();
 				ImGui::TextDisabled("%s:", isDe ? "GW2 Farb-Schnellauswahl" : "GW2 Color Presets");
-				auto quickPick = [&](const char* lbl, float r, float g, float b) {
+				auto quickPick = [&](const char* lbl, float r, float g, float b, bool isFirst) {
+					float btnW = ImGui::CalcTextSize(lbl).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+					if (!isFirst) {
+						if (ImGui::GetContentRegionAvail().x >= btnW + 6.0f) ImGui::SameLine(0, 6.0f);
+						else ImGui::Spacing();
+					}
 					if (ImGui::Button(lbl)) {
 						curF.TargetRgb[0] = r; curF.TargetRgb[1] = g; curF.TargetRgb[2] = b;
 						UpdateTagEnhancerConflicts();
 						changed = true; saveNeeded = true;
 					}
 				};
-				quickPick(isDe ? "AoE Rot##qp" : "AoE Red##qp", 0.851f, 0.275f, 0.235f);
-				ImGui::SameLine(0, 6.0f);
-				quickPick(isDe ? "Gift Gruen##qp" : "Poison Green##qp", 0.247f, 0.616f, 0.302f);
-				ImGui::SameLine(0, 6.0f);
-				quickPick(isDe ? "Wasser Cyan##qp" : "Water Cyan##qp", 0.149f, 0.682f, 0.741f);
-				ImGui::SameLine(0, 6.0f);
-				quickPick(isDe ? "Banner Gold##qp" : "Banner Gold##qp", 0.910f, 0.753f, 0.125f);
+				quickPick(isDe ? "AoE Rot##qp" : "AoE Red##qp", 0.851f, 0.275f, 0.235f, true);
+				quickPick(isDe ? "Gift Gruen##qp" : "Poison Green##qp", 0.247f, 0.616f, 0.302f, false);
+				quickPick(isDe ? "Wasser Cyan##qp" : "Water Cyan##qp", 0.149f, 0.682f, 0.741f, false);
+				quickPick(isDe ? "Banner Gold##qp" : "Banner Gold##qp", 0.910f, 0.753f, 0.125f, false);
 
 				ImGui::EndTabItem();
 			}

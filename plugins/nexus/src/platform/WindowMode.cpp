@@ -58,13 +58,25 @@ namespace cba
 		}
 	}
 
-	const char* ToDisplayString(WindowMode aMode)
+	const char* ToDisplayString(WindowMode aMode, bool aIsGerman)
 	{
-		switch (aMode)
+		if (aIsGerman)
 		{
-			case WindowMode::Composited:          return "Windowed / Borderless - filter active";
-			case WindowMode::ExclusiveFullscreen: return "Exclusive Fullscreen - filter INACTIVE, switch display mode in GW2 options";
-			default:                              return "Unknown";
+			switch (aMode)
+			{
+				case WindowMode::Composited:          return "Fenster / Rahmenlos - Filter aktiv";
+				case WindowMode::ExclusiveFullscreen: return "Exklusives Vollbild - Filter INAKTIV, Anzeigemodus in den GW2-Optionen aendern";
+				default:                              return "Unbekannt";
+			}
+		}
+		else
+		{
+			switch (aMode)
+			{
+				case WindowMode::Composited:          return "Windowed / Borderless - filter active";
+				case WindowMode::ExclusiveFullscreen: return "Exclusive Fullscreen - filter INACTIVE, switch display mode in GW2 options";
+				default:                              return "Unknown";
+			}
 		}
 	}
 }

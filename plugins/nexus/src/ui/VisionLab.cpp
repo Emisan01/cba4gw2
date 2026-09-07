@@ -450,7 +450,8 @@ namespace cba
 					static char s_repHrrInput[32] = "6/10";
 
 					float availW = ImGui::GetContentRegionAvail().x;
-					float colW = (availW - 14.0f) * 0.5f;
+					bool twoCols = (availW >= 460.0f);
+					float colW = twoCols ? (availW - 14.0f) * 0.5f : availW;
 
 					// Left Box: Verbal Classification
 					ImGui::BeginGroup();
@@ -493,7 +494,8 @@ namespace cba
 					ImGui::EndGroup();
 
 					// Right Box: Clinical Benchmark Scores
-					ImGui::SameLine(0, 14.0f);
+					if (twoCols) ImGui::SameLine(0, 14.0f);
+					else ImGui::Spacing();
 					ImGui::BeginGroup();
 					ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "B. Numerische Messwerte (Optional):" : "B. Numerical Scores (Optional):");
 					ImGui::Spacing();
@@ -514,8 +516,9 @@ namespace cba
 					ImGui::Spacing();
 
 					// ICD-10 Code & Diagnostic Mapping Display
-					const char* icdCode = (s_repType == 0) ? "ICD-10 H53.51 (Protanomalie)" :
-					                      (s_repType == 1) ? "ICD-10 H53.52 (Deuteranomalie)" : "ICD-10 H53.53 (Tritanomalie)";
+					const char* icdCode = (s_repType == 0) ? (isDe ? "ICD-10 H53.51 (Protanomalie)" : "ICD-10 H53.51 (Protanomaly)") :
+					                      (s_repType == 1) ? (isDe ? "ICD-10 H53.52 (Deuteranomalie)" : "ICD-10 H53.52 (Deuteranomaly)") :
+					                                         (isDe ? "ICD-10 H53.53 (Tritanomalie)" : "ICD-10 H53.53 (Tritanomaly)");
 
 					ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.10f, 0.15f, 0.90f));
 					ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.25f, 0.35f, 0.50f, 0.45f));
@@ -655,7 +658,9 @@ namespace cba
 					ImGui::EndGroup();
 
 					// Right side: Quiz Controls & Filter Switch
-					ImGui::SameLine(0, 16.0f);
+					float availPlates = ImGui::GetContentRegionAvail().x;
+					if (availPlates >= 410.0f) ImGui::SameLine(0, 16.0f);
+					else ImGui::Spacing();
 					ImGui::BeginGroup();
 
 					ImGui::TextDisabled("%s:", isDe ? "Welche geometrische Form ist in der Tafel zu sehen?" 
@@ -663,7 +668,7 @@ namespace cba
 					ImGui::Spacing();
 
 					auto quizBtn = [&](const char* lbl, int shapeIdx) {
-						if (ImGui::Button(lbl, ImVec2(90.0f, 23.0f)))
+						if (ImGui::Button(lbl, ImVec2(92.0f, 23.0f)))
 						{
 							s_lastAnswer = shapeIdx;
 							s_answered = true;
@@ -678,7 +683,7 @@ namespace cba
 					ImGui::SameLine(0, 6.0f);
 					quizBtn(isDe ? "Quadrat##q3" : "Square##q3", 3);
 
-					if (ImGui::Button(isDe ? "Nichts erkennbar##q4" : "Nothing visible##q4", ImVec2(186.0f, 23.0f)))
+					if (ImGui::Button(isDe ? "Nichts erkennbar##q4" : "Nothing visible##q4", ImVec2(190.0f, 23.0f)))
 					{
 						s_lastAnswer = -1;
 						s_answered = true;

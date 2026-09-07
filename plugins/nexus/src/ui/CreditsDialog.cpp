@@ -192,7 +192,7 @@ namespace cba
 			if (sound)
 			{
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.52f, 0.28f, 0.90f));
-				if (ImGui::Button("[ 8-BIT AUDIO: ON ]", ImVec2(170.0f, 26.0f)))
+				if (ImGui::Button(isDe ? "[ 8-BIT AUDIO: AN ]" : "[ 8-BIT AUDIO: ON ]", ImVec2(0.0f, 26.0f)))
 				{
 					s_c64SoundEnabled.store(false);
 				}
@@ -201,7 +201,7 @@ namespace cba
 			else
 			{
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.35f, 0.38f, 0.90f));
-				if (ImGui::Button("[ 8-BIT AUDIO: OFF ]", ImVec2(170.0f, 26.0f)))
+				if (ImGui::Button(isDe ? "[ 8-BIT AUDIO: AUS ]" : "[ 8-BIT AUDIO: OFF ]", ImVec2(0.0f, 26.0f)))
 				{
 					s_c64SoundEnabled.store(true);
 					StartC64Audio();
@@ -209,8 +209,8 @@ namespace cba
 				ImGui::PopStyleColor();
 			}
 
-			ImGui::SameLine(0, 20.0f);
-			if (ImGui::Button(isDe ? "Zurueck zum Spiel (ESC)" : "Return to Game (ESC)", ImVec2(220.0f, 26.0f)))
+			ImGui::SameLine(0, 16.0f);
+			if (ImGui::Button(isDe ? "Zurueck zum Spiel (ESC)" : "Return to Game (ESC)", ImVec2(0.0f, 26.0f)))
 			{
 				s_showC64Credits.store(false);
 				StopC64Audio();

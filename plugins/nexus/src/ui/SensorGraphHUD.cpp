@@ -406,7 +406,7 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		if (ImGui::Button("Reset##graph", ImVec2(56.0f, 22.0f)))
+		if (ImGui::Button("Reset##graph", ImVec2(0.0f, 22.0f)))
 		{
 			CurrentSettings.Enabled = false;
 			CurrentSettings.Severity01 = 0.0;
@@ -614,7 +614,8 @@ namespace cba
 
 			ImGui::TextUnformatted(t.RgStrength);
 			float avail = ImGui::GetContentRegionAvail().x;
-			float btnW = 56.0f;
+			float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
+			float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
 			float sp = 6.0f;
 			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
@@ -635,6 +636,7 @@ namespace cba
 				saveNeeded = true; 
 			}
 			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 			
 			ImGui::TextUnformatted(t.ByStrength);
 			ImGui::SetNextItemWidth(sW);
@@ -654,12 +656,14 @@ namespace cba
 				saveNeeded = true; 
 			}
 			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 		} else {
 			float sev = (float)CurrentSettings.Severity01;
 
 			ImGui::TextUnformatted(t.Strength);
 			float avail = ImGui::GetContentRegionAvail().x;
-			float btnW = 56.0f;
+			float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
+			float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
 			float sp = 6.0f;
 			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
@@ -680,6 +684,7 @@ namespace cba
 				saveNeeded = true; 
 			}
 			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 		}
 
 		// ── Section: Eye Comfort / Helligkeits-Logik ────────────────────────
@@ -735,9 +740,8 @@ namespace cba
 
 		char applyBtnLabel[64];
 		std::snprintf(applyBtnLabel, sizeof(applyBtnLabel), isDe ? "Optimalwert (%.2fx)##hud_apply" : "Apply Target (%.2fx)##hud_apply", retention.recommendedGain);
-		float btnWHUDApply = isDe ? 155.0f : 145.0f;
 
-		if (ImGui::Button(applyBtnLabel, ImVec2(btnWHUDApply, 24.0f)))
+		if (ImGui::Button(applyBtnLabel, ImVec2(0.0f, 24.0f)))
 		{
 			CurrentSettings.GammaGain = retention.recommendedGain;
 			changed = true;
@@ -778,7 +782,8 @@ namespace cba
 
 		ImGui::Spacing();
 		float availHUD = ImGui::GetContentRegionAvail().x;
-		float btnWHUD = 56.0f;
+		float padXHUD = ImGui::GetStyle().FramePadding.x * 2.0f;
+		float btnWHUD = ImGui::CalcTextSize("Reset").x + padXHUD + 8.0f;
 		float spHUD = 6.0f;
 		float sliderWHUD = (availHUD > (btnWHUD + spHUD + 60.0f)) ? (availHUD - btnWHUD - spHUD) : 180.0f;
 
@@ -868,7 +873,15 @@ namespace cba
 			ImGui::TextColored(Theme::kTextSecondary, "%s", isDe ? "Keine Effekte aktiv (Neutral)" : "No effects active (Neutral)");
 		} else {
 			for (size_t i = 0; i < activeModules.size(); ++i) {
-				if (i > 0) ImGui::SameLine(0, 6.0f);
+				char chipId[32];
+				std::snprintf(chipId, sizeof(chipId), "##mod_chip_%zu", i);
+				std::string chipText = std::string("[+] ") + activeModules[i].label + chipId;
+				float chipW = ImGui::CalcTextSize(chipText.c_str()).x + 16.0f;
+
+				if (i > 0) {
+					if (ImGui::GetContentRegionAvail().x >= chipW + 6.0f) ImGui::SameLine(0, 6.0f);
+					else ImGui::Spacing();
+				}
 
 				ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.08f, 0.14f, 0.20f, 0.85f));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.12f, 0.20f, 0.28f, 0.95f));
@@ -877,9 +890,6 @@ namespace cba
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
 				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 1.0f));
 
-				char chipId[32];
-				std::snprintf(chipId, sizeof(chipId), "##mod_chip_%zu", i);
-				std::string chipText = std::string("[+] ") + activeModules[i].label + chipId;
 				ImGui::Button(chipText.c_str());
 
 				ImGui::PopStyleVar(2);

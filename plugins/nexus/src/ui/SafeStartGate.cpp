@@ -99,7 +99,7 @@ namespace cba
 				s_safeStartPending.store(false);
 				Recompute(/*aForce=*/true);
 			}
-			ImGui::PopStyleColor(3);
+			ImGui::PopStyleColor(4);
 
 			ImGui::Spacing();
 			ImGui::Separator();

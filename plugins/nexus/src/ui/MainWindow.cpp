@@ -106,7 +106,9 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 			}
-			if (ImGui::Button(wasEnabled ? "ON##opt_master" : "OFF##opt_master", ImVec2(56.0f, 26.0f))) {
+			const char* masterOptLbl = isDe ? (wasEnabled ? "EIN##opt_master" : "AUS##opt_master")
+			                                : (wasEnabled ? "ON##opt_master" : "OFF##opt_master");
+			if (ImGui::Button(masterOptLbl, ImVec2(0.0f, 26.0f))) {
 				EnsureDeferredInitialized();
 				CurrentSettings.Enabled = !CurrentSettings.Enabled;
 				CurrentSettings.Save(AddonDir);
@@ -130,7 +132,7 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		if (ImGui::Button(isDe ? "Reset UI" : "Reset UI", ImVec2(120.0f, 26.0f)))
+		if (ImGui::Button(isDe ? "UI zuruecksetzen" : "Reset UI", ImVec2(0.0f, 26.0f)))
 		{
 			s_resetMainWindowPos = true;
 			s_resetGraphWindowPos = true;
@@ -147,7 +149,7 @@ namespace cba
 
 		ImGui::SameLine(0, 8.0f);
 
-		if (ImGui::Button(isDe ? "Filter auf Neutral" : "Reset Filter to Neutral", ImVec2(190.0f, 26.0f)))
+		if (ImGui::Button(isDe ? "Filter auf Neutral" : "Reset Filter to Neutral", ImVec2(0.0f, 26.0f)))
 		{
 			CurrentSettings.Enabled = false;
 			CurrentSettings.Severity01 = 0.0;
@@ -249,7 +251,9 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
 				ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.00f, 0.28f, 0.28f, 1.00f));
 			}
-			if (ImGui::Button(wasEnabled ? "ON##main_master" : "OFF##main_master", ImVec2(56.0f, 24.0f))) {
+			const char* masterBtnLabel = isDe ? (wasEnabled ? "EIN##main_master" : "AUS##main_master")
+			                                  : (wasEnabled ? "ON##main_master"  : "OFF##main_master");
+			if (ImGui::Button(masterBtnLabel, ImVec2(56.0f, 24.0f))) {
 				EnsureDeferredInitialized();
 				CurrentSettings.Enabled = !CurrentSettings.Enabled;
 				CurrentSettings.Save(AddonDir);
@@ -382,7 +386,7 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		if (ImGui::Button("Reset UI##main", ImVec2(0.0f, 24.0f))) {
+		if (ImGui::Button(isDe ? "UI zuruecksetzen##main" : "Reset UI##main", ImVec2(0.0f, 24.0f))) {
 			s_resetMainWindowPos = true;
 			s_resetGraphWindowPos = true;
 			s_resetLabWindowPos = true;
@@ -495,7 +499,8 @@ namespace cba
 
 				ImGui::TextUnformatted(t.RgStrength);
 				float avail = ImGui::GetContentRegionAvail().x;
-				float btnW = 56.0f;
+				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
+				float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
 				float sp = 6.0f;
 				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
@@ -516,6 +521,7 @@ namespace cba
 					saveNeeded = true; 
 				}
 				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 				
 				ImGui::TextUnformatted(t.ByStrength);
 				ImGui::SetNextItemWidth(sW);
@@ -535,12 +541,14 @@ namespace cba
 					saveNeeded = true; 
 				}
 				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 			} else {
 				float sev = (float)CurrentSettings.Severity01;
 
 				ImGui::TextUnformatted(t.Strength);
 				float avail = ImGui::GetContentRegionAvail().x;
-				float btnW = 56.0f;
+				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
+				float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
 				float sp = 6.0f;
 				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
@@ -561,6 +569,7 @@ namespace cba
 					saveNeeded = true; 
 				}
 				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 			}
 
 			ImGui::Spacing();
@@ -797,7 +806,8 @@ namespace cba
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
 					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-					if (ImGui::Button("X##clr_slot", ImVec2(22.0f, 0.0f))) {
+					float xBtnW = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f + 6.0f;
+					if (ImGui::Button("X##clr_slot", ImVec2(xBtnW, 0.0f))) {
 						CurrentSettings.Slots[sIdx].Used = false;
 						CurrentSettings.Slots[sIdx].Name = "";
 						saveNeeded = true;
@@ -1424,7 +1434,8 @@ namespace cba
 			ImGui::Spacing();
 			ImGui::TextUnformatted(isDe ? "Helligkeit (Eye Comfort Gamma):" : "Brightness (Eye Comfort Gamma):");
 			float availGamma = ImGui::GetContentRegionAvail().x;
-			float btnWGamma = 56.0f;
+			float padXGamma = ImGui::GetStyle().FramePadding.x * 2.0f;
+			float btnWGamma = ImGui::CalcTextSize("Reset").x + padXGamma + 8.0f;
 			float spGamma = 6.0f;
 			float sWGamma = (availGamma > (btnWGamma + spGamma + 60.0f)) ? (availGamma - btnWGamma - spGamma) : 180.0f;
 
@@ -1451,6 +1462,7 @@ namespace cba
 				saveNeeded = true;
 			}
 			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Helligkeit auf 1.00x zuruecksetzen" : "Reset brightness to 1.00x");
 
 			BrightnessRetentionResult retention = GetBrightnessRetention();
 			if (CurrentSettings.AutoBrightness)
@@ -1465,7 +1477,7 @@ namespace cba
 
 			ImGui::Spacing();
 			ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
-			ImGui::SameLine(0, 8.0f);
+			ImGui::Spacing();
 			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
@@ -1477,7 +1489,7 @@ namespace cba
 				saveNeeded = true;
 			}
 			ImGui::PopStyleColor(4);
-			ImGui::SameLine(0, 8.0f);
+			ImGui::SameLine(0, 12.0f);
 			if (ImGui::Checkbox(isDe ? "Auto-Helligkeit##main_auto" : "Auto-Brightness##main_auto", &CurrentSettings.AutoBrightness))
 			{
 				if (CurrentSettings.AutoBrightness)
@@ -1496,12 +1508,12 @@ namespace cba
 			WindowMode mode = DetectWindowMode(
 				APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
 			if (mode == WindowMode::ExclusiveFullscreen) {
-				ImGui::TextColored({1.0f,0.55f,0.2f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode));
-				ImGui::TextWrapped(
-					"Switch GW2 to Windowed or Windowed Fullscreen (Borderless) "
-					"in Graphics Options to enable the filter.");
+				ImGui::TextColored({1.0f,0.55f,0.2f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode, isDe));
+				ImGui::TextWrapped(isDe 
+					? "Stelle GW2 in den Grafik-Optionen auf 'Fenster' oder 'Vollbild im Fenster' (Rahmenlos), damit der Filter aktiv werden kann."
+					: "Switch GW2 to Windowed or Windowed Fullscreen (Borderless) in Graphics Options to enable the filter.");
 			} else {
-				ImGui::TextColored({0.4f,0.85f,0.4f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode));
+				ImGui::TextColored({0.4f,0.85f,0.4f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode, isDe));
 			}
 			ImGui::Spacing();
 			if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
@@ -1561,15 +1573,16 @@ namespace cba
 				float perfPanelH = ImGui::GetTextLineHeightWithSpacing() * 3.0f + 26.0f;
 				if (ImGui::BeginChild("##debug_perf_panel", ImVec2(0.0f, perfPanelH), true, ImGuiWindowFlags_NoScrollbar))
 				{
-					ImGui::TextColored(Theme::kTextCyanLicht, "[*] Performance Watchdog (Per-Window Metrics):");
-					ImGui::Text("  Hauptfenster (Main):  %.2f ms", g_perfMainWindowMs);
+					ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "[*] Performance Watchdog (Fenster-Messwerte):" 
+					                                                     : "[*] Performance Watchdog (Per-Window Metrics):");
+					ImGui::Text(isDe ? "  Hauptfenster (Main):  %.2f ms" : "  Main Window (Main):   %.2f ms", g_perfMainWindowMs);
 					ImGui::SameLine(0, 16.0f);
-					ImGui::Text("  Sensor-Graph (HUD):  %.2f ms", g_perfSensorGraphMs);
+					ImGui::Text(isDe ? "  Sensor-Graph (HUD):   %.2f ms" : "  Sensor Graph (HUD):   %.2f ms", g_perfSensorGraphMs);
 					ImGui::SameLine(0, 8.0f);
-					ImGui::TextDisabled("(Kurven: %.2f ms)", g_perfCurvesMs);
-					ImGui::Text("  Filter-Labor (Lab):   %.2f ms", g_perfFilterLabMs);
+					ImGui::TextDisabled(isDe ? "(Kurven: %.2f ms)" : "(Curves: %.2f ms)", g_perfCurvesMs);
+					ImGui::Text(isDe ? "  Filter-Labor (Lab):   %.2f ms" : "  Filter Lab (Lab):     %.2f ms", g_perfFilterLabMs);
 					ImGui::SameLine(0, 16.0f);
-					ImGui::Text("  Total ImGui CBA:     %.2f ms", g_perfTotalImGuiMs);
+					ImGui::Text(isDe ? "  Total ImGui CBA:      %.2f ms" : "  Total ImGui CBA:      %.2f ms", g_perfTotalImGuiMs);
 				}
 				ImGui::EndChild();
 				ImGui::PopStyleVar(2);
@@ -1586,7 +1599,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.20f, 0.35f, 0.75f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.28f, 0.50f, 0.95f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.14f, 0.26f, 1.00f));
-			if (ImGui::Button(t.CreditsBtn, ImVec2(120.0f, 24.0f)))
+			if (ImGui::Button(t.CreditsBtn, ImVec2(0.0f, 24.0f)))
 			{
 				s_showC64Credits.store(true);
 				StartC64Audio();
