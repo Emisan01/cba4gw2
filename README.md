@@ -35,6 +35,7 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
 - **Modern Interactive UI & Controls:**
   - **Fixed Header Bar:** Always-accessible Master ON/OFF toggle with animated pulse indicator, 3-slot Profile Quickbar (color-coded empty/saved/full states), and one-click `Reset UI` button.
   - **Detachable Filter Laboratory (`Filter-Labor`):** Interactive XY Color Ray Matrix with live tone mapping, stackable custom filter instances with tone radius ($\pm 1$ to $\pm 32$) and soft diffusion feathering.
+  - **Clinical Vision Lab (`Vision-Lab`):** Interactive Nagel & Moreland Anomaloscope with split eyepiece disc and live Anomalous Quotient (AQ) calculation, ICD-10 medical report translator, HRR/Ishihara dot plate test bench, and GW2 game usability bench (AoE hazards, tag stacks, health bars, target reticles).
   - **Commander Tag & Squad UI Enhancer:** Contrast amplification for squad commander tags (Blue/Red/Green) in large Zergs and WvW.
   - **Adaptive Eye Comfort:** Dynamic brightness and gamma compensation to prevent eye strain between bright and dark game environments.
   - **3 Scientific Graph Modes:** Polygonal (PWL), Harmonisch (Gauss/LMS), and Strahlen (Ray Scope) with 32-sample transfer curves and live filtered spectrum beam.

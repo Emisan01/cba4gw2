@@ -37,9 +37,9 @@ namespace cba
 			float Tolerance = 0.12f;
 		};
 		EnhancerPreset Presets[3]{
-			{ "WvW Zerg", 0, 1.0, 0.12f },
-			{ "Fractal", 1, 0.8, 0.10f },
-			{ "Raid", 2, 1.0, 0.14f }
+			{ "Com-Tag Profile 1", 0, 1.0, 0.12f },
+			{ "Com-Tag Profile 2", 1, 0.8, 0.10f },
+			{ "Com-Tag Profile 3", 2, 1.0, 0.14f }
 		};
 
 		float UiOpacity = 1.0f;

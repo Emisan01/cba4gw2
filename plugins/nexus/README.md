@@ -18,6 +18,11 @@ This directory contains the source code for `cba.dll`, a standalone, hardware-ac
   - Interactive **XY Color Ray Matrix** with real-time tone mapping.
   - Stackable custom filter instances with adjustable tone tolerance radius ($\pm 1$ to $\pm 32$ tones) and soft diffusion feathering.
   - Selective actions: Signal Color Replacement, Auto-Complementary, Invert, Luminance Boost.
+- **Clinical Vision Lab (`Vision-Lab`):**
+  - Interactive **Nagel- & Moreland-Anomaloskop** with split eyepiece disc and live Anomalous Quotient (AQ) calculation.
+  - **Clinical Report Translator** for ICD-10 H53.51/52/53 diagnoses and test benchmarks.
+  - **Pseudoisochromatic Plates** (HRR & Ishihara geometry discrimination tests).
+  - **GW2 Usability Bench** (AoE hazard rings on grass, commander tag pulse, health bars, and target reticles under dynamic ambient light).
 - **Commander Tag & Squad UI Enhancer:**
   - Target-specific contrast enhancement for squad commander tags (Blue, Red, Green) in large Zergs and WvW encounters.
 - **Adaptive Eye Comfort & Auto-Brightness:**

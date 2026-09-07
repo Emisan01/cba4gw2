@@ -613,6 +613,16 @@ namespace cba
 						if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 					}
 				}
+				// Sensor Graph HUD: Strg + Shift + G (or Ctrl + Alt + G)
+				else if (aWParam == 'G')
+				{
+					if ((ctrlDown && shiftDown) || (ctrlDown && altDown))
+					{
+						EnsureDeferredInitialized();
+						CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+						if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
+					}
+				}
 				break;
 			}
 		}
@@ -1007,6 +1017,7 @@ namespace cba
 			if (APIDefs->InputBinds.RegisterWithString)
 			{
 				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+SHIFT+C");
+				APIDefs->InputBinds.RegisterWithString("CBA - Sensor Graph", ProcessKeybind, "CTRL+SHIFT+G");
 				APIDefs->InputBinds.RegisterWithString("CBA - Filter Off", ProcessKeybind, "CTRL+SHIFT+O");
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
@@ -1074,6 +1085,7 @@ namespace cba
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Vision Lab###CBA_VisionLabWindow");
 				}
 				if (APIDefs->WndProc.Deregister)
 					APIDefs->WndProc.Deregister(AddonWndProc);
