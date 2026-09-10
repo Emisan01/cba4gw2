@@ -26,8 +26,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Nexus plugin
+        shell: pwsh
         run: |
-          cmake -S plugins/nexus -B plugins/nexus/build -A x64 -DCBA_LOCAL_DEV=OFF
+          $tag = "${{ github.event.inputs.tag_name || github.ref_name }}"
+          cmake -S plugins/nexus -B plugins/nexus/build -A x64 -DCBA_LOCAL_DEV=OFF -DCBA_RELEASE_TAG=$tag
           cmake --build plugins/nexus/build --config Release
 
       - name: Package builds

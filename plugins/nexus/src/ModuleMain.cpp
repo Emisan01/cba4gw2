@@ -1443,6 +1443,21 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Signature = -78341;
 	AddonDef.APIVersion = NEXUS_API_VERSION;
 	AddonDef.Name = "cba4gw2";
+#if defined(CBA_VER_MAJOR)
+	// release.yml passes -DCBA_RELEASE_TAG=<the tag being built> (see
+	// CMakeLists.txt), so a real release build's self-reported version
+	// actually matches the GitHub tag Nexus's updater compares against -
+	// found 2026-09-10 after Version.Major/Minor/Build/Revision sat frozen
+	// at a hardcoded placeholder in every past release, so Nexus always
+	// believed an update was available, even right after installing the
+	// latest one (AddonVersion.cpp parses the tag as 3-part semver and
+	// compares Major/Minor/Build against this struct - a version number
+	// that never moves never satisfies that comparison).
+	AddonDef.Version.Major = CBA_VER_MAJOR;
+	AddonDef.Version.Minor = CBA_VER_MINOR;
+	AddonDef.Version.Build = CBA_VER_BUILD;
+	AddonDef.Version.Revision = 0;
+#else
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 0;
 #ifdef CBA_LOCAL_DEV
@@ -1453,8 +1468,12 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Version.Build = CBA_BUILD_STAMP_HOUR;
 	AddonDef.Version.Revision = CBA_BUILD_STAMP_MINSEC;
 #else
+	// Fallback for a CBA_LOCAL_DEV=OFF build made without CBA_RELEASE_TAG
+	// (e.g. testing the release config locally) - old placeholder, unchanged
+	// from before this fix so nothing regresses when the tag isn't passed.
 	AddonDef.Version.Build = 2;
 	AddonDef.Version.Revision = 0;
+#endif
 #endif
 	AddonDef.Author = "Emisan01";
 	AddonDef.Description =

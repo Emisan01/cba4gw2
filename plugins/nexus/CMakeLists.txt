@@ -58,6 +58,39 @@ if(CBA_LOCAL_DEV)
     target_compile_definitions(cba PRIVATE CBA_LOCAL_DEV)
 endif()
 
+# Optional release-version override (2026-09-10) - release.yml passes the
+# actual git tag here (e.g. -DCBA_RELEASE_TAG=v1.10.1). Without this,
+# AddonDef.Version stayed hardcoded at a stale placeholder (1.0.2.0) forever
+# in every shipped build, no matter what tag was actually published - Nexus
+# compares its own parsed tag version (AddonVersion.cpp, 3-part semver:
+# Major.Minor.Build) against this self-reported value to decide "is an
+# update available," so a frozen version number meant Nexus always thought
+# an update was available, even immediately after installing the latest one.
+# Empty/unset (the default, and every local dev build) leaves the old
+# hardcoded-version behavior in ModuleMain.cpp completely untouched.
+set(CBA_RELEASE_TAG "" CACHE STRING "Git tag this build corresponds to (e.g. v1.10.1) - sets AddonDef.Version to match")
+if(CBA_RELEASE_TAG)
+    string(REGEX REPLACE "^v" "" CBA_VERSION_CLEAN "${CBA_RELEASE_TAG}")
+    string(REPLACE "." ";" CBA_VERSION_PARTS "${CBA_VERSION_CLEAN}")
+    list(LENGTH CBA_VERSION_PARTS CBA_VERSION_PARTS_LEN)
+    if(CBA_VERSION_PARTS_LEN GREATER_EQUAL 1)
+        list(GET CBA_VERSION_PARTS 0 CBA_VER_MAJOR)
+        set(CBA_VER_MINOR 0)
+        set(CBA_VER_BUILD 0)
+        if(CBA_VERSION_PARTS_LEN GREATER_EQUAL 2)
+            list(GET CBA_VERSION_PARTS 1 CBA_VER_MINOR)
+        endif()
+        if(CBA_VERSION_PARTS_LEN GREATER_EQUAL 3)
+            list(GET CBA_VERSION_PARTS 2 CBA_VER_BUILD)
+        endif()
+        target_compile_definitions(cba PRIVATE
+            CBA_VER_MAJOR=${CBA_VER_MAJOR}
+            CBA_VER_MINOR=${CBA_VER_MINOR}
+            CBA_VER_BUILD=${CBA_VER_BUILD}
+        )
+    endif()
+endif()
+
 target_include_directories(cba PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core

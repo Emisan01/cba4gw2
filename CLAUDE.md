@@ -122,6 +122,52 @@ things.
 - `cba_session.lock` / Safe-Start crash detection: understood and now fixed
   (see below), but still fundamentally a workaround, not addressed by the
   registry work.
+- **5 ungoverned `CurrentSettings.Enabled = true` call sites** (found
+  2026-09-10, cross-checking an external AI tool's - Devin/Windsurf -
+  read-only analysis against actual source): `ModuleMain.cpp:1229`
+  (AutoStartSlot), `MainWindow.cpp:1183` (enhancer checkbox),
+  `SafeStartGate.cpp:65`, `VisionLab.cpp:407`, `VisionLab.cpp:579` all flip
+  `Enabled` directly instead of through `ToggleMasterEnabled()`/
+  `ActivateCommanderTagProfile()`, the two functions that already own this
+  correctly elsewhere. Not a live bug today - verified these are cleanly
+  mutually-exclusive branches (e.g. AutoStartSlot explicitly skips itself on
+  crash recovery, so it doesn't race SafeStartGate), Devin's "Load sets
+  false, AutoStartSlot overrides, SafeStartGate ignores it" framing
+  overstated it as a live conflict. Real issue is future-divergence risk -
+  same "wiring tax" pattern `FeatureModuleRegistry` was built to solve
+  elsewhere, worth the same consolidation treatment if touched again.
+- **Stale "OS blocked" banner possible across an exclusive-fullscreen
+  transition** (found 2026-09-10, same cross-check): `g_DwmLastCallSuccessful`
+  (Magnification.cpp) and `DetectWindowMode()` (WindowMode.cpp) never
+  cross-check each other - switching into exclusive fullscreen can show the
+  correct "Exclusive Fullscreen" warning while the separate "OS BLOCKED"
+  banner (driven only by `g_DwmLastCallSuccessful`) stays in whatever state
+  it was last in, since the Watchdog's stuck-effect recovery only re-checks
+  `g_DwmLastCallSuccessful` itself (see "How filtering actually composes"),
+  not `DetectWindowMode()`'s result. Genuinely undocumented until now, not
+  something to fix blindly - worth deciding deliberately (one shared
+  source-of-truth check, or leave as two separate informational signals)
+  rather than guessing at a fix.
+- **"Regional Hybrid Mode" (4-quadrant per-region filter) - a genuinely new
+  proposal, not a variant of the Roman Space Telescope idea above.** Came
+  from the same Devin brainstorm session 2026-09-10: split the screen into 4
+  quadrants around the center point, each with its own independent
+  CVD-correction matrix, by extending `HybridScanner` from drawing ~50-100
+  alpha-blended markers/frame to full per-pixel replacement across the whole
+  frame (~2M pixels/frame). Checked technically (not just by analogy):
+  it does **not** hit the same clustering blocker as the deferred
+  weighted-composite idea (never enters the target-matching/clustering path
+  at all - no targets, no per-pixel distance matching). It has its own,
+  larger blockers instead: a much bigger scan-resolution/perf jump than
+  today's marker overlay, an unresolved double-correction with
+  `Recompute()`'s own DWM transform (same open issue already noted under
+  "How filtering actually composes" for Commander Tag, but bigger here since
+  it'd cover the whole frame), and hard quadrant seams clashing with the
+  existing soft-edge blur/alpha-fade compositing style. Devin proposed this
+  without knowing about the 2026-09-09 release-proximity deferral - by this
+  analysis it's actually a *larger*, riskier scope change than the idea
+  already shelved for exactly that reason. Record it as its own thing, not
+  a "smaller/safer" alternative to revisit casually later.
 
 ## File map (plugins/nexus/src)
 
