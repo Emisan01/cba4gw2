@@ -27,7 +27,7 @@ jobs:
 
       - name: Build Nexus plugin
         run: |
-          cmake -S plugins/nexus -B plugins/nexus/build -A x64
+          cmake -S plugins/nexus -B plugins/nexus/build -A x64 -DCBA_LOCAL_DEV=OFF
           cmake --build plugins/nexus/build --config Release
 
       - name: Package builds
