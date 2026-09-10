@@ -5,6 +5,7 @@
 #include "UIState.h"
 #include "Theme.h"
 #include "Shared.h"
+#include "L10n.h"
 
 #include <imgui.h>
 #include <cfloat>
@@ -15,7 +16,12 @@ namespace cba
 	{
 		if (!s_safeStartPending.load() || !ImGui::GetCurrentContext()) return;
 
-		bool isDe = (CurrentSettings.Language == 2 || CurrentSettings.Language == 0);
+		// Was a local hack treating System-language (0) as always-German -
+		// cba::IsGerman() already resolves System via DetectSystemLanguage()
+		// correctly and had zero callers until now (found in the 2026-09-09
+		// codebase review). This is the very first screen a user sees after
+		// any crash, so getting the language wrong here is worst-case timing.
+		bool isDe = cba::IsGerman();
 		ImGui::SetNextWindowSize(ImVec2(480.0f, 0.0f), ImGuiCond_Always);
 		ImVec2 disp = ImGui::GetIO().DisplaySize;
 		ImVec2 center(disp.x * 0.5f, disp.y * 0.5f);
@@ -31,7 +37,7 @@ namespace cba
 				ImGui::TextUnformatted(isDe ? "[!] CBA Safe-Mode aktiv!" : "[!] CBA Safe-Mode Active!");
 				ImGui::PopStyleColor();
 				ImGui::Spacing();
-				ImGui::TextWrapped(isDe 
+				ImGui::TextWrapped(isDe
 					? "Das Spiel wurde beim letzten Mal unplanmaessig beendet oder es gab einen Absturz. Um Blendungen zu vermeiden, bleibt der Filter vorerst neutral (AUS)."
 					: "The game exited unexpectedly or crashed last session. To prevent blinding visual effects, the filter starts disarmed (OFF).");
 				ImGui::Spacing();
@@ -65,6 +71,15 @@ namespace cba
 
 			ImGui::Spacing();
 
+			// The Safe-Mode-only "Activate Anyway" button used to live here,
+			// running byte-for-byte identical code to "Activate Saved
+			// Settings" above (same Enabled=true/Save/Recompute sequence) -
+			// two buttons implying a real choice with no actual behavioral
+			// difference, on the one screen where a confused click matters
+			// most (found in the 2026-09-09 codebase review). Removed rather
+			// than given fake distinct logic - "Activate Saved Settings"
+			// already covers exactly this case.
+
 			// Option 2: Open setup with filter OFF
 			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
@@ -75,27 +90,6 @@ namespace cba
 				CurrentSettings.Enabled = false;
 				CurrentSettings.ShowMainWindow = true;
 				s_focusMainWindow = true;
-				s_safeStartPending.store(false);
-				Recompute(/*aForce=*/true);
-			}
-			ImGui::PopStyleColor(4);
-
-			ImGui::Spacing();
-
-			// Option 3: Reset to factory defaults
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-			if (ImGui::Button(isDe ? "  Auf Werkseinstellung (Neutral) zuruecksetzen  " : "  Reset to Factory Neutral Defaults  ", ImVec2(-FLT_MIN, 28.0f)))
-			{
-				CurrentSettings.Enabled = false;
-				CurrentSettings.Severity01 = 0.0;
-				CurrentSettings.Mixed = false;
-				CurrentSettings.MixedRgSeverity01 = 0.0;
-				CurrentSettings.MixedBySeverity01 = 0.0;
-				CurrentSettings.GammaGain = 1.0f;
-				CurrentSettings.Save(AddonDir);
 				s_safeStartPending.store(false);
 				Recompute(/*aForce=*/true);
 			}

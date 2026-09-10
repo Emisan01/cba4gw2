@@ -1,4 +1,5 @@
 #include "ColorEffectController.h"
+#include "Shared.h"
 
 #pragma comment(lib, "Magnification.lib")
 
@@ -13,7 +14,26 @@ namespace cba
 	bool ColorEffectController::Apply(MAGCOLOREFFECT aEffect)
 	{
 		if (!_initialized) return false;
-		return MagSetFullscreenColorEffect(&aEffect);
+
+		BOOL success = MagSetFullscreenColorEffect(&aEffect);
+		bool newSuccess = (success != FALSE);
+
+		// Nur loggen wenn sich der Status ändert (Log-Spam verhindern)
+		if (newSuccess != g_DwmLastCallSuccessful)
+		{
+			if (!newSuccess && APIDefs && APIDefs->Log)
+			{
+				APIDefs->Log(ELogLevel_WARNING, "cba4gw2", "MagSetFullscreenColorEffect REJECTED by Windows OS! (Check HDR or Exclusive Fullscreen)");
+			}
+			else if (newSuccess && APIDefs && APIDefs->Log)
+			{
+				APIDefs->Log(ELogLevel_INFO, "cba4gw2", "MagSetFullscreenColorEffect recovered - OS blocking resolved");
+			}
+		}
+
+		// Globale Status-Variable aktualisieren (für die UI)
+		g_DwmLastCallSuccessful = newSuccess;
+		return g_DwmLastCallSuccessful;
 	}
 
 	bool ColorEffectController::Clear()
@@ -25,7 +45,24 @@ namespace cba
 		identity.transform[2][2] = 1.0f;
 		identity.transform[3][3] = 1.0f;
 		identity.transform[4][4] = 1.0f;
-		return MagSetFullscreenColorEffect(&identity);
+		BOOL success = MagSetFullscreenColorEffect(&identity);
+		bool newSuccess = (success != FALSE);
+
+		// Nur loggen wenn sich der Status ändert (Log-Spam verhindern)
+		if (newSuccess != g_DwmLastCallSuccessful)
+		{
+			if (!newSuccess && APIDefs && APIDefs->Log)
+			{
+				APIDefs->Log(ELogLevel_WARNING, "cba4gw2", "MagSetFullscreenColorEffect (Clear) REJECTED by Windows OS! (Check HDR or Exclusive Fullscreen)");
+			}
+			else if (newSuccess && APIDefs && APIDefs->Log)
+			{
+				APIDefs->Log(ELogLevel_INFO, "cba4gw2", "MagSetFullscreenColorEffect (Clear) recovered - OS blocking resolved");
+			}
+		}
+
+		g_DwmLastCallSuccessful = newSuccess;
+		return g_DwmLastCallSuccessful;
 	}
 
 	void ColorEffectController::Shutdown()
@@ -48,13 +85,4 @@ namespace cba
 		return s_controller;
 	}
 
-	void InstallCrashGuard()
-	{
-		// No-op: Do not hook SetUnhandledExceptionFilter in game processes
-	}
-
-	void RemoveCrashGuard()
-	{
-		// No-op
-	}
 }

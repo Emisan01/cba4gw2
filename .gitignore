@@ -23,3 +23,10 @@ plugins/nexus/build/
 
 # Temporary scratch and audit scripts
 scratch/
+
+# Auto-build watcher output (tools/watch_build.ps1)
+plugins/nexus/build_log.txt
+plugins/nexus/build_status.txt
+
+# Generated every build by CMake's cba_gen_buildstamp target
+plugins/nexus/src/BuildStamp.h

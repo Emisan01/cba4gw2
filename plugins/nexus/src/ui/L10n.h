@@ -48,8 +48,6 @@ namespace cba
 		const char* SmartEnhancerDesc;
 
 		// Bottom Section
-		const char* LoadOnStartup;
-		const char* LoadOnStartupTooltip;
 		const char* ProfileSummaryTitle;
 		const char* ValuesLabel;
 		const char* ClassificationLabel;
@@ -158,8 +156,6 @@ namespace cba
 			"Passt Commander-Tags und Wegmarker automatisch an das oben gewaehlte Farbprofil an.",
 
 			// Bottom Section
-			" Beim Spielstart laden (Load on Startup)",
-			"Aktiviert: Der gespeicherte Filterzustand wird beim Starten von GW2 geladen.\nDeaktiviert: Der Filter startet bei Spielstart immer inaktiv/neutral (kein ungewollter Farbstich).",
 			"Profil-Zusammenfassung (Live-Feedback):",
 			"Werte:",
 			"Farbabgleich:",
@@ -240,8 +236,6 @@ namespace cba
 			"Automatically adjusts Commander Tags and waymarkers based on the selected color profile above.",
 
 			// Bottom Section
-			" Load on Startup",
-			"Enabled: Saved filter profile is restored when Guild Wars 2 launches.\nDisabled: Filter starts inactive/neutral at launch to prevent unintended color shifts.",
 			"Profile Summary (Live Feedback):",
 			"Values:",
 			"Color Balance:",

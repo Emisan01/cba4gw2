@@ -59,6 +59,14 @@ namespace cba
 	};
 
 	MumbleGameContext GetCurrentGameContext();
+
+	// The real, currently-running AddonDef.Version (Build/Revision carry the
+	// hour/minute-second build stamp added 2026-09-09 specifically so a
+	// diagnostic report can prove which compile is actually loaded) - added
+	// because the "Copy System Diagnostics" report used to hardcode a stale
+	// "1.0.2.0 (Build 2)" literal instead of reading this (found in the
+	// 2026-09-09 codebase review).
+	AddonVersion GetAddonVersion();
 }
 
 extern AddonAPI* APIDefs;
@@ -67,3 +75,4 @@ extern cba::Settings CurrentSettings;
 extern std::string   AddonDir;
 extern NexusLinkData* NexusLink;
 extern cba::GW2MumbleLink* MumbleLinkData;
+extern bool g_DwmLastCallSuccessful;

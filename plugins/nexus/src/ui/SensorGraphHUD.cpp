@@ -8,6 +8,8 @@
 #include "ColorMatrix.h"
 #include "HybridScanner.h"
 #include "ColorEffectController.h"
+#include "ParameterRegistry.h"
+#include "FeatureModule.h"
 
 #include <imgui.h>
 #include <chrono>
@@ -370,7 +372,7 @@ namespace cba
 		const L10n& t = Strings();
 		bool changed = false;
 		bool saveNeeded = false;
-		bool isDe = (t.Enabled[0] == 'A');
+		bool isDe = cba::IsGerman(); // was a fragile first-letter check - see CLAUDE.md 2026-09-09
 
 		ImGui::PushID("CBA_GraphHUD");
 
@@ -408,23 +410,8 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
 		if (ImGui::Button("Reset##graph", ImVec2(0.0f, 22.0f)))
 		{
-			CurrentSettings.Enabled = false;
-			CurrentSettings.Severity01 = 0.0;
-			CurrentSettings.Mixed = false;
-			CurrentSettings.MixedRgSeverity01 = 0.0;
-			CurrentSettings.MixedBySeverity01 = 0.0;
-			CurrentSettings.GammaGain = 1.0f;
-			CurrentSettings.AutoBrightness = false;
-			CurrentSettings.CommanderTagMode = 0;
-			CurrentSettings.EnableHybridMode = false;
-			GetHybridScanner().SetEnabled(false);
-			CurrentSettings.FreeFilterEnabled = false;
-			CurrentSettings.LabModeEnabled = false;
-			CurrentSettings.Save(AddonDir);
-			GetColorEffectController().Clear();
-			Recompute(/*aForce=*/true);
+			ResetFilterSettingsAndDisable();
 			changed = true;
-			saveNeeded = true;
 		}
 		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered())
@@ -527,10 +514,14 @@ namespace cba
 
 		ImVec2 cp = ImGui::GetCursorScreenPos();
 		
+		// t1/g_perfCurvesMs used to be captured right here, before the
+		// 48-iteration beam-preview loop below - so this counter, surfaced
+		// verbatim in MainWindow.cpp's HUD cost breakdown, silently excluded
+		// roughly half the actual per-frame drawing cost of this panel
+		// (found in the 2026-09-09 codebase review). Moved past the beam
+		// preview so it covers the whole visual block.
 		auto t0 = std::chrono::high_resolution_clock::now();
 		DrawSpectralGraphPanel(ImGui::GetWindowDrawList(), cp, graphW, graphH, corrMat, /*isDetached=*/true, CurrentSettings.UiOpacity, CurrentSettings.GraphMode);
-		auto t1 = std::chrono::high_resolution_clock::now();
-		g_perfCurvesMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
 		ImGui::InvisibleButton("##curve_panel_hud", ImVec2(graphW, graphH));
 
@@ -574,6 +565,9 @@ namespace cba
 		ImGui::Dummy(ImVec2(graphW, beamH));
 		ImGui::TextDisabled("%s", isDe ? "Echtzeit-Spektrum (gefiltert)" : "Real-time spectrum (filtered)");
 
+		auto t1 = std::chrono::high_resolution_clock::now();
+		g_perfCurvesMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
 		// ── Lower Controls ───────────────────────────────────────────────────
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -609,9 +603,6 @@ namespace cba
 		ImGui::Spacing();
 
 		if (CurrentSettings.Mixed) {
-			float rg = (float)CurrentSettings.MixedRgSeverity01;
-			float by = (float)CurrentSettings.MixedBySeverity01;
-
 			ImGui::TextUnformatted(t.RgStrength);
 			float avail = ImGui::GetContentRegionAvail().x;
 			float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -620,9 +611,14 @@ namespace cba
 			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 			ImGui::SetNextItemWidth(sW);
-			if (ImGui::SliderFloat("##rg_hud", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.25f);
-				changed = true;
+			// Registry-backed, same ParamId as the Main Window's RG slider -
+			// one clamp source shared across both windows.
+			{
+				float rg = ParameterRegistry::Get().GetFloat(ParamId::MixedRgSeverity01);
+				if (ImGui::SliderFloat("##rg_hud", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, rg);
+					changed = true;
+				}
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 			ImGui::SameLine(0, sp);
@@ -640,9 +636,12 @@ namespace cba
 			
 			ImGui::TextUnformatted(t.ByStrength);
 			ImGui::SetNextItemWidth(sW);
-			if (ImGui::SliderFloat("##by_hud", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.25f);
-				changed = true;
+			{
+				float by = ParameterRegistry::Get().GetFloat(ParamId::MixedBySeverity01);
+				if (ImGui::SliderFloat("##by_hud", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, by);
+					changed = true;
+				}
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 			ImGui::SameLine(0, sp);
@@ -658,8 +657,6 @@ namespace cba
 			ImGui::PopStyleColor(4);
 			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 		} else {
-			float sev = (float)CurrentSettings.Severity01;
-
 			ImGui::TextUnformatted(t.Strength);
 			float avail = ImGui::GetContentRegionAvail().x;
 			float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -668,9 +665,12 @@ namespace cba
 			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 			ImGui::SetNextItemWidth(sW);
-			if (ImGui::SliderFloat("##sev_hud", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-				CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.25f);
-				changed = true;
+			{
+				float sev = ParameterRegistry::Get().GetFloat(ParamId::Severity01);
+				if (ImGui::SliderFloat("##sev_hud", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+					ParameterRegistry::Get().SetFloat(ParamId::Severity01, sev);
+					changed = true;
+				}
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 			ImGui::SameLine(0, sp);
@@ -692,17 +692,8 @@ namespace cba
 		ImGui::Separator();
 		ImGui::Spacing();
 
+		SyncAutoBrightnessGain(changed, saveNeeded);
 		BrightnessRetentionResult retention = GetBrightnessRetention();
-
-		if (CurrentSettings.AutoBrightness)
-		{
-			if (std::abs(CurrentSettings.GammaGain - retention.recommendedGain) > 0.005f)
-			{
-				CurrentSettings.GammaGain = retention.recommendedGain;
-				changed = true;
-				saveNeeded = true;
-			}
-		}
 
 		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.08f, 0.12f, 0.95f));
 		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.12f, 0.28f, 0.40f, 0.75f));
@@ -743,7 +734,7 @@ namespace cba
 
 		if (ImGui::Button(applyBtnLabel, ImVec2(0.0f, 24.0f)))
 		{
-			CurrentSettings.GammaGain = retention.recommendedGain;
+			ApplyAutoBrightnessGain();
 			changed = true;
 			saveNeeded = true;
 		}
@@ -769,7 +760,7 @@ namespace cba
 		{
 			if (CurrentSettings.AutoBrightness)
 			{
-				CurrentSettings.GammaGain = retention.recommendedGain;
+				ApplyAutoBrightnessGain();
 				changed = true;
 			}
 			saveNeeded = true;
@@ -789,10 +780,16 @@ namespace cba
 
 		ImGui::TextDisabled("%s (%.2fx):", isDe ? "Manuelle Helligkeit" : "Manual Brightness", CurrentSettings.GammaGain);
 		ImGui::SetNextItemWidth(sliderWHUD);
-		if (ImGui::SliderFloat("##GammaSliderHUD", &CurrentSettings.GammaGain, 0.70f, 1.30f, "%.2fx"))
+		// Registry-backed (CLAUDE.md, Registry/Control Layer step 1) - same
+		// ParamId::GammaGain as the Main Window slider, both windows now
+		// share one clamp source instead of duplicating 0.70f/1.30f here.
 		{
-			CurrentSettings.AutoBrightness = false;
-			changed = true;
+			float gain = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
+			if (ImGui::SliderFloat("##GammaSliderHUD", &gain, 0.70f, 1.30f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
+			{
+				SetGammaGainManual(gain);
+				changed = true;
+			}
 		}
 		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 		ImGui::SameLine(0, spHUD);
@@ -802,8 +799,7 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 		if (ImGui::Button("Reset##gamma_hud", ImVec2(btnWHUD, 0.0f)))
 		{
-			CurrentSettings.GammaGain = 1.0f;
-			CurrentSettings.AutoBrightness = false;
+			SetGammaGainManual(1.0f);
 			changed = true;
 			saveNeeded = true;
 		}
@@ -838,14 +834,18 @@ namespace cba
 			}
 		}
 
-		if (CurrentSettings.CommanderTagMode != 0) {
-			activeModules.push_back({ CurrentSettings.SmartEnhancer ? (isDe ? "Com-Tag: Smart-Auto" : "Com-Tag: Smart-Auto")
-			                                                        : (isDe ? "Com-Tag: Preset" : "Com-Tag: Preset"),
-			                          Theme::kTextGoldLabel });
-		}
-
-		if (CurrentSettings.EnableHybridMode) {
-			activeModules.push_back({ isDe ? "Hybrid-Modus" : "Hybrid Mode", ImVec4(0.40f, 0.90f, 0.70f, 1.0f) });
+		// Every registered feature module contributes its own status line if
+		// active (2026-09-09, FeatureModuleRegistry - see core/FeatureModule.h).
+		// Used to be one hand-written `if` block per feature here (Commander
+		// Tag, Hybrid Mode, Filter Lab, Eye-Sensitive) - the same wiring tax
+		// ResetFilterSettingsAndDisable() had.
+		for (const auto& module : FeatureModuleRegistry::Get().GetAll())
+		{
+			if (!module.isActive || !module.isActive()) continue;
+			std::string text = module.statusText ? module.statusText(isDe) : std::string();
+			if (text.empty()) text = isDe ? module.labelDe : module.labelEn;
+			ImVec4 col = module.hudColor ? module.hudColor() : Theme::kTextPrimary;
+			activeModules.push_back({ text, col });
 		}
 
 		if (CurrentSettings.AutoBrightness) {
@@ -856,14 +856,6 @@ namespace cba
 			char b[64];
 			std::snprintf(b, sizeof(b), "Gamma: %.2fx", CurrentSettings.GammaGain);
 			activeModules.push_back({ b, Theme::kTextBlauPeak });
-		}
-
-		if (CurrentSettings.FreeFilterEnabled) {
-			activeModules.push_back({ isDe ? "Farb-Tausch" : "Color Swap", ImVec4(0.95f, 0.65f, 0.35f, 1.0f) });
-		}
-
-		if (CurrentSettings.LabModeEnabled) {
-			activeModules.push_back({ isDe ? "Filter-Labor" : "Filter Lab", ImVec4(0.85f, 0.50f, 0.95f, 1.0f) });
 		}
 
 		ImGui::TextDisabled("%s:", isDe ? "Aktiv" : "Active");

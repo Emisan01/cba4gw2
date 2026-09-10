@@ -11,61 +11,78 @@ namespace cba
 	struct Settings
 	{
 		bool Enabled = false;
-		BalanceType Type = BalanceType::Protan;
-		double Severity01 = 0.0;
-		double MixedRgSeverity01 = 0.0;
-		double MixedBySeverity01 = 0.0;
+		BalanceType Type = BalanceType::Deutan;
+		// float, not double: these are UI slider values in [0, 1.25] shown at
+		// 1-3 decimal places, nothing here needs double precision. Matches
+		// EnhancerTolerance/GammaGain below and lets the Registry (which only
+		// speaks Float/Bool/Int) point at them directly instead of needing a
+		// fourth Double kind bolted on just for these three fields.
+		float Severity01 = 0.0f;
+		float MixedRgSeverity01 = 0.0f;
+		float MixedBySeverity01 = 0.0f;
 		bool Mixed = false;
-		std::string ToggleKeybind = "CTRL+ALT+C"; // matches the exe's default
 		int Language = 1; // 1 = English (default), 0 = System (Windows), 2 = German, 3 = Game (GW2)
 		std::string DiagnosisHint = ""; // freeform AQ/HRR diagnostic label for presets
 		bool EnableHybridMode = false; // toggles the experimental DXGI CPU readback layer
 		bool DebugMode = false; // toggles the developer metrics UI
 
+		// Advanced/experimental visual theme - 0 = Classic (the only look
+		// this addon has ever had, stays the default so existing users see
+		// zero change), 1 = Symbiont (bio-clinical HUD palette, opt-in only -
+		// see Theme.h). Deliberately palette-only, not fonts or panel shapes -
+		// Emi's call 2026-09-09 ("zuviel UI gedoens koennte nach hinten
+		// losgehen"): keep the experimental look low-risk and fully reversible.
+		int UiTheme = 0;
+
+		// Advanced Mode gate (2026-09-09, Emi: "machen wir die Nexus main zu
+		// unserer Basis wieder, und erst wenn dort Advanced Mode aktiviert
+		// wird gibt es das ganze Spektrum frei"). false = the Nexus-embedded
+		// panel IS the app: Master toggle, Profiles, Commander Tag, swatches -
+		// the "Open Studio" entry point is locked. true = unlocks it, giving
+		// access to the Main Window and its satellite windows (Sensor Graph,
+		// Filter Lab, Vision Lab). Defaults false for new installs; existing
+		// settings.ini files without this key also load false (safeStoi
+		// default) - anyone with Studio windows already open right now just
+		// needs to flip this once to keep using them next launch.
+		bool AdvancedModeUnlocked = false;
+
+		// Eye-Sensitive Mode (2026-09-09, Emi: "ein vollstaendiges logisches
+		// Layer, ein eigenes Modul das nur den Augenschon-Modus im Fokus
+		// hat"). Independent of CVD correction entirely - composes with it
+		// (see ColorMatrix::EyeComfortMatrix, applied in Recompute()) rather
+		// than replacing anything. Deliberately NOT touching the existing
+		// GammaGain/AutoBrightness pair (Emi: that one "funktioniert
+		// einwandfrei," don't rebuild it) or Hybrid Mode's Kinematic Fader
+		// (Emi: separate, neglected area, revisit later "wenn wir einmal
+		// durchs ganze Tool durch sind").
+		bool EyeComfortModeEnabled = false;
+		float BlueFilter01 = 0.0f;          // 0 = off, 1 = max blue reduction
+		float WarmTint01 = 0.0f;            // 0 = off, 1 = max warm shift
+		float SaturationReduction01 = 0.0f; // 0 = off, 1 = full greyscale
+
 		// Commander Tag Enhancer
 		int CommanderTagMode = 0; // 0=Off, 1=On
 		bool SmartEnhancer = true; // true = auto conflict resolution based on CVD profile
-		float EnhancerHue = 60.0f; // 0-360 degrees
 		float EnhancerTolerance = 0.12f; // 0.04 - 0.20
 		float GammaGain = 1.0f; // Eye comfort brightness scaling (0.70 - 1.30)
 
-		struct EnhancerPreset
-		{
-			std::string Name = "";
-			int Type = 0; // 0=Protan, 1=Deutan, 2=Tritan, 3=Mixed
-			double Severity = 1.0;
-			float Tolerance = 0.12f;
-		};
-		EnhancerPreset Presets[3]{
-			{ "Com-Tag Profile 1", 0, 1.0, 0.12f },
-			{ "Com-Tag Profile 2", 1, 0.8, 0.10f },
-			{ "Com-Tag Profile 3", 2, 1.0, 0.14f }
-		};
-
 		float UiOpacity = 1.0f;
 		int GraphMode = 0; // 0 = Polygonal (PWL), 1 = Harmonisch (Gauss/LMS), 2 = Strahlen (Ray Scope) - HUD / Detached
-		int MainGraphMode = 0; // Independent Graph Mode for Main Window
+		int MainGraphMode = 2; // Independent Graph Mode for Main Window (0=Polygonal, 1=Harmonic, 2=Rays - default per Emi)
 		bool AutoBrightness = false; // When true, GammaGain follows recommended retention dynamically
-		bool AlwaysDirectStart = true; // When true, skips Safe-Start gate unless an actual crash occurred
+		bool AlwaysDirectStart = true; // When true, skips Safe-Start gate
 		bool CleanExit = true; // Set to 0 at runtime, set to 1 on graceful exit
 		bool SafeModeTriggered = false; // Runtime flag: true if previous run crashed
-		bool LoadOnStartup = false;
 		bool ShowMainWindow = false;
 		bool ShowGraphWindow = false;
 		bool ShowLabWindow = false;
 		bool ShowVisionLabWindow = false;
-		bool DetachedWindow = false; // backward compatibility
 		bool ShowQuickAccessIcon = true;
 		bool MovableToolbarIcon = true;
 		float ToolbarIconPosX = 405.0f;
 		float ToolbarIconPosY = 8.0f;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
-		// Free-Filter-Design (Selective Color Isolation & Shift with HSV Color Wheel / Artistic Color Selector, inspired by Krita-style wheel)
-		bool FreeFilterEnabled = false;
-		float FreeFilterTargetRgb[3] = { 0.25f, 0.62f, 0.30f };  // Default Ziel: GW2 Grün #3f9d4d
-		float FreeFilterReplaceRgb[3] = { 0.85f, 0.28f, 0.24f }; // Default Ersatz: GW2 Rot #d9463c
-		float FreeFilterToleranceTones = 3.0f; // ±3 Töne / Farbstufen (Default Schwellenwert)
 		int ContrastPairIndex = 0; // 0=Blau/Grün, 1=Rot/Grün, 2=Gelb/Blau, 3=Cyan/Blau, 4=Orange/Rot
 
 		// Filter-Labor & Experimentierfeld (Stackable custom filter instances with precision radius & diffusion)
@@ -96,7 +113,18 @@ namespace cba
 			double MixedBy01 = 0.0;
 			float GammaGain = 1.0f;
 		};
-		ProfileSlot Slots[3]{};
+		ProfileSlot Slots[3]{
+			{ false, "", BalanceType::Deutan, 0.0, false, 0.0, 0.0, 1.0f },
+			{ false, "", BalanceType::Deutan, 0.0, false, 0.0, 0.0, 1.0f },
+			{ false, "", BalanceType::Deutan, 0.0, false, 0.0, 0.0, 1.0f }
+		};
+		// Which Slots[] index to auto-load and auto-enable at startup, -1 = none
+		// (the default: always start neutral/off, see AddonLoad in ModuleMain.cpp).
+		// Replaces the old "LoadOnStartup" bool, which just remembered whatever
+		// Enabled happened to be at last save with no way to pick a specific
+		// profile - this ties startup persistence to an actual named profile
+		// instead, and is skipped entirely on crash recovery (SafeModeTriggered).
+		int AutoStartSlot = -1;
 
 		// aAddonDir: the path returned by GetAddonDirectory("cba"), Nexus
 		// creates this automatically before AddonLoad.
@@ -108,8 +136,5 @@ namespace cba
 		// Preset export / import via compact ASCII string (Clipboard exchange)
 		std::string ExportPresetString() const;
 		bool ImportPresetString(const std::string& aPresetStr, std::string* aOutError = nullptr);
-
-		// Reset all parameters to defaults (Factory Reset)
-		void FactoryReset();
 	};
 }

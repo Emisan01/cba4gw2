@@ -33,6 +33,14 @@ namespace cba
 		void Initialize();
 		void Shutdown();
 
+		// True while the background worker thread is actually alive. Can go
+		// false on its own even without Shutdown() being called, if the
+		// thread's per-iteration catch still couldn't save it from something
+		// fatal (see WorkerThread's comment) - the Watchdog and Reset Filter
+		// both check this to auto-restart the scanner rather than leaving it
+		// permanently dead for the rest of the process.
+		bool IsRunning() const { return mRunning; }
+
 		// Enables or disables the hybrid scanner
 		void SetEnabled(bool aEnabled);
 
@@ -72,6 +80,15 @@ namespace cba
 		std::atomic<bool> mRunning = false;
 		std::atomic<bool> mEnabled = false;
 		std::thread mThread;
+		// Guards every mThread.join()/reassignment in Initialize() and
+		// Shutdown() against each other (found in the 2026-09-09 codebase
+		// review): Initialize() was hardened with compare_exchange_strong on
+		// mRunning so two Initialize() callers can't race, but Shutdown()
+		// still did a plain join() with no synchronization against a
+		// concurrent Initialize() (main thread's Reset Filter self-heal vs.
+		// AddonUnload/DLL_PROCESS_DETACH's Shutdown) - two threads touching
+		// the same std::thread object with no lock is undefined behavior.
+		std::mutex mLifecycleMutex;
 
 		// Data passing to the worker thread
 		std::mutex mDataMutex;
@@ -111,7 +128,6 @@ namespace cba
 		std::vector<uint8_t> mThreadBlurBuffer;
 		
 		// Motion Detection
-		std::vector<uint8_t> mPreviousFrameRgba;
 		float mMotionFader = 1.0f;
 		
 		bool mOverlayReady = false;

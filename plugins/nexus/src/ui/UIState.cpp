@@ -9,7 +9,6 @@ namespace cba
 {
 	std::atomic<bool> s_resetMainWindowPos{false};
 	std::atomic<bool> s_resetGraphWindowPos{false};
-	std::atomic<bool> s_resetDetachedWindowPos{false};
 	std::atomic<bool> s_resetLabWindowPos{false};
 	std::atomic<bool> s_resetVisionLabWindowPos{false};
 
@@ -22,6 +21,7 @@ namespace cba
 	std::atomic<bool> s_showC64Credits{false};
 	std::atomic<bool> s_deferredInitDone{false};
 	bool s_showGraphOpacityDrawer{false};
+	int s_activeSlotIdx{0}; // UI-only render thread, no atomic needed
 
 	std::atomic<HWND> s_gw2Hwnd{nullptr};
 	std::atomic<bool> s_gw2Minimized{false};
@@ -40,7 +40,7 @@ namespace cba
 	void DrawFilterStatusIndicator(bool aWithText)
 	{
 		const L10n& t = Strings();
-		bool isDe = (t.Enabled[0] == 'A');
+		bool isDe = cba::IsGerman(); // was a fragile first-letter check - see CLAUDE.md 2026-09-09
 
 		// Determine current filter state
 		bool isEnabled = CurrentSettings.Enabled;

@@ -13,86 +13,179 @@
 #include "HybridScanner.h"
 #include "WindowMode.h"
 #include "ColorEffectController.h"
+#include "ParameterRegistry.h"
+#include "FeatureModule.h"
+#include "SelfTest.h"
+#include "Shared.h"
 
 #include <imgui.h>
 #include <chrono>
 #include <cmath>
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <cfloat>
 
 namespace cba
 {
+	void DrawContrastTestSwatches(bool isDe, const double aCorrMat[3][3], bool& saveNeeded)
+	{
+		const char* pairNamesDe[] = {
+			"Blau / Gruen (GW2 Standard)",
+			"Rot / Gruen (Protan / Deutan Test)",
+			"Gelb / Blau (Tritanopie Test)",
+			"Cyan / Blau (Mittelwert Kontrast)",
+			"Orange / Rot (Gefahrenzonen)"
+		};
+		const char* pairNamesEn[] = {
+			"Blue / Green (GW2 Default)",
+			"Red / Green (Protan / Deutan Test)",
+			"Yellow / Blue (Tritanopia Test)",
+			"Cyan / Blue (Midtone Contrast)",
+			"Orange / Red (Hazard Zones)"
+		};
+
+		struct ColorPair { float r1, g1, b1; float r2, g2, b2; };
+		static const ColorPair kPairs[5] = {
+			{ 0.212f, 0.439f, 0.800f,   0.247f, 0.616f, 0.302f },
+			{ 0.851f, 0.275f, 0.235f,   0.247f, 0.616f, 0.302f },
+			{ 0.910f, 0.753f, 0.125f,   0.212f, 0.439f, 0.800f },
+			{ 0.149f, 0.682f, 0.741f,   0.212f, 0.439f, 0.800f },
+			{ 0.910f, 0.522f, 0.059f,   0.851f, 0.275f, 0.235f }
+		};
+
+		int pIdx = std::clamp(CurrentSettings.ContrastPairIndex, 0, 4);
+
+		ImGui::TextDisabled("%s:", isDe ? "Kontrast-Test Farbfelder" : "Contrast Test Swatches");
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+		if (ImGui::Combo("##contrast_pair_combo", &pIdx, isDe ? pairNamesDe : pairNamesEn, 5))
+		{
+			CurrentSettings.ContrastPairIndex = pIdx;
+			saveNeeded = true;
+		}
+
+		ColorPair p = kPairs[pIdx];
+
+		double sim1R = p.r1, sim1G = p.g1, sim1B = p.b1;
+		double sim2R = p.r2, sim2G = p.g2, sim2B = p.b2;
+		ColorMatrix::SimulatePixel(p.r1, p.g1, p.b1, CurrentSettings.Type, sim1R, sim1G, sim1B);
+		ColorMatrix::SimulatePixel(p.r2, p.g2, p.b2, CurrentSettings.Type, sim2R, sim2G, sim2B);
+
+		float cor1R = (float)std::clamp(aCorrMat[0][0]*p.r1 + aCorrMat[0][1]*p.g1 + aCorrMat[0][2]*p.b1, 0.0, 1.0);
+		float cor1G = (float)std::clamp(aCorrMat[1][0]*p.r1 + aCorrMat[1][1]*p.g1 + aCorrMat[1][2]*p.b1, 0.0, 1.0);
+		float cor1B = (float)std::clamp(aCorrMat[2][0]*p.r1 + aCorrMat[2][1]*p.g1 + aCorrMat[2][2]*p.b1, 0.0, 1.0);
+
+		float cor2R = (float)std::clamp(aCorrMat[0][0]*p.r2 + aCorrMat[0][1]*p.g2 + aCorrMat[0][2]*p.b2, 0.0, 1.0);
+		float cor2G = (float)std::clamp(aCorrMat[1][0]*p.r2 + aCorrMat[1][1]*p.g2 + aCorrMat[1][2]*p.b2, 0.0, 1.0);
+		float cor2B = (float)std::clamp(aCorrMat[2][0]*p.r2 + aCorrMat[2][1]*p.g2 + aCorrMat[2][2]*p.b2, 0.0, 1.0);
+
+		ImGui::Spacing();
+		float availW = ImGui::GetContentRegionAvail().x;
+		float cardW = (availW - 12.0f) * 0.5f;
+		if (cardW < 140.0f) cardW = availW;
+		// Enlarged 2026-09-09 (Emi: swatches too small, card barely visible) -
+		// was 80px tall with 16px-radius circles and a near-invisible border.
+		float cardH = 116.0f;
+
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.09f, 0.11f, 0.15f, 0.97f));
+		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.40f, 0.48f, 0.62f, 0.90f));
+		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.5f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+
+		if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
+		{
+			ImGui::SetWindowFontScale(1.05f);
+			ImGui::TextDisabled("%s", isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)");
+			ImVec2 sp = ImGui::GetCursorScreenPos();
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+
+			float r = 22.0f;
+			float cx1 = sp.x + 36.0f;
+			float cx2 = sp.x + 74.0f;
+			float cy = sp.y + 36.0f;
+
+			ImU32 cSim1 = IM_COL32((int)(sim1R*255), (int)(sim1G*255), (int)(sim1B*255), 220);
+			ImU32 cSim2 = IM_COL32((int)(sim2R*255), (int)(sim2G*255), (int)(sim2B*255), 220);
+
+			dl->AddCircleFilled(ImVec2(cx1, cy), r, cSim1);
+			dl->AddCircleFilled(ImVec2(cx2, cy), r, cSim2);
+			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(210, 210, 210, 140), 0, 1.5f);
+			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(210, 210, 210, 140), 0, 1.5f);
+
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 20.0f));
+			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Identisch /" : "Identical /");
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 40.0f));
+			ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Verwechselbar" : "Confusable");
+			ImGui::SetWindowFontScale(1.0f);
+		}
+		ImGui::EndChild();
+
+		if (cardW < availW) ImGui::SameLine(0, 12.0f);
+		else ImGui::Spacing();
+
+		if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
+		{
+			ImGui::SetWindowFontScale(1.05f);
+			ImGui::TextDisabled("%s", isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)");
+			ImVec2 sp = ImGui::GetCursorScreenPos();
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+
+			float r = 22.0f;
+			float cx1 = sp.x + 36.0f;
+			float cx2 = sp.x + 74.0f;
+			float cy = sp.y + 36.0f;
+
+			ImU32 cCor1 = IM_COL32((int)(cor1R*255), (int)(cor1G*255), (int)(cor1B*255), 255);
+			ImU32 cCor2 = IM_COL32((int)(cor2R*255), (int)(cor2G*255), (int)(cor2B*255), 255);
+
+			dl->AddCircleFilled(ImVec2(cx1, cy), r, cCor1);
+			dl->AddCircleFilled(ImVec2(cx2, cy), r, cCor2);
+			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(80, 240, 160, 200), 0, 2.0f);
+			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(80, 240, 160, 200), 0, 2.0f);
+
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 20.0f));
+			ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Absolut" : "Distinct /");
+			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 40.0f));
+			ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "verschieden!" : "Separated!");
+			ImGui::SetWindowFontScale(1.0f);
+		}
+		ImGui::EndChild();
+
+		ImGui::PopStyleVar(3);
+		ImGui::PopStyleColor(2);
+	}
+
 	void RenderEmbeddedOptions()
 	{
 		if (!ImGui::GetCurrentContext()) return;
 		const L10n& t = Strings();
 		bool changed = false;
 		bool saveNeeded = false;
-		bool isDe = (t.Enabled[0] == 'A');
+		bool isDe = cba::IsGerman(); // was a fragile first-letter check - see CLAUDE.md 2026-09-09
 
 		ImGui::PushID("CBA_Embedded");
 
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
 
-		// ── Row 1: Primary Window Toggles + Master ON/OFF + Live Status ───────
-		bool mainOpen = CurrentSettings.ShowMainWindow;
-		if (mainOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-		}
-		if (ImGui::Button(t.OpenMainWindow, ImVec2(0.0f, 26.0f)))
-		{
-			EnsureDeferredInitialized();
-			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
-			if (CurrentSettings.ShowMainWindow)
-			{
-				s_focusMainWindow = true;
-			}
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenMainWindowTooltip);
+		// One-line orientation for a brand-new user (2026-09-10, UI-weighting
+		// pass) - the panel used to jump straight into controls (OFF/Inactive/
+		// Advanced Mode) with no hint what the tool even does until the full
+		// branding block at the very bottom. Kept to one muted line here on
+		// purpose - the fuller branding text stays the footer, this is just
+		// enough context to not be confusing on first sight.
+		ImGui::TextColored(Theme::kTextSecondary, "%s", isDe
+			? "Automatischer Farbkontrast-Ausgleich fuer Guild Wars 2"
+			: "Automatic color & contrast correction for Guild Wars 2");
+		ImGui::Spacing();
 
-		ImGui::SameLine(0, 6.0f);
-
-		bool graphOpen = CurrentSettings.ShowGraphWindow;
-		if (graphOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-		}
-		if (ImGui::Button(t.OpenSensorGraph, ImVec2(0.0f, 26.0f)))
-		{
-			EnsureDeferredInitialized();
-			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
-			if (CurrentSettings.ShowGraphWindow)
-			{
-				s_focusGraphWindow = true;
-			}
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
-
-		ImGui::SameLine(0, 8.0f);
-
+		// ── Row 1: Master ON/OFF + live status. Pushed to the very top
+		// (2026-09-09, Emi's reorder request) - this is "the basic button,"
+		// the single most fundamental control, so it's the first thing on
+		// the page instead of being buried below the Commander Tag section.
 		{
 			bool wasEnabled = CurrentSettings.Enabled;
 			if (wasEnabled) {
@@ -109,11 +202,7 @@ namespace cba
 			const char* masterOptLbl = isDe ? (wasEnabled ? "EIN##opt_master" : "AUS##opt_master")
 			                                : (wasEnabled ? "ON##opt_master" : "OFF##opt_master");
 			if (ImGui::Button(masterOptLbl, ImVec2(0.0f, 26.0f))) {
-				EnsureDeferredInitialized();
-				CurrentSettings.Enabled = !CurrentSettings.Enabled;
-				CurrentSettings.Save(AddonDir);
-				Recompute(/*aForce=*/true);
-				UpdateQuickAccessIcon();
+				ToggleMasterEnabled();
 				changed    = true;
 				saveNeeded = false;
 			}
@@ -124,9 +213,261 @@ namespace cba
 		}
 
 		ImGui::SameLine(0, 10.0f);
+		// Deliberately kept as its own live indicator, not merged into the
+		// OFF/ON button above (2026-09-09 UI review flagged this as
+		// redundant-looking; Emi's call: keep it - this doubles as a
+		// Nexus/Mumble handshake/connectivity check, not just a restatement
+		// of Enabled, so it stays a separate signal).
 		DrawFilterStatusIndicator(true);
 
-		// ── Row 2: Reset & Recovery Actions ───
+		// Extend the "it's alive" handshake indicator with what's actually
+		// active (2026-09-10, Emi: same idea as the toolbar icon only
+		// lighting up when on - the status dot already says "alive," this
+		// adds "and here's what's running"). Reuses the same
+		// FeatureModuleRegistry loop the Sensor Graph HUD's "Aktiv:" list
+		// already runs - Commander Tag/Hybrid Mode/Filter Lab/Eye-Sensitive
+		// otherwise have no visibility at all on this compact panel.
+		if (CurrentSettings.Enabled)
+		{
+			std::string activeList;
+			for (const auto& module : FeatureModuleRegistry::Get().GetAll())
+			{
+				if (!module.isActive || !module.isActive()) continue;
+				if (!activeList.empty()) activeList += ", ";
+				activeList += isDe ? module.labelDe : module.labelEn;
+			}
+			if (!activeList.empty())
+			{
+				ImGui::SameLine(0, 6.0f);
+				ImGui::TextDisabled("(%s)", activeList.c_str());
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Aktive Zusatzmodule (siehe auch Sensor-Graph-HUD fuer Details)."
+					                       : "Active add-on modules (see the Sensor Graph HUD for details).");
+				}
+			}
+		}
+
+		// Advanced Mode gate + Studio entry, moved onto its own row
+		// (2026-09-10, UI-weighting pass) - used to sit crammed onto the same
+		// line as the master ON/OFF button, reading like a sub-option of it
+		// even though it's a completely different concept ("unlock the
+		// Studio" vs. "filter on/off"). Muted/secondary styling on purpose -
+		// this is a setup choice, not the panel's primary action.
+		ImGui::Spacing();
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextSecondary);
+			if (ImGui::Checkbox(isDe ? "Advanced Mode##adv_gate" : "Advanced Mode##adv_gate", &CurrentSettings.AdvancedModeUnlocked))
+			{
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor();
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Schaltet das Studio frei (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab). Ohne Advanced Mode ist dieses kompakte Panel die gesamte Oberflaeche."
+				                       : "Unlocks the Studio (Main Window, Sensor Graph, Filter Lab, Vision Lab). Without Advanced Mode, this compact panel is the entire interface.");
+			}
+
+			if (CurrentSettings.AdvancedModeUnlocked)
+			{
+				ImGui::SameLine(0, 10.0f);
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+				// Bidirectional (2026-09-10, Emi: "sollte auch das Fenster
+				// wieder schliessen koennen") - used to only ever open the
+				// Main Window; now toggles, same as the keybind/toolbar-icon
+				// click already do.
+				bool studioOpen = CurrentSettings.ShowMainWindow;
+				if (ImGui::SmallButton(studioOpen ? (isDe ? "Studio schliessen" : "Close Studio")
+				                                   : (isDe ? "Studio oeffnen ->" : "Open Studio ->")))
+				{
+					if (!studioOpen) EnsureDeferredInitialized();
+					CurrentSettings.ShowMainWindow = !studioOpen;
+					if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(studioOpen
+						? (isDe ? "Schliesst das Hauptfenster (Studio)." : "Closes the Main Window (Studio).")
+						: (isDe ? "Oeffnet die vollstaendige CBA-Oberflaeche (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) fuer Feineinstellungen."
+						        : "Opens the full CBA interface (Main Window, Sensor Graph, Filter Lab, Vision Lab) for fine-tuning."));
+				}
+			}
+		}
+
+		// Profile Slots - quick switch between saved profiles without opening
+		// the Studio. Deliberately independent of Main Window's slot-chip loop
+		// (which tracks "changed since load" via its own static baseline
+		// variables local to that function) - this is just Save + Load, no
+		// dirty-tracking, kept simple since the embedded panel has no "Profile
+		// Summary" display to keep in sync with. The Auto-Start-on-launch
+		// checkbox lives only in the full Main Window (needs a saved slot to
+		// attach to and is a one-time setup action, not a per-session one).
+		ImGui::Spacing();
+		{
+			ImGui::TextDisabled("%s:", isDe ? "Profile" : "Profiles");
+			ImGui::SameLine(0, 8.0f);
+			if (ImGui::SmallButton(isDe ? "Speichern##emb_save" : "Save##emb_save")) {
+				int firstEmpty = -1;
+				for (int i = 0; i < 3; ++i) if (!CurrentSettings.Slots[i].Used) { firstEmpty = i; break; }
+				int targetSlot = (firstEmpty != -1) ? firstEmpty : ParameterRegistry::Get().GetInt(ParamId::ActiveSlotIdx);
+				CurrentSettings.Slots[targetSlot].Used = true;
+				if (CurrentSettings.Slots[targetSlot].Name.empty()) {
+					const char* tn = CurrentSettings.Mixed ? (isDe ? "Gemischt" : "Mixed") :
+						(CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
+						(CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
+					char defaultName[64];
+					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s)", targetSlot + 1, tn);
+					CurrentSettings.Slots[targetSlot].Name = defaultName;
+				}
+				CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
+				CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
+				CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
+				CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
+				CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
+				CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+				ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, targetSlot);
+				saveNeeded = true;
+			}
+			for (int sIdx = 0; sIdx < 3; ++sIdx) {
+				ImGui::SameLine(0, 4.0f);
+				ImGui::PushID(sIdx + 700);
+				bool used = CurrentSettings.Slots[sIdx].Used;
+				if (used) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+				} else {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+				}
+				char chip[16];
+				std::snprintf(chip, sizeof(chip), "[%d]", sIdx + 1);
+				bool chipClicked = ImGui::SmallButton(chip);
+				// Right-click toggles this slot as the Auto-Start profile -
+				// deliberately not a checkbox per slot (Emi: "ohne 3 Checkboxen"),
+				// this keeps the compact panel clutter-free while still reachable
+				// without opening the Studio.
+				bool autoStartToggled = used && ImGui::IsItemClicked(ImGuiMouseButton_Right);
+				if (chipClicked && used) {
+					ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
+					CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
+					CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
+					CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
+					CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
+					CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
+					CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (autoStartToggled) {
+					CurrentSettings.AutoStartSlot = (CurrentSettings.AutoStartSlot == sIdx) ? -1 : sIdx;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered()) {
+					if (used) ImGui::SetTooltip("Slot %d: %s\n%s\n%s", sIdx + 1, CurrentSettings.Slots[sIdx].Name.c_str(),
+						isDe ? "Klicken zum Laden" : "Click to load",
+						isDe ? "Rechtsklick: Auto-Start an/aus" : "Right-click: toggle Auto-Start");
+					else ImGui::SetTooltip("Slot %d: %s", sIdx + 1, isDe ? "Frei" : "Empty");
+				}
+				if (sIdx == CurrentSettings.AutoStartSlot) {
+					ImGui::SameLine(0, 2.0f);
+					ImGui::TextColored(Theme::kTextGoldLabel, "*");
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Auto-Start-Profil (Rechtsklick zum Entfernen)" : "Auto-Start profile (right-click to remove)");
+				}
+				ImGui::PopID();
+			}
+		}
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		// ── Row 2: Commander Tag Contrast - the 1-click core feature. Emi's
+		// spec (2026-09-09): put the simple base logic for automatic commander
+		// tag contrast directly on this page; the full multi-window UI becomes
+		// an opt-in "Studio" button instead of the default view.
+		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Commander-Tag-Kontrast" : "Commander Tag Contrast");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "1-Klick: Waehlt dein Farbprofil und schaltet den automatischen Kontrast-Verstaerker fuer Commander-Tags ein."
+			                       : "One click: picks your color profile and turns on the automatic contrast enhancer for commander tags.");
+		}
+
+		{
+			float avail = ImGui::GetContentRegionAvail().x;
+			float btnW = (avail - 8.0f) / 3.0f;
+
+			auto quickProfileBtn = [&](const char* aName, BalanceType aType) {
+				bool active = (CurrentSettings.CommanderTagMode != 0 && !CurrentSettings.Mixed && CurrentSettings.Type == aType);
+				if (active) {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				} else {
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+				}
+				if (ImGui::Button(aName, ImVec2(btnW, 28.0f))) {
+					ActivateCommanderTagProfile(aType);
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+			};
+
+			quickProfileBtn(isDe ? "Protan (Rot)" : "Protan (Red)", BalanceType::Protan);
+			ImGui::SameLine(0, 4.0f);
+			quickProfileBtn(isDe ? "Deutan (Gruen)" : "Deutan (Green)", BalanceType::Deutan);
+			ImGui::SameLine(0, 4.0f);
+			quickProfileBtn(isDe ? "Tritan (Blau)" : "Tritan (Blue)", BalanceType::Tritan);
+		}
+
+		{
+			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
+			int shiftedCount = 0;
+			for (int i = 0; i < 9; ++i) if (s_tagConflictStates[i].inConflict) shiftedCount++;
+			if (enhancerActive)
+				ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "Aktiv - %d von 9 Farben verschoben" : "Active - %d of 9 colors shifted", shiftedCount);
+			else
+				// Was "waehle oben ein Profil"/"pick a profile above" - "Profil"
+				// already means something else on this panel (the Save/[1][2][3]
+				// slots above), a naming collision found in the 2026-09-09 UI
+				// review. These buttons pick a CVD type, not a profile.
+				ImGui::TextDisabled("%s", isDe ? "Inaktiv - waehle oben einen Typ" : "Inactive - pick a type above");
+			if (enhancerActive) {
+				ImGui::SameLine(0, 10.0f);
+				if (ImGui::SmallButton(isDe ? "Aus##cmdr_quick_off" : "Off##cmdr_quick_off")) {
+					CurrentSettings.CommanderTagMode = 0;
+					UpdateTagEnhancerConflicts();
+					Recompute(/*aForce=*/true);
+					changed = true;
+					saveNeeded = true;
+				}
+			}
+		}
+
+		// Contrast Test Swatches moved into the "Advanced" section below
+		// (2026-09-10, UI-weighting pass) - at full size (enlarged
+		// 2026-09-09) this comparison competed with Commander Tag Contrast,
+		// the panel's actual headline feature, for visual weight in the
+		// default view. The "Active - N of 9 colors shifted" status line
+		// above already gives a returning user a live functioning-proof;
+		// the fuller before/after comparison is still one click away for
+		// anyone who wants to see it, just not fighting for space by default.
+
+		// ── Row 3: Reset & Recovery Actions ───
 		ImGui::Spacing();
 
 		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
@@ -135,34 +476,41 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
 		if (ImGui::Button(isDe ? "UI zuruecksetzen" : "Reset UI", ImVec2(0.0f, 26.0f)))
 		{
-			s_resetMainWindowPos = true;
-			s_resetGraphWindowPos = true;
-			s_resetLabWindowPos = true;
-			CurrentSettings.ShowMainWindow = true;
-			s_focusMainWindow = true;
+			ResetUiLayout();
+			// Only force-open the Main Window if Advanced Mode actually
+			// allows it (2026-09-09) - otherwise this button would silently
+			// bypass the Advanced Mode gate right next to it.
+			if (CurrentSettings.AdvancedModeUnlocked)
+			{
+				CurrentSettings.ShowMainWindow = true;
+				s_focusMainWindow = true;
+			}
 			saveNeeded = true;
 		}
 		if (ImGui::IsItemHovered())
 		{
-			ImGui::SetTooltip(isDe ? "Setzt Position und Groesse aller CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardkoordinaten links oben zurueck."
-			                       : "Resets position and size of all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left coordinates.");
+			ImGui::SetTooltip(isDe ? "Setzt Position und Groesse aller CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) und des Taskleisten-Symbols auf Standardkoordinaten links oben zurueck."
+			                       : "Resets position and size of all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) and the toolbar icon to default top-left coordinates.");
 		}
+
+		ImGui::PopStyleColor(4);
 
 		ImGui::SameLine(0, 8.0f);
 
-		if (ImGui::Button(isDe ? "Filter auf Neutral" : "Reset Filter to Neutral", ImVec2(0.0f, 26.0f)))
+		// Visually distinct from "Reset UI" above (2026-09-09, Emi's UI
+		// walkthrough - the two used to look identical, easy to misclick).
+		// Same danger-subtle tint the Main Window's own Reset Filter button
+		// already used - this one just never got it.
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+		if (ImGui::Button(isDe ? "Filter zuruecksetzen" : "Reset Filter", ImVec2(0.0f, 26.0f)))
 		{
-			CurrentSettings.Enabled = false;
-			CurrentSettings.Severity01 = 0.0;
-			CurrentSettings.Mixed = false;
-			CurrentSettings.MixedRgSeverity01 = 0.0;
-			CurrentSettings.MixedBySeverity01 = 0.0;
-			CurrentSettings.GammaGain = 1.0f;
-			CurrentSettings.CommanderTagMode = 0;
-			CurrentSettings.AutoBrightness = false;
-			CurrentSettings.Save(AddonDir);
-			GetColorEffectController().Clear();
-			Recompute(/*aForce=*/true);
+			// Was a third, incomplete hand-rolled reset (missed
+			// LabModeEnabled/EnableHybridMode - same bug class as the "CBA -
+			// Filter Off" keybind before it used this shared function too).
+			ResetFilterSettingsAndDisable();
 			saveNeeded = true;
 		}
 		if (ImGui::IsItemHovered())
@@ -172,51 +520,47 @@ namespace cba
 		}
 		ImGui::PopStyleColor(4);
 
-		ImGui::SameLine(0, 8.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.55f, 0.15f, 0.15f, 0.80f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.20f, 0.20f, 0.90f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.40f, 0.10f, 0.10f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.0f, 0.9f, 0.9f, 1.0f));
-		if (ImGui::Button("Factory Reset", ImVec2(0.0f, 26.0f)))
-		{
-			CurrentSettings.FactoryReset();
-			CurrentSettings.Save(AddonDir);
-			GetColorEffectController().Clear();
-			Recompute(/*aForce=*/true);
-			s_resetMainWindowPos = true;
-			s_resetGraphWindowPos = true;
-			s_resetLabWindowPos = true;
-			s_resetVisionLabWindowPos = true;
-			UpdateQuickAccessIcon();
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip(isDe ? "Setzt ALLE Einstellungen, Profile und Fenster auf Werkseinstellungen zurueck."
-			                       : "Resets ALL settings, profiles and windows to factory defaults.");
-		}
-		ImGui::PopStyleColor(4);
 
+
+		// Export/Import as one visible text field (2026-09-10, Emi's
+		// rethink) - used to be two buttons that silently talked to the OS
+		// clipboard with nothing shown on screen, only interesting once
+		// profile slots existed to share. Now: "Generate" fills this field
+		// (and still copies to clipboard, for anyone who prefers that flow)
+		// so the code is actually visible and selectable for manual
+		// copy-paste (e.g. into Discord), and the SAME field accepts a
+		// pasted-in code for "Import" - one field, both directions, instead
+		// of two opaque one-way buttons.
 		ImGui::Spacing();
-		if (ImGui::Button(isDe ? "Profil exportieren (Copy)" : "Export Preset (Copy)", ImVec2(0.0f, 26.0f)))
+		ImGui::TextDisabled("%s:", isDe ? "Profil-Code (Export/Import)" : "Profile Code (Export/Import)");
 		{
-			std::string presetStr = CurrentSettings.ExportPresetString();
-			ImGui::SetClipboardText(presetStr.c_str());
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip(isDe ? "Kopiert dein aktuelles Filter-Profil in die Zwischenablage."
-			                       : "Copies your current filter profile to the clipboard.");
-		}
-		
-		ImGui::SameLine(0, 8.0f);
-		if (ImGui::Button(isDe ? "Profil importieren (Paste)" : "Import Preset (Paste)", ImVec2(0.0f, 26.0f)))
-		{
-			const char* clip = ImGui::GetClipboardText();
-			if (clip)
+			static char s_presetIoBuf[256] = "";
+			ImGui::SetNextItemWidth(-FLT_MIN);
+			ImGui::InputText("##emb_preset_io", s_presetIoBuf, sizeof(s_presetIoBuf));
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Zeigt den generierten Profil-Code zum Kopieren, oder fuege hier einen erhaltenen Code ein und klicke Import."
+				                       : "Shows the generated profile code for copying, or paste in a received code and click Import.");
+			}
+
+			float ioAvail = ImGui::GetContentRegionAvail().x;
+			float ioBtnW = (ioAvail - 8.0f) * 0.5f;
+			if (ImGui::Button(isDe ? "Generieren" : "Generate", ImVec2(ioBtnW, 0.0f)))
+			{
+				std::string presetStr = CurrentSettings.ExportPresetString();
+				std::snprintf(s_presetIoBuf, sizeof(s_presetIoBuf), "%s", presetStr.c_str());
+				ImGui::SetClipboardText(presetStr.c_str());
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Erzeugt den Code fuer dein aktuelles Profil (auch in die Zwischenablage kopiert)."
+				                       : "Generates the code for your current profile (also copied to clipboard).");
+			}
+			ImGui::SameLine(0, 8.0f);
+			if (ImGui::Button(isDe ? "Import" : "Import", ImVec2(ioBtnW, 0.0f)))
 			{
 				std::string err;
-				if (CurrentSettings.ImportPresetString(clip, &err))
+				if (CurrentSettings.ImportPresetString(s_presetIoBuf, &err))
 				{
 					CurrentSettings.Save(AddonDir);
 					GetColorEffectController().Clear();
@@ -224,69 +568,98 @@ namespace cba
 					saveNeeded = true;
 				}
 			}
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip(isDe ? "Ueberschreibt die aktuellen Settings mit einem kopierten CBA-Profil."
-			                       : "Overwrites current settings with a copied CBA profile string.");
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Uebernimmt den Code oben ins aktuelle Profil (ueberschreibt aktuelle Einstellungen)."
+				                       : "Applies the code above into the current profile (overwrites current settings).");
+			}
 		}
 
 		ImGui::PopStyleVar(2);
 
+		// Advanced (2026-09-09, Emi's UI walkthrough): these are setup-once
+		// settings, not quick-access content - a first-time user doesn't
+		// need toolbar X-position tuning in their first 10 seconds. Used to
+		// sit inline in the main flow, right where the branding block used
+		// to interrupt it too (see the footer below).
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
+		if (ImGui::TreeNodeEx(isDe ? "Erweitert##emb_advanced" : "Advanced##emb_advanced", ImGuiTreeNodeFlags_None))
+		{
+			// Contrast Test Swatches (2026-09-10, moved here from the main
+			// flow - see the comment further up) - the practical "does this
+			// actually help" before/after comparison, without the spectral
+			// Curve View graph (Emi's original spec: swatches belong on this
+			// panel, the technical curve chart stays in the Studio).
+			{
+				double embCorrMat[3][3];
+				if (CurrentSettings.Mixed)
+					ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, embCorrMat);
+				else
+					ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, embCorrMat);
+				DrawContrastTestSwatches(isDe, embCorrMat, saveNeeded);
+			}
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
 
+			if (ImGui::Checkbox(t.ShowQuickAccess, &CurrentSettings.ShowQuickAccessIcon)) {
+				UpdateQuickAccessIcon();
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.ShowQuickAccessTooltip);
+
+			if (CurrentSettings.ShowQuickAccessIcon) {
+				ImGui::Indent(16.0f);
+				if (ImGui::Checkbox(isDe ? "Eigenes Toolbar-Icon erzwingen##movable_opt"
+				                         : "Force custom toolbar icon##movable_opt", &CurrentSettings.MovableToolbarIcon)) {
+					UpdateQuickAccessIcon();
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetTooltip(isDe ? "Zeigt ein unabhaengiges Icon anstelle des statischen Nexus-Icons."
+					                       : "Shows an independent icon instead of the static Nexus icon.");
+				}
+
+				if (CurrentSettings.MovableToolbarIcon) {
+					// Own row, not fused onto the checkbox's line via SameLine
+					// (2026-09-10, Emi noticed the merge while looking for
+					// this setting) - the checkbox is "force custom icon on/
+					// off," the slider is a separate "where" concern once
+					// that's on.
+					ImGui::SetNextItemWidth(120.0f);
+					if (ImGui::SliderFloat("X-Position", &CurrentSettings.ToolbarIconPosX, 0.0f, 2500.0f, "%.0f")) {
+						saveNeeded = true;
+					}
+					ImGui::SameLine(0, 10.0f);
+					if (ImGui::Button(isDe ? "Reset##rst_pos_opt" : "Reset##rst_pos_opt", ImVec2(0.0f, 0.0f))) {
+						CurrentSettings.ToolbarIconPosX = 405.0f;
+						saveNeeded = true;
+					}
+				}
+				ImGui::Unindent(16.0f);
+			}
+
+			if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
+			ImGui::TreePop();
+		}
+
+		// Branding footer - used to sit mid-flow, between Export/Import and
+		// the Advanced toggles above, interrupting the task flow like an ad.
+		// Moved to the very end 2026-09-09 (Emi's UI walkthrough).
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
 		ImGui::TextColored(Theme::kTextCyanLicht, "Color Logic Balancer & Enhancer");
 		ImGui::SameLine();
 		ImGui::TextDisabled("(cba4gw2)");
 		ImGui::TextColored(Theme::kTextSecondary, isDe ? "Barrierefreie Farb- & Kontrastoptimierung fuer Guild Wars 2"
 		                                               : "Accessible color & contrast balancer for Guild Wars 2");
-		ImGui::Spacing();
-
-		if (ImGui::Checkbox(t.ShowQuickAccess, &CurrentSettings.ShowQuickAccessIcon)) {
-			UpdateQuickAccessIcon();
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.ShowQuickAccessTooltip);
-
-		if (CurrentSettings.ShowQuickAccessIcon) {
-			ImGui::Indent(16.0f);
-			if (ImGui::Checkbox(isDe ? "Eigenes Toolbar-Icon erzwingen##movable_opt"
-			                         : "Force custom toolbar icon##movable_opt", &CurrentSettings.MovableToolbarIcon)) {
-				UpdateQuickAccessIcon();
-				saveNeeded = true;
-			}
-			if (ImGui::IsItemHovered()) {
-				ImGui::SetTooltip(isDe ? "Zeigt ein unabhaengiges Icon anstelle des statischen Nexus-Icons."
-				                       : "Shows an independent icon instead of the static Nexus icon.");
-			}
-			
-			if (CurrentSettings.MovableToolbarIcon) {
-				ImGui::SameLine(0, 16.0f);
-				ImGui::SetNextItemWidth(120.0f);
-				if (ImGui::SliderFloat("X-Position", &CurrentSettings.ToolbarIconPosX, 0.0f, 2500.0f, "%.0f")) {
-					saveNeeded = true;
-				}
-				ImGui::SameLine(0, 10.0f);
-				if (ImGui::Button(isDe ? "Reset##rst_pos_opt" : "Reset##rst_pos_opt", ImVec2(0.0f, 0.0f))) {
-					CurrentSettings.ToolbarIconPosX = 405.0f;
-					saveNeeded = true;
-				}
-			}
-			ImGui::Unindent(16.0f);
-		}
-
-		if (ImGui::Checkbox(t.LoadOnStartup, &CurrentSettings.LoadOnStartup)) {
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.LoadOnStartupTooltip);
-
-		if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
-			changed = true;
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);
@@ -304,7 +677,7 @@ namespace cba
 		const L10n& t = Strings();
 		bool changed = false;
 		bool saveNeeded = false;
-		bool isDe = (t.Enabled[0] == 'A');
+		bool isDe = cba::IsGerman(); // was a fragile first-letter check - see CLAUDE.md 2026-09-09
 
 		ImGui::PushID("CBA_MainWindow");
 
@@ -341,32 +714,44 @@ namespace cba
 			const char* masterBtnLabel = isDe ? (wasEnabled ? "EIN##main_master" : "AUS##main_master")
 			                                  : (wasEnabled ? "ON##main_master"  : "OFF##main_master");
 			if (ImGui::Button(masterBtnLabel, ImVec2(0.0f, 24.0f))) {
-				EnsureDeferredInitialized();
-				CurrentSettings.Enabled = !CurrentSettings.Enabled;
-				CurrentSettings.Save(AddonDir);
-				Recompute(/*aForce=*/true);
-				UpdateQuickAccessIcon();
+				ToggleMasterEnabled();
 				changed    = true;
 				saveNeeded = false;
 			}
 			ImGui::PopStyleColor(4);
+
+			// ── OS Block Warning Banner ─────────────────────────────────────────
+			if (CurrentSettings.Enabled && !g_DwmLastCallSuccessful) {
+				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.3f, 0.0f, 0.0f, 1.0f));
+				ImGui::BeginChild("ErrorBanner", ImVec2(0, 40), true);
+				// Was a raw German-only string literal, no isDe ternary at
+				// all - the one string in this file that skipped translation,
+				// found right when an English user most needs to understand
+				// an error (2026-09-09 codebase review).
+				ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", isDe
+					? " OS BLOCKIERT FILTER! Bitte GW2 auf 'Windowed Fullscreen' stellen\n"
+					  " oder HDR/Windows-Farbfilter in den OS-Einstellungen deaktivieren."
+					: " OS IS BLOCKING THE FILTER! Please switch GW2 to 'Windowed Fullscreen'\n"
+					  " or disable HDR/Windows color filters in your OS settings.");
+				ImGui::EndChild();
+				ImGui::PopStyleColor();
+			}
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip(wasEnabled ? (isDe ? "Filter aktiv - Klicke zum Ausschalten" : "Filter active - click to disable")
 				                             : (isDe ? "Filter inaktiv - Klicke zum Einschalten" : "Filter inactive - click to enable"));
 
 			if (!wasEnabled)
 			{
+				// Two glints, starting top-center and bottom-center (exactly
+				// half a perimeter apart on a rectangle) and rotating
+				// continuously counter-clockwise (2026-09-10, Emi's redesign -
+				// was a single dot ping-ponging back and forth; slower, calmer,
+				// and easier to notice at a glance that the filter is OFF).
 				ImVec2 bMin = ImGui::GetItemRectMin();
 				ImVec2 bMax = ImGui::GetItemRectMax();
 				float bw = bMax.x - bMin.x;
 				float bh = bMax.y - bMin.y;
 				float peri = 2.0f * (bw + bh);
-				float timeVal = (float)ImGui::GetTime();
-				float cyclePeriod = 3.6f;
-				float cycleIdx = std::floor(timeVal / cyclePeriod);
-				float cycleFrac = (timeVal - cycleIdx * cyclePeriod) / cyclePeriod;
-				bool reverse = (((int)cycleIdx) & 1) != 0;
-				float u = reverse ? (1.0f - cycleFrac) : cycleFrac;
 
 				auto getPerimeterPoint = [&](float uNorm) -> ImVec2 {
 					uNorm = uNorm - std::floor(uNorm);
@@ -382,17 +767,40 @@ namespace cba
 					}
 				};
 
-				ImVec2 pt = getPerimeterPoint(u);
-				float trailOffset = reverse ? 0.04f : -0.04f;
-				ImVec2 ptTrail = getPerimeterPoint(u + trailOffset);
+				float timeVal = (float)ImGui::GetTime();
+				float revolutionPeriod = 5.5f; // seconds per full lap - "langsam wandern"
+				float u0Top = (bw * 0.5f) / peri; // top-center's position along the walk
+				// The walk (top edge left->right, then down, then bottom
+				// right->left, then up) traces clockwise on screen as u
+				// increases - so decreasing u is counter-clockwise.
+				float rotation = -(timeVal / revolutionPeriod);
 
 				ImDrawList* dl = ImGui::GetWindowDrawList();
-				dl->AddCircleFilled(pt, 3.2f, IM_COL32(255, 60, 60, 65));
-				dl->AddCircleFilled(ptTrail, 1.0f, IM_COL32(255, 110, 110, 110));
-				dl->AddCircleFilled(pt, 1.3f, IM_COL32(255, 255, 255, 255));
-				float glint = 2.4f;
-				dl->AddLine(ImVec2(pt.x - glint, pt.y), ImVec2(pt.x + glint, pt.y), IM_COL32(255, 220, 220, 210), 1.0f);
-				dl->AddLine(ImVec2(pt.x, pt.y - glint), ImVec2(pt.x, pt.y + glint), IM_COL32(255, 220, 220, 210), 1.0f);
+				// Elongated streak instead of a dot+crosshair sparkle
+				// (2026-09-10, Emi's ask: "laengliche Glanzpunkte...wie eine
+				// Lichtreflektion auf glaenzender Oberflaeche") - several
+				// samples trailing behind the head, tapering in size and
+				// alpha, bending naturally around the button's corners since
+				// they're all sampled along the same perimeter-walk function
+				// as the head. Classic "comet trail" specular-sweep look.
+				auto drawGlint = [&](float uBase) {
+					float u = uBase + rotation;
+					const int kTrailSamples = 7;
+					const float kTrailSpan = 0.028f; // how far back along the perimeter the streak reaches
+					for (int i = kTrailSamples - 1; i >= 0; --i) {
+						float t = (float)i / (float)(kTrailSamples - 1); // 0 = head, 1 = tail tip
+						ImVec2 p = getPerimeterPoint(u + t * kTrailSpan);
+						float taper = 1.0f - t;
+						float radius = 1.0f + taper * 2.6f;
+						int alpha = (int)(taper * taper * 220.0f);
+						dl->AddCircleFilled(p, radius, IM_COL32(255, 225, 225, alpha));
+					}
+					ImVec2 head = getPerimeterPoint(u);
+					dl->AddCircleFilled(head, 4.2f, IM_COL32(255, 90, 90, 45)); // soft glow
+					dl->AddCircleFilled(head, 1.6f, IM_COL32(255, 255, 255, 255)); // hot core
+				};
+				drawGlint(u0Top);
+				drawGlint(u0Top + 0.5f);
 			}
 		}
 
@@ -475,12 +883,7 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
 		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
 		if (ImGui::Button(isDe ? "UI zuruecksetzen##main" : "Reset UI##main", ImVec2(0.0f, 24.0f))) {
-			s_resetMainWindowPos = true;
-			s_resetGraphWindowPos = true;
-			s_resetLabWindowPos = true;
-			s_resetVisionLabWindowPos = true;
-			CurrentSettings.ToolbarIconPosX = 405.0f;
-			CurrentSettings.ToolbarIconPosY = 8.0f;
+			ResetUiLayout();
 			saveNeeded = true;
 		}
 		ImGui::PopStyleColor(4);
@@ -489,27 +892,26 @@ namespace cba
 			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) to default top-left position.");
 		}
 
+		// The other of the two reset functions (window-layout reset above,
+		// filter-state reset here) - replaces the old "Factory Reset" button,
+		// which called a Settings::FactoryReset() that both preserved some
+		// fields and reset others in ways nobody could fully account for.
+		// This one is exactly ResetFilterSettingsAndDisable() - same function
+		// the "CBA - Filter Off" keybind and the Sensor Graph HUD's Reset
+		// button use, so there's one reset behavior, not three.
 		ImGui::SameLine(0, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.55f, 0.15f, 0.15f, 0.80f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.20f, 0.20f, 0.90f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.40f, 0.10f, 0.10f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.0f, 0.9f, 0.9f, 1.0f));
-		if (ImGui::Button("Factory Reset", ImVec2(0.0f, 24.0f))) {
-			CurrentSettings.FactoryReset();
-			CurrentSettings.Save(AddonDir);
-			GetColorEffectController().Clear();
-			Recompute(/*aForce=*/true);
-			s_resetMainWindowPos = true;
-			s_resetGraphWindowPos = true;
-			s_resetLabWindowPos = true;
-			s_resetVisionLabWindowPos = true;
-			UpdateQuickAccessIcon();
-			saveNeeded = true;
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+		if (ImGui::Button(isDe ? "Filter zuruecksetzen##main" : "Reset Filter##main", ImVec2(0.0f, 24.0f))) {
+			ResetFilterSettingsAndDisable();
+			changed = true;
 		}
 		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Werkseinstellungen laden (loescht alle Parameter, Profile und verschobene Fenster)"
-			                       : "Load factory defaults (clears all parameters, profiles and moved windows)");
+			ImGui::SetTooltip(isDe ? "Setzt Farbprofil, Commander-Tag-Enhancer, Hybrid-Modus, Free Filter und Filter-Labor zurueck und schaltet den Filter aus."
+			                       : "Resets color profile, Commander Tag Enhancer, Hybrid Mode, Free Filter and Filter Lab, and turns the filter off.");
 		}
 
 		ImGui::SameLine(0, 5.0f);
@@ -681,9 +1083,6 @@ namespace cba
 			ImGui::Spacing();
 
 			if (CurrentSettings.Mixed) {
-				float rg = (float)CurrentSettings.MixedRgSeverity01;
-				float by = (float)CurrentSettings.MixedBySeverity01;
-
 				ImGui::TextUnformatted(t.RgStrength);
 				float avail = ImGui::GetContentRegionAvail().x;
 				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -692,9 +1091,17 @@ namespace cba
 				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 				ImGui::SetNextItemWidth(sW);
-				if (ImGui::SliderFloat("##rg_det", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					CurrentSettings.MixedRgSeverity01 = std::clamp(rg, 0.0f, 1.25f);
-					changed = true;
+				// Registry-backed (CLAUDE.md, Registry/Control Layer) - same
+				// pattern as Tolerance/GammaGain. NoInput already blocked the
+				// Ctrl-click-to-type overscaling bypass here (stronger than the
+				// AlwaysClamp used elsewhere), kept as-is; registry Set() still
+				// clamps too for one shared source of truth on the range.
+				{
+					float rg = ParameterRegistry::Get().GetFloat(ParamId::MixedRgSeverity01);
+					if (ImGui::SliderFloat("##rg_det", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+						ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, rg);
+						changed = true;
+					}
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 				ImGui::SameLine(0, sp);
@@ -712,9 +1119,12 @@ namespace cba
 				
 				ImGui::TextUnformatted(t.ByStrength);
 				ImGui::SetNextItemWidth(sW);
-				if (ImGui::SliderFloat("##by_det", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					CurrentSettings.MixedBySeverity01 = std::clamp(by, 0.0f, 1.25f);
-					changed = true;
+				{
+					float by = ParameterRegistry::Get().GetFloat(ParamId::MixedBySeverity01);
+					if (ImGui::SliderFloat("##by_det", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+						ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, by);
+						changed = true;
+					}
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 				ImGui::SameLine(0, sp);
@@ -730,8 +1140,6 @@ namespace cba
 				ImGui::PopStyleColor(4);
 				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 			} else {
-				float sev = (float)CurrentSettings.Severity01;
-
 				ImGui::TextUnformatted(t.Strength);
 				float avail = ImGui::GetContentRegionAvail().x;
 				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -740,9 +1148,12 @@ namespace cba
 				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
 				ImGui::SetNextItemWidth(sW);
-				if (ImGui::SliderFloat("##sev_det", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					CurrentSettings.Severity01 = std::clamp(sev, 0.0f, 1.25f);
-					changed = true;
+				{
+					float sev = ParameterRegistry::Get().GetFloat(ParamId::Severity01);
+					if (ImGui::SliderFloat("##sev_det", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
+						ParameterRegistry::Get().SetFloat(ParamId::Severity01, sev);
+						changed = true;
+					}
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 				ImGui::SameLine(0, sp);
@@ -833,15 +1244,7 @@ namespace cba
 						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					}
 					if (ImGui::Button(name, ImVec2(btnW, 23.0f))) {
-						EnsureDeferredInitialized();
-						CurrentSettings.Enabled = true;
-						CurrentSettings.CommanderTagMode = 1;
-						CurrentSettings.Type = dType;
-						CurrentSettings.Mixed = false;
-						if (CurrentSettings.Severity01 < 0.2) CurrentSettings.Severity01 = 1.0;
-						CurrentSettings.SmartEnhancer = true;
-						UpdateTagEnhancerConflicts();
-						Recompute(/*aForce=*/true);
+						ActivateCommanderTagProfile(dType);
 						changed = true;
 						saveNeeded = true;
 					}
@@ -870,19 +1273,25 @@ namespace cba
 						int targetSlot = (CurrentSettings.Type == BalanceType::Protan) ? 0 :
 						                 (CurrentSettings.Type == BalanceType::Deutan) ? 1 : 2;
 						CurrentSettings.Slots[targetSlot].Used = true;
-						char buf[64];
-						std::snprintf(buf, sizeof(buf), "Com-Tag %s", (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
-						                                              (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan");
-						CurrentSettings.Slots[targetSlot].Name = buf;
+						// Only auto-generate a name if the slot doesn't
+						// already have one - previously overwrote
+						// unconditionally, so a user's manually-renamed slot
+						// ("WvW Raid Preset") could silently lose its name
+						// the next time this quick-save button was clicked
+						// (found in the 2026-09-09 codebase review), matching
+						// the .Name.empty() check every other slot-save path
+						// in this file already uses.
+						if (CurrentSettings.Slots[targetSlot].Name.empty())
+						{
+							char buf[64];
+							std::snprintf(buf, sizeof(buf), "Com-Tag %s", (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
+							                                              (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan");
+							CurrentSettings.Slots[targetSlot].Name = buf;
+						}
 						CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
 						CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
 						CurrentSettings.Slots[targetSlot].Mixed = false;
 						CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
-
-						CurrentSettings.Presets[targetSlot].Type = static_cast<int>(CurrentSettings.Type);
-						CurrentSettings.Presets[targetSlot].Severity = CurrentSettings.Severity01;
-						CurrentSettings.Presets[targetSlot].Tolerance = CurrentSettings.EnhancerTolerance;
-						CurrentSettings.Presets[targetSlot].Name = buf;
 
 						CurrentSettings.Save(AddonDir);
 						saveNeeded = true;
@@ -892,18 +1301,6 @@ namespace cba
 					{
 						ImGui::SetTooltip(isDe ? "Speichert das aktuell gesetzte Com-Tag Profil dauerhaft in der Profilspeicherbank"
 						                       : "Saves the currently configured Com-Tag profile to the profile bank");
-					}
-
-					ImGui::SameLine(0, 8.0f);
-					if (ImGui::Checkbox(isDe ? "Beim Start laden##cmdr_startup" : "Load on startup##cmdr_startup", &CurrentSettings.LoadOnStartup))
-					{
-						CurrentSettings.Save(AddonDir);
-						saveNeeded = true;
-					}
-					if (ImGui::IsItemHovered())
-					{
-						ImGui::SetTooltip(isDe ? "Laedt dieses Profil beim Starten von Guild Wars 2 automatisch"
-						                       : "Automatically restores this profile when Guild Wars 2 starts");
 					}
 				};
 
@@ -932,35 +1329,79 @@ namespace cba
 				}
 
 				ImGui::PopStyleVar();
+			}
 
-				// Row 4 & 5: Paired Sliders: Tolerance directly followed by Intensity Scale!
-				ImGui::Spacing();
-				float availSliders = ImGui::GetContentRegionAvail().x;
+			// Always visible from here on (not gated behind Auto Com-Tag anymore).
+			// The Curve View further below used to be accidentally nested
+			// inside `if (enhancerActive)` too - a coupling bug from an
+			// earlier reorg, not intentional (Emi flagged this).
+			ImGui::Spacing();
+			float availSliders = ImGui::GetContentRegionAvail().x;
 
+			// Brightness/Eye Comfort Gamma used to be duplicated here AND in
+			// Section 2 - two sliders bound to the same value, in two
+			// different places. Removed from here entirely 2026-09-09 (Emi's
+			// UI walkthrough); Section 2 "Eye Comfort" is its one home now,
+			// it has the fuller picture anyway (Retention/HDR/Apply-Target).
+			//
+			// Tolerance and the AQ/HRR reference field also moved, into the
+			// collapsed "Advanced" group below - Section 1 was doing too much
+			// for a first impression (everything at the same visual weight,
+			// no core/advanced distinction). Not the full Core/Advanced UI
+			// split from CLAUDE.md step 2 (that's a bigger, separate pass) -
+			// just decluttering this one section's obvious overflow.
+			if (ImGui::TreeNodeEx(isDe ? "Erweitert##sec1_advanced" : "Advanced##sec1_advanced", ImGuiTreeNodeFlags_None))
+			{
 				ImGui::TextUnformatted(isDe ? "Toleranz (Erkennungsradius):" : "Tolerance (Detection Radius):");
 				ImGui::SetNextItemWidth(availSliders);
-				if (ImGui::SliderFloat("##enhancer_tol_det", &CurrentSettings.EnhancerTolerance, 0.04f, 0.20f, "%.3f")) {
-					UpdateTagEnhancerConflicts();
-					changed = true;
+				// Registry-backed pilot (CLAUDE.md, Registry/Control Layer step 1).
+				// The clamp now lives in ParamMeta (ParameterRegistry::SetFloat),
+				// not just in this widget's min/max args - fixes the slider being
+				// overridable via ImGui's CTRL-click-to-type text entry, which the
+				// previous rescale attempts did not address.
+				{
+					float tol = ParameterRegistry::Get().GetFloat(ParamId::EnhancerTolerance);
+					if (ImGui::SliderFloat("##enhancer_tol_det", &tol, 0.04f, 0.20f, "%.3f", ImGuiSliderFlags_AlwaysClamp)) {
+						ParameterRegistry::Get().SetFloat(ParamId::EnhancerTolerance, tol);
+						UpdateTagEnhancerConflicts();
+						changed = true;
+					}
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 				ImGui::Spacing();
-				ImGui::TextUnformatted(isDe ? "Intensitaets-Skala (Kompensation & Kontrast-Boost):" 
-				                            : "Intensity Scale (Compensation & Contrast Boost):");
-				ImGui::SetNextItemWidth(availSliders);
-				float sevVal = (float)CurrentSettings.Severity01;
-				if (ImGui::SliderFloat("##cmdr_sev_slider", &sevVal, 0.0f, 1.25f, isDe ? "%.0f%% (Kompensation)" : "%.0f%% (Compensation)")) {
-					CurrentSettings.Severity01 = sevVal;
-					UpdateTagEnhancerConflicts();
-					Recompute(/*aForce=*/false);
-					changed = true;
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) {
-					saveNeeded = true;
-					Recompute(/*aForce=*/true);
-				}
+				const char* defaultHintSec1 = CurrentSettings.Mixed ? "RG: 50% | BY: 50%" :
+					(CurrentSettings.Type == BalanceType::Protan ? "AQ: 0.35 | HRR: 8/10" :
+					(CurrentSettings.Type == BalanceType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
 
+				ImGui::TextDisabled("%s:", isDe ? "Referenzwerte / Kalibrierung (AQ / HRR)" : "Reference Values / Calibration (AQ / HRR)");
+				char diagBufSec1[128]{};
+				std::snprintf(diagBufSec1, sizeof(diagBufSec1), "%s", CurrentSettings.DiagnosisHint.c_str());
+
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				if (ImGui::InputTextWithHint("##ref_values_input", defaultHintSec1, diagBufSec1, sizeof(diagBufSec1)))
+				{
+					CurrentSettings.DiagnosisHint = diagBufSec1;
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe
+						? "Optionales Eingabefeld fuer persoenliche Kalibrier- oder Benchmarkwerte (z.B. Nagel-AQ, HRR-Plates).\nTypische Standardwerte fuer dieses Profil: %s"
+						: "Optional input field for personal calibration or test benchmark scores (e.g. Nagel AQ, HRR plates).\nTypical default values for this profile: %s",
+						defaultHintSec1);
+				}
+				ImGui::TreePop();
+			}
+
+			// "Intensity Scale (Compensation)" used to live here as a second
+			// slider bound to the exact same CurrentSettings.Severity01 as the
+			// "Strength" slider above (just a different range/display format) -
+			// removed as a duplicate rather than relocated, per Emi.
+
+			if (enhancerActive)
+			{
 				ImGui::Spacing();
 				ImGui::TextDisabled("%s", isDe ? "Tag-Farben: Betroffen (wird verschoben) vs. Sicher (unangetastet):"
 				                               : "Tag Colors: Affected (shifted) vs. Safe (untouched):");
@@ -997,15 +1438,19 @@ namespace cba
 							ImGui::SetTooltip(isDe ? "%s: Konflikt erkannt -> Auto-Verschiebung aktiv" 
 							                       : "%s: Conflict detected -> Auto-shift active", tagLabel);
 						else
-							ImGui::SetTooltip(isDe ? "%s: Kein Konflikt -> Farbe bleibt unberuehrt" 
+							ImGui::SetTooltip(isDe ? "%s: Kein Konflikt -> Farbe bleibt unberuehrt"
 							                       : "%s: No conflict -> Color remains untouched", tagLabel);
 					}
 				}
+			}
 
-				ImGui::Spacing();
-				ImGui::Spacing();
-				ImGui::TextDisabled("%s", isDe ? "Kurvenansicht (geladenes Preset / Farbprofil):" 
-				                               : "Curve View (Loaded Preset / Color Profile):");
+			// Curve View is unconditional from here (see note above) - it shows
+			// the currently active Type/Severity/Mixed correction regardless of
+			// whether Auto Com-Tag happens to be on.
+			ImGui::Spacing();
+			ImGui::Spacing();
+			ImGui::TextDisabled("%s", isDe ? "Kurvenansicht (geladenes Preset / Farbprofil):"
+			                               : "Curve View (Loaded Preset / Color Profile):");
 				ImGui::Spacing();
 
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
@@ -1098,127 +1543,11 @@ namespace cba
 				dlMain->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 2.0f);
 				ImGui::Dummy(ImVec2(graphW, beamH));
 
-				// Integrated Contrast Combinations Swatches Cards
 				ImGui::Spacing();
 				ImGui::Separator();
 				ImGui::Spacing();
 
-				const char* pairNamesDe[] = {
-					"Blau / Gruen (GW2 Standard)",
-					"Rot / Gruen (Protan / Deutan Test)",
-					"Gelb / Blau (Tritanopie Test)",
-					"Cyan / Blau (Mittelwert Kontrast)",
-					"Orange / Rot (Gefahrenzonen)"
-				};
-				const char* pairNamesEn[] = {
-					"Blue / Green (GW2 Default)",
-					"Red / Green (Protan / Deutan Test)",
-					"Yellow / Blue (Tritanopia Test)",
-					"Cyan / Blue (Midtone Contrast)",
-					"Orange / Red (Hazard Zones)"
-				};
-
-				struct ColorPair { float r1, g1, b1; float r2, g2, b2; };
-				static const ColorPair kPairs[5] = {
-					{ 0.212f, 0.439f, 0.800f,   0.247f, 0.616f, 0.302f },
-					{ 0.851f, 0.275f, 0.235f,   0.247f, 0.616f, 0.302f },
-					{ 0.910f, 0.753f, 0.125f,   0.212f, 0.439f, 0.800f },
-					{ 0.149f, 0.682f, 0.741f,   0.212f, 0.439f, 0.800f },
-					{ 0.910f, 0.522f, 0.059f,   0.851f, 0.275f, 0.235f }
-				};
-
-				int pIdx = std::clamp(CurrentSettings.ContrastPairIndex, 0, 4);
-
-				ImGui::TextDisabled("%s:", isDe ? "Kontrast-Test Farbfelder" : "Contrast Test Swatches");
-				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-				if (ImGui::Combo("##contrast_pair_combo_cmdr", &pIdx, isDe ? pairNamesDe : pairNamesEn, 5))
-				{
-					CurrentSettings.ContrastPairIndex = pIdx;
-					saveNeeded = true;
-				}
-
-				ColorPair p = kPairs[pIdx];
-
-				double sim1R = p.r1, sim1G = p.g1, sim1B = p.b1;
-				double sim2R = p.r2, sim2G = p.g2, sim2B = p.b2;
-				ColorMatrix::SimulatePixel(p.r1, p.g1, p.b1, CurrentSettings.Type, sim1R, sim1G, sim1B);
-				ColorMatrix::SimulatePixel(p.r2, p.g2, p.b2, CurrentSettings.Type, sim2R, sim2G, sim2B);
-
-				float cor1R = (float)std::clamp(mainCorrMat[0][0]*p.r1 + mainCorrMat[0][1]*p.g1 + mainCorrMat[0][2]*p.b1, 0.0, 1.0);
-				float cor1G = (float)std::clamp(mainCorrMat[1][0]*p.r1 + mainCorrMat[1][1]*p.g1 + mainCorrMat[1][2]*p.b1, 0.0, 1.0);
-				float cor1B = (float)std::clamp(mainCorrMat[2][0]*p.r1 + mainCorrMat[2][1]*p.g1 + mainCorrMat[2][2]*p.b1, 0.0, 1.0);
-
-				float cor2R = (float)std::clamp(mainCorrMat[0][0]*p.r2 + mainCorrMat[0][1]*p.g2 + mainCorrMat[0][2]*p.b2, 0.0, 1.0);
-				float cor2G = (float)std::clamp(mainCorrMat[1][0]*p.r2 + mainCorrMat[1][1]*p.g2 + mainCorrMat[1][2]*p.b2, 0.0, 1.0);
-				float cor2B = (float)std::clamp(mainCorrMat[2][0]*p.r2 + mainCorrMat[2][1]*p.g2 + mainCorrMat[2][2]*p.b2, 0.0, 1.0);
-
-				ImGui::Spacing();
-				float cardW = (availW - 12.0f) * 0.5f;
-				if (cardW < 140.0f) cardW = availW;
-				float cardH = 80.0f;
-
-				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.09f, 0.11f, 0.15f, 0.95f));
-				ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.25f, 0.30f, 0.40f, 0.50f));
-				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
-				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
-
-				if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
-				{
-					ImGui::TextDisabled("%s", isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)");
-					ImVec2 sp = ImGui::GetCursorScreenPos();
-					ImDrawList* dl = ImGui::GetWindowDrawList();
-
-					float r = 16.0f;
-					float cx1 = sp.x + 32.0f;
-					float cx2 = sp.x + 56.0f;
-					float cy = sp.y + 20.0f;
-
-					ImU32 cSim1 = IM_COL32((int)(sim1R*255), (int)(sim1G*255), (int)(sim1B*255), 220);
-					ImU32 cSim2 = IM_COL32((int)(sim2R*255), (int)(sim2G*255), (int)(sim2B*255), 220);
-
-					dl->AddCircleFilled(ImVec2(cx1, cy), r, cSim1);
-					dl->AddCircleFilled(ImVec2(cx2, cy), r, cSim2);
-					dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(200, 200, 200, 80), 0, 1.2f);
-					dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(200, 200, 200, 80), 0, 1.2f);
-
-					ImGui::SetCursorScreenPos(ImVec2(sp.x + 84.0f, sp.y + 12.0f));
-					ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Identisch /" : "Identical /");
-					ImGui::SetCursorScreenPos(ImVec2(sp.x + 84.0f, sp.y + 24.0f));
-					ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Verwechselbar" : "Confusable");
-				}
-				ImGui::EndChild();
-
-				if (cardW < availW) ImGui::SameLine(0, 12.0f);
-				else ImGui::Spacing();
-
-				if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
-				{
-					ImGui::TextDisabled("%s", isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)");
-					ImVec2 sp = ImGui::GetCursorScreenPos();
-					ImDrawList* dl = ImGui::GetWindowDrawList();
-
-					float r = 16.0f;
-					float cx1 = sp.x + 32.0f;
-					float cx2 = sp.x + 56.0f;
-					float cy = sp.y + 20.0f;
-
-					ImU32 cCor1 = IM_COL32((int)(cor1R*255), (int)(cor1G*255), (int)(cor1B*255), 255);
-					ImU32 cCor2 = IM_COL32((int)(cor2R*255), (int)(cor2G*255), (int)(cor2B*255), 255);
-
-					dl->AddCircleFilled(ImVec2(cx1, cy), r, cCor1);
-					dl->AddCircleFilled(ImVec2(cx2, cy), r, cCor2);
-					dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(80, 240, 160, 180), 0, 1.5f);
-					dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(80, 240, 160, 180), 0, 1.5f);
-
-					ImGui::SetCursorScreenPos(ImVec2(sp.x + 84.0f, sp.y + 12.0f));
-					ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Absolut" : "Distinct /");
-					ImGui::SetCursorScreenPos(ImVec2(sp.x + 84.0f, sp.y + 24.0f));
-					ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "verschieden!" : "Separated!");
-				}
-				ImGui::EndChild();
-
-				ImGui::PopStyleVar(2);
-				ImGui::PopStyleColor(2);
+				DrawContrastTestSwatches(isDe, mainCorrMat, saveNeeded);
 
 				ImGui::Spacing();
 				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
@@ -1241,7 +1570,6 @@ namespace cba
 				{
 					ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurueck" : "Resets Commander Tag Enhancer to Off / Neutral");
 				}
-			}
 
 			ImGui::Spacing();
 			ImGui::Separator();
@@ -1260,7 +1588,6 @@ namespace cba
 			static double s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
 			static double s_baseMixedBy = CurrentSettings.MixedBySeverity01;
 			static float s_baseGamma = CurrentSettings.GammaGain;
-			static int s_activeSlotIdx = 0;
 			static bool s_hasBaseline = false;
 			if (!s_hasBaseline) {
 				s_baseType = CurrentSettings.Type;
@@ -1316,7 +1643,7 @@ namespace cba
 
 			if (ImGui::Button(isDe ? "Speichern##tiny_prof" : "Save##tiny_prof", ImVec2(0.0f, 22.0f)))
 			{
-				int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : std::clamp(s_activeSlotIdx, 0, 2);
+				int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : ParameterRegistry::Get().GetInt(ParamId::ActiveSlotIdx);
 				CurrentSettings.Slots[targetSlot].Used = true;
 				char defaultName[64];
 				if (CurrentSettings.Mixed) {
@@ -1343,7 +1670,7 @@ namespace cba
 				s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
 				s_baseMixedBy = CurrentSettings.MixedBySeverity01;
 				s_baseGamma = CurrentSettings.GammaGain;
-				s_activeSlotIdx = targetSlot;
+				ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, targetSlot);
 
 				CurrentSettings.Save(AddonDir);
 				s_profileFeedbackTime = std::chrono::steady_clock::now();
@@ -1358,7 +1685,7 @@ namespace cba
 				ImGui::SameLine(0, 4.0f);
 				ImGui::PushID(sIdx + 450);
 				bool used = CurrentSettings.Slots[sIdx].Used;
-				bool isActive = (s_activeSlotIdx == sIdx);
+				bool isActive = (ParameterRegistry::Get().GetInt(ParamId::ActiveSlotIdx) == sIdx);
 
 				if (isActive) {
 					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
@@ -1381,7 +1708,7 @@ namespace cba
 				std::snprintf(slotChip, sizeof(slotChip), "[%d]", sIdx + 1);
 				if (ImGui::Button(slotChip, ImVec2(32.0f, 22.0f)))
 				{
-					s_activeSlotIdx = sIdx;
+					ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
 					if (used)
 					{
 						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
@@ -1452,7 +1779,7 @@ namespace cba
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(0.0f, 0.0f))) {
-						s_activeSlotIdx = sIdx;
+						ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
 						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
 						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
 						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
@@ -1481,10 +1808,22 @@ namespace cba
 					if (ImGui::Button("X##clr_slot", ImVec2(xBtnW, 0.0f))) {
 						CurrentSettings.Slots[sIdx].Used = false;
 						CurrentSettings.Slots[sIdx].Name = "";
+						if (CurrentSettings.AutoStartSlot == sIdx) CurrentSettings.AutoStartSlot = -1;
 						saveNeeded = true;
 					}
 					ImGui::PopStyleColor(4);
 					if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Slot leeren" : "Clear slot");
+
+					ImGui::SameLine(0, 8.0f);
+					bool isAutoStart = (CurrentSettings.AutoStartSlot == sIdx);
+					if (ImGui::Checkbox(isDe ? "Auto-Start##autostart_slot" : "Auto-Start##autostart_slot", &isAutoStart)) {
+						CurrentSettings.AutoStartSlot = isAutoStart ? sIdx : -1;
+						saveNeeded = true;
+					}
+					if (ImGui::IsItemHovered()) {
+						ImGui::SetTooltip(isDe ? "Laedt dieses Profil automatisch und schaltet den Filter ein, sobald GW2 startet (nicht nach einem Absturz)."
+						                       : "Automatically loads this profile and turns the filter on whenever GW2 starts (skipped after a crash).");
+					}
 				} else {
 					ImGui::TextDisabled("Slot %d: [%s]", sIdx + 1, isDe ? "Leer" : "Empty");
 				}
@@ -1560,29 +1899,10 @@ namespace cba
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
 
-				ImGui::Spacing();
-				const char* defaultHint = CurrentSettings.Mixed ? "RG: 50% | BY: 50%" :
-					(CurrentSettings.Type == BalanceType::Protan ? "AQ: 0.35 | HRR: 8/10" :
-					(CurrentSettings.Type == BalanceType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
-
-				ImGui::TextDisabled("%s:", isDe ? "Referenzwerte / Kalibrierung (AQ / HRR)" : "Reference Values / Calibration (AQ / HRR)");
-				char diagBuf[128]{};
-				std::snprintf(diagBuf, sizeof(diagBuf), "%s", CurrentSettings.DiagnosisHint.c_str());
-
-				ImGui::SetNextItemWidth(-FLT_MIN);
-				if (ImGui::InputTextWithHint("##ref_values_input", defaultHint, diagBuf, sizeof(diagBuf)))
-				{
-					CurrentSettings.DiagnosisHint = diagBuf;
-					changed = true;
-					saveNeeded = true;
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip(isDe 
-						? "Optionales Eingabefeld fuer persoenliche Kalibrier- oder Benchmarkwerte (z.B. Nagel-AQ, HRR-Plates).\nTypische Standardwerte fuer dieses Profil: %s"
-						: "Optional input field for personal calibration or test benchmark scores (e.g. Nagel AQ, HRR plates).\nTypical default values for this profile: %s",
-						defaultHint);
-				}
+				// Reference Values / Calibration (AQ/HRR) used to live here -
+				// moved into the "Advanced" collapsed group near the top of
+				// this section 2026-09-09 (Emi's UI walkthrough), it's a
+				// personal-notes field, not a core everyday control.
 
 				// Preset Exchange (Clipboard)
 				ImGui::Spacing();
@@ -1684,10 +2004,15 @@ namespace cba
 			float sWGamma = (availGamma > (btnWGamma + spGamma + 60.0f)) ? (availGamma - btnWGamma - spGamma) : 180.0f;
 
 			ImGui::SetNextItemWidth(sWGamma);
-			if (ImGui::SliderFloat("##EyeComfortGammaSlider", &CurrentSettings.GammaGain, 0.70f, 1.30f, "%.2fx"))
+			// Registry-backed (CLAUDE.md, Registry/Control Layer step 1) - same
+			// pattern as the Tolerance slider pilot: clamp lives in ParamMeta.
 			{
-				CurrentSettings.AutoBrightness = false;
-				changed = true;
+				float gain = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
+				if (ImGui::SliderFloat("##EyeComfortGammaSlider", &gain, 0.70f, 1.30f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
+				{
+					SetGammaGainManual(gain);
+					changed = true;
+				}
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit())
 			{
@@ -1700,24 +2025,15 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
 			if (ImGui::Button("Reset##gamma_main", ImVec2(btnWGamma, 0.0f)))
 			{
-				CurrentSettings.GammaGain = 1.0f;
-				CurrentSettings.AutoBrightness = false;
+				SetGammaGainManual(1.0f);
 				changed = true;
 				saveNeeded = true;
 			}
 			ImGui::PopStyleColor(4);
 			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Helligkeit auf 1.00x zuruecksetzen" : "Reset brightness to 1.00x");
 
+			SyncAutoBrightnessGain(changed, saveNeeded);
 			BrightnessRetentionResult retention = GetBrightnessRetention();
-			if (CurrentSettings.AutoBrightness)
-			{
-				if (std::abs(CurrentSettings.GammaGain - retention.recommendedGain) > 0.005f)
-				{
-					CurrentSettings.GammaGain = retention.recommendedGain;
-					changed = true;
-					saveNeeded = true;
-				}
-			}
 
 			ImGui::Spacing();
 			ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
@@ -1728,7 +2044,7 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
 			if (ImGui::Button(t.EyeComfortApply, ImVec2(0.0f, 24.0f)))
 			{
-				CurrentSettings.GammaGain = retention.recommendedGain;
+				ApplyAutoBrightnessGain();
 				changed = true;
 				saveNeeded = true;
 			}
@@ -1738,11 +2054,82 @@ namespace cba
 			{
 				if (CurrentSettings.AutoBrightness)
 				{
-					CurrentSettings.GammaGain = retention.recommendedGain;
+					ApplyAutoBrightnessGain();
 					changed = true;
 				}
 				saveNeeded = true;
 			}
+
+			// Eye-Sensitive Mode (2026-09-09) - its own module within Eye
+			// Comfort, independent of the Gamma/Auto-Brightness pair above
+			// (which stays untouched, Emi: "funktioniert einwandfrei").
+			// Composes with CVD correction in Recompute(), never replaces it.
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+			if (ImGui::Checkbox(isDe ? "Eye-Sensitive Mode aktivieren" : "Activate Eye-Sensitive Mode", &CurrentSettings.EyeComfortModeEnabled))
+			{
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe
+					? "Eigenstaendiges Layer fuer Blaufilter, Warmton und Saettigungsreduktion - unabhaengig von der Farbkorrektur, wird zusaetzlich angewendet."
+					: "Independent layer for blue-light filter, warm tint and saturation reduction - separate from color correction, applied on top of it.");
+			}
+
+			if (CurrentSettings.EyeComfortModeEnabled)
+			{
+				ImGui::Indent(16.0f);
+
+				// ImGui's SliderFloat format string does not auto-scale - a
+				// 0.0-1.0 range with "%.0f%%" just printed the raw fraction
+				// with a % sign glued on, so the label only ever read "0%"
+				// or "1%" across the whole range (found in the 2026-09-09
+				// codebase review). Fix: widget operates in 0-100 display
+				// units, converted to/from the registry's 0.0-1.0 storage
+				// range right at the boundary - same trick the "Strength"
+				// display text a few lines up already uses (manual *100.0).
+				ImGui::TextUnformatted(isDe ? "Blaufilter:" : "Blue Light Filter:");
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				{
+					float v = ParameterRegistry::Get().GetFloat(ParamId::BlueFilter01) * 100.0f;
+					if (ImGui::SliderFloat("##blue_filter_slider", &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+					{
+						ParameterRegistry::Get().SetFloat(ParamId::BlueFilter01, v / 100.0f);
+						changed = true;
+					}
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+				ImGui::TextUnformatted(isDe ? "Warmton:" : "Warm Tint:");
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				{
+					float v = ParameterRegistry::Get().GetFloat(ParamId::WarmTint01) * 100.0f;
+					if (ImGui::SliderFloat("##warm_tint_slider", &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+					{
+						ParameterRegistry::Get().SetFloat(ParamId::WarmTint01, v / 100.0f);
+						changed = true;
+					}
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+				ImGui::TextUnformatted(isDe ? "Saettigungsreduktion:" : "Saturation Reduction:");
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				{
+					float v = ParameterRegistry::Get().GetFloat(ParamId::SaturationReduction01) * 100.0f;
+					if (ImGui::SliderFloat("##sat_reduction_slider", &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+					{
+						ParameterRegistry::Get().SetFloat(ParamId::SaturationReduction01, v / 100.0f);
+						changed = true;
+					}
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+				ImGui::Unindent(16.0f);
+			}
+
 			endSection();
 		}
 
@@ -1807,6 +2194,31 @@ namespace cba
 				saveNeeded = true;
 			}
 
+			// Advanced UI Theme (2026-09-09, experimental) - palette-only,
+			// opt-in, defaults to Classic (index 0) so nothing changes for
+			// anyone who doesn't touch this. See Theme.cpp for what each
+			// index actually looks like right now.
+			{
+				const char* themeNames[] = {
+					isDe ? "Klassisch" : "Classic",
+					isDe ? "Symbiont (experimentell)" : "Symbiont (experimental)"
+				};
+				ImGui::SetNextItemWidth(220.0f);
+				int themeIdx = CurrentSettings.UiTheme;
+				if (ImGui::Combo(isDe ? "UI-Thema (Advanced)##ui_theme" : "UI Theme (Advanced)##ui_theme", &themeIdx, themeNames, 2))
+				{
+					CurrentSettings.UiTheme = themeIdx;
+					Theme::ApplyTheme(CurrentSettings.UiTheme);
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe
+						? "Experimentelles alternatives Farbschema fuer die CBA-Oberflaeche. Rein optisch, keine Funktionsaenderung - jederzeit reversibel."
+						: "Experimental alternate color palette for the CBA UI. Purely visual, no functional change - fully reversible at any time.");
+				}
+			}
+
 			if (CurrentSettings.DebugMode)
 			{
 				ImGui::Spacing();
@@ -1832,6 +2244,70 @@ namespace cba
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
 
+				// ── Self-Test (2026-09-09) - automated, read-only runtime
+				// checks (registry integrity, live color-math invariants,
+				// Settings export/import roundtrip, cross-field consistency
+				// invariants). Complements, doesn't replace, manual testing -
+				// see core/SelfTest.h for exactly what is and isn't covered.
+				ImGui::Spacing();
+				static std::vector<SelfTestCheck> s_selfTestResults;
+				static bool s_selfTestRan = false;
+				if (ImGui::Button(isDe ? "Selbst-Test ausfuehren##selftest_run" : "Run Self-Test##selftest_run", ImVec2(0.0f, 24.0f)))
+				{
+					s_selfTestResults = RunSelfTest();
+					s_selfTestRan = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe
+						? "Prueft automatisch Registry-Konsistenz, Farbmathe-Invarianten, Settings-Export/Import und Wertebereiche.\nKann keine visuellen/optischen Probleme erkennen - das braucht weiterhin manuelles Testen."
+						: "Automatically checks registry consistency, color-math invariants, Settings export/import, and value ranges.\nCannot detect visual/perceptual issues - manual testing is still needed for those.");
+				}
+				if (s_selfTestRan)
+				{
+					int passed = 0, failed = 0, info = 0;
+					for (const auto& c : s_selfTestResults)
+					{
+						if (c.isInfo) ++info;
+						else if (c.passed) ++passed;
+						else ++failed;
+					}
+					ImGui::SameLine(0, 10.0f);
+					ImGui::TextColored(failed == 0 ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.95f, 0.35f, 0.35f, 1.0f),
+						isDe ? "%d/%d bestanden (%d Info)" : "%d/%d passed (%d info)", passed, passed + failed, info);
+
+					ImGui::Spacing();
+					ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.08f, 0.12f, 0.90f));
+					ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.18f, 0.32f, 0.45f, 0.70f));
+					ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 6.0f));
+					float listH = ImGui::GetTextLineHeightWithSpacing() * std::min<float>(10.0f, (float)s_selfTestResults.size()) + 12.0f;
+					if (ImGui::BeginChild("##selftest_results", ImVec2(0.0f, listH), true))
+					{
+						const char* lastCategory = "";
+						for (const auto& c : s_selfTestResults)
+						{
+							if (std::strcmp(lastCategory, c.category) != 0)
+							{
+								lastCategory = c.category;
+								ImGui::TextColored(Theme::kTextGoldLabel, "%s", lastCategory);
+							}
+							ImVec4 col = c.isInfo ? ImVec4(0.55f, 0.60f, 0.68f, 1.0f)
+								: (c.passed ? ImVec4(0.35f, 0.95f, 0.55f, 1.0f) : ImVec4(0.95f, 0.35f, 0.35f, 1.0f));
+							const char* mark = c.isInfo ? "[i]" : (c.passed ? "[OK]" : "[FAIL]");
+							ImGui::TextColored(col, "  %s %s", mark, c.name);
+							if (!c.detail.empty())
+							{
+								ImGui::SameLine();
+								ImGui::TextDisabled("- %s", c.detail.c_str());
+							}
+						}
+					}
+					ImGui::EndChild();
+					ImGui::PopStyleVar(2);
+					ImGui::PopStyleColor(2);
+				}
+
 				ImGui::Spacing();
 				static std::chrono::steady_clock::time_point s_diagFeedbackTime{};
 				if (ImGui::Button(isDe ? "System-Diagnose in Zwischenablage kopieren##diag_copy" : "Copy System Diagnostics to Clipboard##diag_copy", ImVec2(0.0f, 24.0f)))
@@ -1840,18 +2316,27 @@ namespace cba
 					WindowMode wMode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
 					bool hdr = DetectHdrColorSpace(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
 
+					// Was a hardcoded "1.0.2.0 (Build 2)" literal, drifted from
+					// reality basically immediately - the real Version fields
+					// carry the hour/minute-second build stamp added this
+					// session specifically so a report can prove which exact
+					// compile is loaded (found in the 2026-09-09 codebase
+					// review, the very feature this stamp exists for wasn't
+					// using it).
+					AddonVersion ver = GetAddonVersion();
 					char report[1024];
 					std::snprintf(report, sizeof(report),
 						"============================================================\n"
 						" CBA4GW2 SYSTEM & DIAGNOSTIC REPORT\n"
 						"============================================================\n"
-						"- Addon Version: 1.0.2.0 (Build 2) | Nexus API: %d\n"
+						"- Addon Version: %d.%d.%d.%d | Nexus API: %d\n"
 						"- Profile: %s | Severity: %.1f%% | Enabled: %s\n"
 						"- Magnification API: Initialized: %s | Filter Applied: %s\n"
 						"- Window Mode: %s | HDR Detected: %s\n"
 						"- MumbleLink: Map ID %u (%s) | In Combat: %s\n"
 						"- Performance Timings: Main: %.2f ms | HUD: %.2f ms | Curves: %.2f ms | Lab: %.2f ms | Total: %.2f ms\n"
 						"============================================================",
+						ver.Major, ver.Minor, ver.Build, ver.Revision,
 						NEXUS_API_VERSION,
 						(CurrentSettings.Mixed ? "Mixed" : (CurrentSettings.Type == BalanceType::Protan ? "Protan" : (CurrentSettings.Type == BalanceType::Deutan ? "Deutan" : "Tritan"))),
 						CurrentSettings.Severity01 * 100.0,
@@ -1864,7 +2349,25 @@ namespace cba
 						gctx.isInCombat ? "YES" : "NO",
 						g_perfMainWindowMs, g_perfSensorGraphMs, g_perfCurvesMs, g_perfFilterLabMs, g_perfTotalImGuiMs);
 
-					ImGui::SetClipboardText(report);
+					std::string fullReport = report;
+					if (s_selfTestRan)
+					{
+						fullReport += "\n- Self-Test:\n";
+						for (const auto& c : s_selfTestResults)
+						{
+							const char* mark = c.isInfo ? "[i]" : (c.passed ? "[OK]" : "[FAIL]");
+							fullReport += "  ";
+							fullReport += mark;
+							fullReport += " ";
+							fullReport += c.category;
+							fullReport += ": ";
+							fullReport += c.name;
+							if (!c.detail.empty()) { fullReport += " - "; fullReport += c.detail; }
+							fullReport += "\n";
+						}
+						fullReport += "============================================================";
+					}
+					ImGui::SetClipboardText(fullReport.c_str());
 					s_diagFeedbackTime = std::chrono::steady_clock::now();
 				}
 				if (ImGui::IsItemHovered())
@@ -1958,22 +2461,23 @@ namespace cba
 			bool isClickedLeft = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 			bool isClickedRight = ImGui::IsItemClicked(ImGuiMouseButton_Right);
 
-			// Left Click: Toggle Main Window
-			if (isClickedLeft)
+			// Left Click: Toggle Main Window - respects the Advanced Mode
+			// gate the same way the keybind does (2026-09-09): can always
+			// close, can only open once unlocked.
+			if (isClickedLeft && (CurrentSettings.AdvancedModeUnlocked || CurrentSettings.ShowMainWindow))
 			{
 				EnsureDeferredInitialized();
 				CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
 				if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 			}
 
-			// Right Click: Master Filter Toggle
+			// Right Click: Master Filter Toggle - was a 4th inline copy of
+			// the exact sequence already shared as ToggleMasterEnabled()
+			// (found in the 2026-09-09 codebase review; two other call
+			// sites already used the shared function).
 			if (isClickedRight)
 			{
-				EnsureDeferredInitialized();
-				CurrentSettings.Enabled = !CurrentSettings.Enabled;
-				CurrentSettings.Save(AddonDir);
-				Recompute(/*aForce=*/true);
-				UpdateQuickAccessIcon();
+				ToggleMasterEnabled();
 			}
 
 			// Rendering the Icon Image
@@ -1982,9 +2486,13 @@ namespace cba
 			ImVec2 pMax = ImGui::GetItemRectMax();
 
 			void* drawSrv = tex->Resource;
-			if (!CurrentSettings.Enabled && isHovered)
+			// Brightens on hover regardless of Active/Inactive now
+			// (2026-09-10, "volle Integration in die Nexus Icon Familie") -
+			// matches every native Nexus icon, which all brighten to the
+			// same near-white tone on hover no matter their own state.
+			if (isHovered)
 			{
-				Texture* hovTex = APIDefs ? APIDefs->Textures.Get("CBA_ICON_INACTIVE_HOVER") : nullptr;
+				Texture* hovTex = APIDefs ? APIDefs->Textures.Get("CBA_ICON_HOVER") : nullptr;
 				if (hovTex && hovTex->Resource) drawSrv = hovTex->Resource;
 			}
 

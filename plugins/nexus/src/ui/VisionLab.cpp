@@ -120,7 +120,7 @@ namespace cba
 	{
 		if (!ImGui::GetCurrentContext()) return;
 		const L10n& t = Strings();
-		bool isDe = (t.Enabled[0] == 'A');
+		bool isDe = cba::IsGerman(); // was a fragile first-letter check - see CLAUDE.md 2026-09-09
 
 		ImGui::SetNextWindowBgAlpha(0.96f);
 		ImGui::PushStyleColor(ImGuiCol_WindowBg,             ImVec4(0.06f, 0.08f, 0.12f, 0.96f));
@@ -238,13 +238,20 @@ namespace cba
 					// Optional CBA Filter preview on eyepiece
 					if (s_anomPreviewFilter && CurrentSettings.Enabled)
 					{
-						topR = (float)std::clamp(corrMat[0][0]*topR + corrMat[0][1]*topG + corrMat[0][2]*topB, 0.0, 1.0);
-						topG = (float)std::clamp(corrMat[1][0]*topR + corrMat[1][1]*topG + corrMat[1][2]*topB, 0.0, 1.0);
-						topB = (float)std::clamp(corrMat[2][0]*topR + corrMat[2][1]*topG + corrMat[2][2]*topB, 0.0, 1.0);
+						// Snapshot originals first - the old code reassigned
+						// topR/botR then used the ALREADY-TRANSFORMED value as
+						// input for topG/botG, a corrupted sequential mangle
+						// rather than a real matrix-vector multiply (found in
+						// the 2026-09-09 codebase review).
+						float srcTopR = topR, srcTopG = topG, srcTopB = topB;
+						float srcBotR = botR, srcBotG = botG, srcBotB = botB;
+						topR = (float)std::clamp(corrMat[0][0]*srcTopR + corrMat[0][1]*srcTopG + corrMat[0][2]*srcTopB, 0.0, 1.0);
+						topG = (float)std::clamp(corrMat[1][0]*srcTopR + corrMat[1][1]*srcTopG + corrMat[1][2]*srcTopB, 0.0, 1.0);
+						topB = (float)std::clamp(corrMat[2][0]*srcTopR + corrMat[2][1]*srcTopG + corrMat[2][2]*srcTopB, 0.0, 1.0);
 
-						botR = (float)std::clamp(corrMat[0][0]*botR + corrMat[0][1]*botG + corrMat[0][2]*botB, 0.0, 1.0);
-						botG = (float)std::clamp(corrMat[1][0]*botR + corrMat[1][1]*botG + corrMat[1][2]*botB, 0.0, 1.0);
-						botB = (float)std::clamp(corrMat[2][0]*botR + corrMat[2][1]*botG + corrMat[2][2]*botB, 0.0, 1.0);
+						botR = (float)std::clamp(corrMat[0][0]*srcBotR + corrMat[0][1]*srcBotG + corrMat[0][2]*srcBotB, 0.0, 1.0);
+						botG = (float)std::clamp(corrMat[1][0]*srcBotR + corrMat[1][1]*srcBotG + corrMat[1][2]*srcBotB, 0.0, 1.0);
+						botB = (float)std::clamp(corrMat[2][0]*srcBotR + corrMat[2][1]*srcBotG + corrMat[2][2]*srcBotB, 0.0, 1.0);
 					}
 
 					// Draw Eyepiece Canvas
@@ -405,23 +412,37 @@ namespace cba
 							if (aqVal < 0.70f)
 							{
 								CurrentSettings.Type = BalanceType::Protan;
-								CurrentSettings.Severity01 = (double)std::clamp((0.70f - aqVal) / 0.55f * 0.70f + 0.35f, 0.35f, 1.25f);
+								CurrentSettings.Severity01 = std::clamp((0.70f - aqVal) / 0.55f * 0.70f + 0.35f, 0.35f, 1.25f);
 							}
 							else if (aqVal > 1.40f)
 							{
 								CurrentSettings.Type = BalanceType::Deutan;
-								CurrentSettings.Severity01 = (double)std::clamp((aqVal - 1.40f) / 2.20f * 0.70f + 0.35f, 0.35f, 1.25f);
+								CurrentSettings.Severity01 = std::clamp((aqVal - 1.40f) / 2.20f * 0.70f + 0.35f, 0.35f, 1.25f);
 							}
 							else
 							{
-								CurrentSettings.Severity01 = 0.20;
+								CurrentSettings.Severity01 = 0.20f;
 							}
 						}
 						else
 						{
-							CurrentSettings.Type = BalanceType::Tritan;
-							float diff = std::abs(s_morelandMix - 0.50f);
-							CurrentSettings.Severity01 = (double)std::clamp(diff / 0.35f * 0.80f + 0.40f, 0.40f, 1.25f);
+							// Mirrors the Rayleigh branch above: the on-screen
+							// diagnostic (line ~355) calls anything within
+							// [0.38, 0.62] "Normal Blue Receptor" - this used
+							// to have no matching normal-range case here, so
+							// even a dead-center 0.50 reading force-applied
+							// Tritan at a 40% severity floor (found in the
+							// 2026-09-09 codebase review).
+							if (s_morelandMix < 0.38f || s_morelandMix > 0.62f)
+							{
+								CurrentSettings.Type = BalanceType::Tritan;
+								float diff = std::abs(s_morelandMix - 0.50f);
+								CurrentSettings.Severity01 = std::clamp(diff / 0.35f * 0.80f + 0.40f, 0.40f, 1.25f);
+							}
+							else
+							{
+								CurrentSettings.Severity01 = 0.20f;
+							}
 						}
 
 						CurrentSettings.Save(AddonDir);
@@ -560,9 +581,9 @@ namespace cba
 						CurrentSettings.Type = (s_repType == 0) ? BalanceType::Protan :
 						                       (s_repType == 1) ? BalanceType::Deutan : BalanceType::Tritan;
 
-						CurrentSettings.Severity01 = (s_repSeverity == 0) ? 0.35 :
-						                             (s_repSeverity == 1) ? 0.65 :
-						                             (s_repSeverity == 2) ? 0.95 : 1.25;
+						CurrentSettings.Severity01 = (s_repSeverity == 0) ? 0.35f :
+						                             (s_repSeverity == 1) ? 0.65f :
+						                             (s_repSeverity == 2) ? 0.95f : 1.25f;
 
 						CurrentSettings.GammaGain = (s_repSeverity >= 2) ? 1.08f : 1.00f;
 						CurrentSettings.Save(AddonDir);

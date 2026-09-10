@@ -18,6 +18,4 @@ private:
 };
 
 ColorEffectController& GetColorEffectController();
-void InstallCrashGuard();
-void RemoveCrashGuard();
 }

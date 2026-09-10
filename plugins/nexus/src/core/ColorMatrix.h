@@ -44,5 +44,20 @@ namespace cba
 		void ApplyPixel(double aR, double aG, double aB,
 		                const double aMatrix[3][3],
 		                double& aOutR, double& aOutG, double& aOutB);
+
+		// Eye-Sensitive Mode (2026-09-09) - its own independent layer, not a
+		// CVD-correction concept. Composes with whatever CorrectionMatrix/
+		// MixedCorrectionMatrix produced (see Recompute() in ModuleMain.cpp -
+		// multiplied in downstream, like a tinted lens sitting in front of an
+		// already-corrected image), never replaces it. All three params are
+		// 0.0 (off) to 1.0 (max), independent and combinable per Emi's spec.
+		//   aBlueFilter01: reduces blue channel gain (Night-Light style).
+		//   aWarmTint01: shifts toward red/amber, reduces blue further.
+		//   aSaturationReduction01: blends toward Rec.601 luminance-preserving
+		//     grey - a real desaturation, not a brightness/contrast trick
+		//     (those would need a translation term the 5x5 MAGCOLOREFFECT
+		//     deliberately doesn't use here - see ToMagColorEffect's comment).
+		void EyeComfortMatrix(double aBlueFilter01, double aWarmTint01,
+		                      double aSaturationReduction01, double aOut3x3[3][3]);
 	}
 }

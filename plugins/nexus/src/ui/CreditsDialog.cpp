@@ -187,7 +187,7 @@ namespace cba
 			ImGui::Spacing();
 
 			// Bottom Buttons (Sound Toggle & Close)
-			bool isDe = (Strings().Enabled[0] == 'A');
+			bool isDe = cba::IsGerman(); // was a fragile first-letter check - see CLAUDE.md 2026-09-09
 			bool sound = s_c64SoundEnabled.load();
 			if (sound)
 			{

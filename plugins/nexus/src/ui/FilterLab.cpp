@@ -165,9 +165,29 @@ namespace cba
 	}
 
 	// ── Filter-Labor & Experimentierfeld Widget ───────────────────────────────
-	void DrawFilterLabWidget(bool isDe, bool& changed, bool& saveNeeded)
+	void DrawFilterLabWidget(bool isDe, bool& aOutChanged, bool& aOutSaveNeeded)
 	{
 		if (!ImGui::GetCurrentContext()) return;
+
+		// One-shot exclusivity vs. Auto Com-Tag (see CLAUDE.md / Emi's spec):
+		// touching a Filter Lab control this frame turns Auto Com-Tag off once.
+		// It's not a standing lock - re-enabling Auto Com-Tag afterward works
+		// fine even while Filter Lab stays active.
+		//
+		// Local shadows of the real out-params (2026-09-09 codebase review
+		// fix): the previous approach compared the SHARED changed/saveNeeded
+		// against their value on entry, but if an earlier same-frame call in
+		// MainWindow.cpp (SyncAutoBrightnessGain) had already set them true,
+		// the "was Filter Lab touched" edge could never fire even though the
+		// user genuinely touched a control here. Shadowing with fresh locals
+		// means every one of this function's ~15 internal "changed = true" /
+		// "saveNeeded = true" sites below - all unchanged, C++ name lookup
+		// finds these shadowing locals first - now unambiguously reflects
+		// only what happened inside THIS call. Merged into the real
+		// out-params right before returning, at the bottom of this function.
+		bool changed = false;
+		bool saveNeeded = false;
+
 		bool labActive = CurrentSettings.LabModeEnabled;
 		if (ImGui::Checkbox(isDe ? "Filter-Labor aktiv (Mehrfach-Filter & Erfassung)##lab_master" 
 		                         : "Filter Lab Active (Multi-Filter & Capture)##lab_master", &labActive))
@@ -338,12 +358,20 @@ namespace cba
 				                                | ImGuiColorEditFlags_NoSmallPreview 
 				                                | ImGuiColorEditFlags_NoAlpha;
 				ImGui::SetNextItemWidth(pickerW);
+				// saveNeeded (disk write + forced Recompute) used to fire on
+				// every value-change frame here - every frame the mouse
+				// drags across the wheel, easily dozens of times a second
+				// (found in the 2026-09-09 codebase review, a real Trinity-
+				// Performance hit on the most common Filter Lab interaction).
+				// Live preview (changed) still updates every frame; the disk
+				// write now only happens once the drag actually ends, same
+				// as the Tolerance/Diffusion sliders below.
 				if (ImGui::ColorPicker3("##lab_picker", curF.TargetRgb, pickerFlags))
 				{
 					UpdateTagEnhancerConflicts();
 					changed = true;
-					saveNeeded = true;
 				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 
 				ImGui::Spacing();
 				ImGui::TextDisabled("%s:", isDe ? "Signal- / Ersatzfarbe" : "Signal / Replacement Color");
@@ -352,8 +380,8 @@ namespace cba
 				{
 					UpdateTagEnhancerConflicts();
 					changed = true;
-					saveNeeded = true;
 				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 				ImGui::EndGroup();
 
 				// Right column: XY Color Ray Matrix Diagram
@@ -443,8 +471,13 @@ namespace cba
 				float dg = curF.TargetRgb[1] - curF.ReplaceRgb[1];
 				float db = curF.TargetRgb[2] - curF.ReplaceRgb[2];
 				float dScore = std::sqrt(dr*dr + dg*dg + db*db);
+				// Was labeled "Delta-E:" - this is raw RGB Euclidean distance,
+				// no RGB->Lab conversion exists anywhere in this codebase, so
+				// it isn't real CIE Delta-E (found in the 2026-09-09 codebase
+				// review - color-science labels held to the same
+				// non-negotiable-correctness standard as the math itself).
 				char dScoreBuf[64];
-				std::snprintf(dScoreBuf, sizeof(dScoreBuf), "Delta-E: %.2f", dScore);
+				std::snprintf(dScoreBuf, sizeof(dScoreBuf), "%s: %.2f", isDe ? "RGB-Distanz" : "RGB Distance", dScore);
 				ImVec2 dSize = ImGui::CalcTextSize(dScoreBuf);
 
 				// Sleek Delta-E badge in top-right corner of canvas
@@ -581,7 +614,14 @@ namespace cba
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-				if (ImGui::Button(isDe ? "Auto-Luminanz (WCAG)##lab" : "Auto-Luminance (WCAG)##lab", ImVec2(fitSideBySide ? 0.0f : availAct, 26.0f)))
+				// Was labeled "(WCAG)" and promised "at least 4.5:1" in its
+				// tooltip, but this is a one-shot luma-threshold heuristic -
+				// it nudges the replacement color lighter/darker and never
+				// computes or verifies the actual (L1+0.05)/(L2+0.05) WCAG
+				// ratio (found in the 2026-09-09 codebase review). Relabeled
+				// to describe what it honestly does rather than implementing
+				// real ratio-verification under this fix pass's time budget.
+				if (ImGui::Button(isDe ? "Auto-Kontrast (Heuristik)##lab" : "Auto-Contrast (Heuristic)##lab", ImVec2(fitSideBySide ? 0.0f : availAct, 26.0f)))
 				{
 					float lum = RelativeLuma(curF.TargetRgb[0], curF.TargetRgb[1], curF.TargetRgb[2]);
 					if (lum > 0.45f) {
@@ -600,8 +640,8 @@ namespace cba
 				ImGui::PopStyleColor(4);
 				if (ImGui::IsItemHovered())
 				{
-					ImGui::SetTooltip(isDe ? "Passt die Helligkeit an, um mindestens WCAG 4.5:1 Kontrast zu gewaehrleisten."
-					                       : "Adjusts brightness to ensure at least WCAG 4.5:1 contrast ratio.");
+					ImGui::SetTooltip(isDe ? "Heuristik: Verschiebt die Ersatzfarbe grob heller/dunkler basierend auf der Ziel-Luminanz.\nBerechnet oder garantiert keinen exakten WCAG-Kontrastwert - manuelle Nachpruefung empfohlen."
+					                       : "Heuristic: Roughly shifts the replacement color lighter/darker based on target luminance.\nDoes not compute or guarantee an exact WCAG contrast ratio - manual verification recommended.");
 				}
 
 				// Quick presets row
@@ -631,5 +671,17 @@ namespace cba
 
 			ImGui::EndTabBar();
 		}
+
+		bool touchedThisFrame = changed || saveNeeded;
+		if (touchedThisFrame && CurrentSettings.CommanderTagMode != 0)
+		{
+			CurrentSettings.CommanderTagMode = 0;
+			UpdateTagEnhancerConflicts();
+			Recompute(/*aForce=*/true);
+			saveNeeded = true;
+		}
+
+		aOutChanged = aOutChanged || changed;
+		aOutSaveNeeded = aOutSaveNeeded || saveNeeded;
 	}
 }

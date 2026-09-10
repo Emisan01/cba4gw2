@@ -4,15 +4,42 @@ project(cba LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ON by default: this is the local dev build (see ModuleMain.cpp GetAddonDef).
+# Turn OFF only when actually cutting a release build meant to ship with
+# Nexus's real GitHub-provider auto-update behavior.
+option(CBA_LOCAL_DEV "Disable Nexus auto-update while iterating locally" ON)
+
+# Build-time stamp for AddonVersion.Build/.Revision (2026-09-09) - Emi's idea,
+# because "is this DLL actually the one I just built" turned into a whole
+# afternoon of byte-comparing files after something (Nexus's own Library
+# auto-update, it looks like) kept silently reverting addons/cba.dll to an
+# older build. This regenerates every single build (it's a target with no
+# tracked OUTPUT, so CMake always re-runs it, unlike configure_file which
+# only updates when CMake reconfigures) and stamps Build=HH, Revision=MMSS
+# from the build time - so the version number Nexus displays in its addon
+# list changes on every real rebuild and can be eyeballed directly instead
+# of comparing file sizes.
+add_custom_target(cba_gen_buildstamp
+    COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_buildstamp.ps1"
+        -OutFile "${CMAKE_CURRENT_SOURCE_DIR}/src/BuildStamp.h"
+    BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/src/BuildStamp.h"
+    COMMENT "Stamping build version (Build=hour, Revision=minute*100+second)..."
+)
+
 add_library(cba SHARED
     src/ModuleMain.cpp
     src/core/Shared.cpp
     src/core/ColorMatrix.cpp
     src/core/Settings.cpp
+    src/core/ParameterRegistry.cpp
+    src/core/SelfTest.cpp
+    src/core/FeatureModule.cpp
     src/platform/Magnification.cpp
     src/platform/WindowMode.cpp
     src/platform/HybridScanner.cpp
     src/ui/UIState.cpp
+    src/ui/Theme.cpp
     src/ui/MainWindow.cpp
     src/ui/SensorGraphHUD.cpp
     src/ui/FilterLab.cpp
@@ -24,6 +51,12 @@ add_library(cba SHARED
     thirdparty/imgui/imgui_tables.cpp
     thirdparty/imgui/imgui_widgets.cpp
 )
+
+add_dependencies(cba cba_gen_buildstamp)
+
+if(CBA_LOCAL_DEV)
+    target_compile_definitions(cba PRIVATE CBA_LOCAL_DEV)
+endif()
 
 target_include_directories(cba PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -47,13 +80,38 @@ set_target_properties(cba PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
 )
 
-# Automatic hot-load deployment to local Guild Wars 2 addons directory
+# Unit tests for the pure-math core (core/ColorMatrix.cpp) - the one part of
+# this addon with zero ImGui/Nexus/Win32-runtime dependency, so the one part
+# that can run standalone without a live GW2 process. See tests/ for what's
+# covered and why (invariants, not golden numbers). Runs automatically after
+# every build (POST_BUILD) so a math regression shows up immediately instead
+# of only "by inspection" during a later audit.
+add_executable(cba_tests
+    tests/test_color_matrix.cpp
+    src/core/ColorMatrix.cpp
+)
+target_include_directories(cba_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+)
+set_target_properties(cba_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+add_custom_command(TARGET cba_tests POST_BUILD
+    COMMAND cba_tests
+    COMMENT "Running cba_tests..."
+)
+
+# Automatic hot-load deployment to local Guild Wars 2 addons directory.
+# Uses tools/deploy_dll.ps1 (rather than a plain copy_if_different) only so
+# a locked destination (GW2/Nexus still has cba.dll loaded) is skipped with
+# a warning instead of failing the whole build.
 set(GW2_ADDONS_DIR "C:/GAMES/Guild Wars 2/addons")
 if(EXISTS "${GW2_ADDONS_DIR}")
     add_custom_command(TARGET cba POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:cba>
-            "${GW2_ADDONS_DIR}/cba.dll"
+        COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/deploy_dll.ps1"
+            -Source "$<TARGET_FILE:cba>"
+            -Destination "${GW2_ADDONS_DIR}/cba.dll"
         COMMENT "Auto-deploying cba.dll to Guild Wars 2 addons directory for hot-reloading..."
     )
 endif()

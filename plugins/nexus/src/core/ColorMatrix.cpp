@@ -241,4 +241,46 @@ namespace cba
 		aOutG = Clamp01(aMatrix[1][0]*aR + aMatrix[1][1]*aG + aMatrix[1][2]*aB);
 		aOutB = Clamp01(aMatrix[2][0]*aR + aMatrix[2][1]*aG + aMatrix[2][2]*aB);
 	}
+
+	void ColorMatrix::EyeComfortMatrix(double aBlueFilter01, double aWarmTint01,
+	                                   double aSaturationReduction01, double aOut3x3[3][3])
+	{
+		double blueFilter = Clamp01(aBlueFilter01);
+		double warmTint = Clamp01(aWarmTint01);
+		double satReduction = Clamp01(aSaturationReduction01);
+
+		// Blue-light filter + warm tint: simple diagonal channel scaling,
+		// same family of technique as Windows Night Light / f.lux. The two
+		// combine multiplicatively on the blue channel rather than additively,
+		// so stacking both near 100% can't push blue into negative territory
+		// (Multiply() + the caller's downstream clamp handle the rest).
+		double rScale = 1.0 + 0.15 * warmTint;
+		double gScale = 1.0 - 0.05 * warmTint;
+		double bScale = (1.0 - 0.45 * blueFilter) * (1.0 - 0.25 * warmTint);
+
+		double warm[3][3] = {
+			{ rScale, 0.0,    0.0    },
+			{ 0.0,    gScale, 0.0    },
+			{ 0.0,    0.0,    bScale }
+		};
+
+		// Saturation reduction: blend each output channel toward Rec.601
+		// luminance (0.299/0.587/0.114) - a real desaturation (every channel
+		// converges on the same grey value), not a contrast/brightness trick.
+		// At satReduction=1.0 this is a pure greyscale matrix; at 0.0 it's
+		// identity.
+		constexpr double kLumR = 0.299, kLumG = 0.587, kLumB = 0.114;
+		double grey[3][3] = {
+			{ kLumR, kLumG, kLumB },
+			{ kLumR, kLumG, kLumB },
+			{ kLumR, kLumG, kLumB }
+		};
+		double sat[3][3];
+		Lerp(Identity3, grey, satReduction, sat);
+
+		// Compose: saturation reduction first, then the warm/blue-filter tint
+		// on top - matches the "tinted lens sitting in front of the image"
+		// mental model this whole layer is built around.
+		Multiply(warm, sat, aOut3x3);
+	}
 }

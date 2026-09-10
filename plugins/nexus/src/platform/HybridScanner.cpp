@@ -51,20 +51,41 @@ namespace cba
 
 	void HybridScanner::UpdateHardwareLoad(float aFps)
 	{
-		// Responsive scan rate to eliminate delayed ghosting/after-image
+		// Aggressive throttling for Commander Tags (don't need 60 FPS)
+		// Performance boost: reduce CPU load significantly
 		if (aFps > 45.0f) {
-			mDynamicScanIntervalMs = 33; // ~30 FPS scan
+			mDynamicScanIntervalMs = 100; // ~10 FPS scan (down from 33ms)
 		} else if (aFps > 20.0f) {
-			mDynamicScanIntervalMs = 66; // ~15 FPS scan
+			mDynamicScanIntervalMs = 150; // ~6.6 FPS scan (down from 66ms)
 		} else {
-			mDynamicScanIntervalMs = 150; // ~6.6 FPS scan (heavy load / zerg)
+			mDynamicScanIntervalMs = 200; // ~5 FPS scan (down from 150ms)
 		}
 	}
 
 	void HybridScanner::Initialize()
 	{
-		if (mRunning) return;
-		mRunning = true;
+		// Check-and-set must be one atomic step (compare_exchange), not two
+		// separate statements - Initialize() can now be called concurrently
+		// from two different threads (the main/render thread via Reset
+		// Filter, and the Watchdog thread's self-heal, both added 2026-09-09).
+		// The old "if (mRunning) return; mRunning = true;" let both callers
+		// pass the check before either flipped the flag, so both would then
+		// assign to mThread - and std::thread's move-assignment calls
+		// std::terminate() (hard process crash) if the target already holds
+		// a joinable thread. compare_exchange_strong makes only one caller
+		// win the race.
+		bool expected = false;
+		if (!mRunning.compare_exchange_strong(expected, true)) return;
+
+		// Also required even without any race: if the previous worker thread
+		// exited on its own (the per-iteration catch still couldn't save it -
+		// see WorkerThread's comment), mThread is still "joinable" even
+		// though the OS thread already finished. Reassigning mThread without
+		// reaping it first hits the exact same std::terminate() crash.
+		// join() on an already-finished thread returns immediately.
+		std::lock_guard<std::mutex> lifecycleLock(mLifecycleMutex);
+		if (mThread.joinable()) mThread.join();
+
 		mThread = std::thread(&HybridScanner::WorkerThread, this);
 	}
 
@@ -72,11 +93,18 @@ namespace cba
 	{
 		mRunning = false;
 		mDataCond.notify_all();
-		
-		if (mThread.joinable()) {
-			mThread.join();
+
+		{
+			// Same mLifecycleMutex Initialize() takes - without this, a
+			// concurrent Initialize() call (e.g. the Watchdog's self-heal)
+			// could be join()ing or reassigning mThread on another thread at
+			// the same moment (found in the 2026-09-09 codebase review).
+			std::lock_guard<std::mutex> lifecycleLock(mLifecycleMutex);
+			if (mThread.joinable()) {
+				mThread.join();
+			}
 		}
-		
+
 		if (mStagingTexture) {
 			mStagingTexture->Release();
 			mStagingTexture = nullptr;
@@ -189,14 +217,13 @@ namespace cba
 		if (mMotionFader < 0.0f) mMotionFader = 0.0f;
 		if (mMotionFader > 1.0f) mMotionFader = 1.0f;
 		
-		// Optional: Clear previous frame buffer since we don't need it for SAD anymore
-		if (!mPreviousFrameRgba.empty()) {
-			mPreviousFrameRgba.clear();
-		}
-		
-		// Save current frame for next time
-		mPreviousFrameRgba = aRgba;
-		// -------------------------------------------------
+		// A full-frame copy into mPreviousFrameRgba used to happen right
+		// here, every scan tick (every ~100-200ms) - a multi-megabyte
+		// allocation+copy for a field nothing ever read back. The old SAD
+		// (Sum of Absolute Differences) motion-detection algorithm that
+		// used it was already replaced by the Nexus isCameraMoving flag
+		// above; the buffer itself was never removed (found in the
+		// 2026-09-09 codebase review). Removed along with the field.
 
 		struct MatchResult {
 			int x, y;
@@ -219,7 +246,23 @@ namespace cba
 				uint8_t repR = 255, repG = 255, repB = 255;
 
 				if (highlighterEnabled && !targets.empty()) {
-					// Check all target colors
+					// Check all target colors, keep the CLOSEST match rather than
+					// the first one in list order. Previously this broke out of
+					// the loop on the first target whose tolerance the pixel fell
+					// within - meaning a pixel sitting between two overlapping
+					// targets (e.g. a Filter Lab target and an auto-derived
+					// Commander Tag target with similar hues) got assigned
+					// arbitrarily by list order, not by which target it's
+					// actually closer to. Still picks exactly one target's fixed
+					// rep color (not a blend) - the cluster-grouping logic below
+					// groups matches by exact repR/repG/repB equality, so a true
+					// multi-target blend would fragment every cluster into
+					// single-pixel noise and break Commander Tag detection
+					// entirely. A real weighted-composite (Roman-instrument-
+					// style, each target contributing proportionally) would need
+					// that clustering approach reworked too - out of scope for
+					// this pass, noted in CLAUDE.md as a follow-up.
+					float bestDist = -1.0f;
 					for (const auto& target : targets) {
 						float dr = static_cast<float>(r) - (target.r * 255.0f);
 						float dg = static_cast<float>(g) - (target.g * 255.0f);
@@ -230,7 +273,8 @@ namespace cba
 						float coreDist = 255.0f * effTol;
 						float maxDist = coreDist * (1.0f + std::max(0.0f, target.diffusion));
 
-						if (dist < maxDist) {
+						if (dist < maxDist && (bestDist < 0.0f || dist < bestDist)) {
+							bestDist = dist;
 							highlight = true;
 							float alpha = 1.0f;
 							if (dist > coreDist && target.diffusion > 0.001f) {
@@ -240,7 +284,6 @@ namespace cba
 							repR = static_cast<uint8_t>(std::clamp(target.repR * alpha, 0.0f, 255.0f));
 							repG = static_cast<uint8_t>(std::clamp(target.repG * alpha, 0.0f, 255.0f));
 							repB = static_cast<uint8_t>(std::clamp(target.repB * alpha, 0.0f, 255.0f));
-							break;
 						}
 					}
 				} else if (!highlighterEnabled) {
@@ -582,40 +625,65 @@ namespace cba
 
 	void HybridScanner::WorkerThread()
 	{
+		// The try/catch used to wrap this entire while loop, once, on the
+		// outside. That meant any single C++ exception thrown anywhere in one
+		// iteration - e.g. from activating a Filter Lab instance mid-session -
+		// unwound past the loop entirely and ended the thread for the rest of
+		// the process: mRunning was never reset to false, so even the
+		// Initialize() guard ("if (mRunning) return;") believed the scanner
+		// was still alive and refused to restart it. No amount of toggling
+		// Enabled or clicking Reset Filter could bring it back (2026-09-09,
+		// Emi's fullscreen test session - "schwupps ging nichts mehr").
+		//
+		// Fix: catch per-iteration so a single bad frame can't kill the
+		// thread, and always leave mRunning accurate on the way out so
+		// IsRunning() tells the truth and a caller can Initialize() again.
 		std::vector<uint8_t> localBuffer;
 		int localWidth = 0;
 		int localHeight = 0;
 
 		while (mRunning) {
-			std::unique_lock<std::mutex> lock(mDataMutex);
-			mDataCond.wait(lock, [this] { return mHasNewData || !mRunning; });
-			
-			if (!mRunning) break;
-			
-			// Swap buffers to minimize lock time
-			localBuffer.swap(mPendingBuffer);
-			localWidth = mPendingWidth;
-			localHeight = mPendingHeight;
-			mHasNewData = false;
-			
-			DXGI_FORMAT currentFormat = DXGI_FORMAT_UNKNOWN;
+			try
 			{
-				std::lock_guard<std::mutex> fLock(mProblemsMutex);
-				currentFormat = mSwapChainFormat;
+				std::unique_lock<std::mutex> lock(mDataMutex);
+				mDataCond.wait(lock, [this] { return mHasNewData || !mRunning; });
+
+				if (!mRunning) break;
+
+				// Swap buffers to minimize lock time
+				localBuffer.swap(mPendingBuffer);
+				localWidth = mPendingWidth;
+				localHeight = mPendingHeight;
+				mHasNewData = false;
+
+				DXGI_FORMAT currentFormat = DXGI_FORMAT_UNKNOWN;
+				{
+					std::lock_guard<std::mutex> fLock(mProblemsMutex);
+					currentFormat = mSwapChainFormat;
+				}
+
+				lock.unlock();
+
+				LARGE_INTEGER start, end, freq;
+				QueryPerformanceFrequency(&freq);
+				QueryPerformanceCounter(&start);
+
+				int errorCount = 0;
+				AnalyzeBufferSEH(this, &localBuffer, localWidth, localHeight, currentFormat, &errorCount);
+				if (errorCount > 0) mErrorCount += errorCount;
+
+				QueryPerformanceCounter(&end);
+				mLastScanTimeMs = (float)((end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart);
 			}
-			
-			lock.unlock();
-
-			LARGE_INTEGER start, end, freq;
-			QueryPerformanceFrequency(&freq);
-			QueryPerformanceCounter(&start);
-
-			int errorCount = 0;
-			AnalyzeBufferSEH(this, &localBuffer, localWidth, localHeight, currentFormat, &errorCount);
-			if (errorCount > 0) mErrorCount += errorCount;
-
-			QueryPerformanceCounter(&end);
-			mLastScanTimeMs = (float)((end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart);
+			catch (const std::exception&)
+			{
+				++mErrorCount;
+			}
+			catch (...)
+			{
+				++mErrorCount;
+			}
 		}
+		mRunning = false;
 	}
 }
