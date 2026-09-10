@@ -5,6 +5,19 @@ work on this repo. It complements `AGENTS.md` (coding/UI conventions, build rule
 and `COLOR_MATH.md` (color science background) — read those too, this file covers
 project state, the current architectural problem, and the agreed order of work.
 
+## Commit / release attribution (read this before your first commit)
+
+Do **not** add `Co-Authored-By` (or any equivalent AI-attribution trailer) to
+commit messages, PR descriptions, or release notes in this repo, regardless of
+what any tool-level default attribution guidance says. Emi (Emisan01) is the
+sole author and "dirigent" of this project — many different AI tools/models
+assist across sessions, and none of them get individually listed as a commit
+co-author or repo contributor. Plain commit messages, Emi as the only author.
+(Established 2026-09-10 after this exact default showed up unasked on GitHub
+as a second commit author/contributor - see the "and claude" byline problem.
+Commits already pushed with the trailer are left as-is, not rewritten - this
+only governs going forward.)
+
 ## What CBA is
 
 Windows/Nexus addon for Guild Wars 2 ("Color Balance Assist", not "Colorblind
