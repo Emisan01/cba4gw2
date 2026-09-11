@@ -1,9 +1,16 @@
 # CLAUDE.md — Working Context for CBA (ColorBalanceAssist)
 
 This file is the standing brief for any AI session (Claude or otherwise) picking up
-work on this repo. It complements `AGENTS.md` (coding/UI conventions, build rules)
-and `COLOR_MATH.md` (color science background) — read those too, this file covers
-project state, the current architectural problem, and the agreed order of work.
+work on this repo. It complements `AGENTS.md` (coding/UI conventions, build rules),
+`COLOR_MATH.md` (color science background) and `PRODUCT_CONCEPT.md` (the UX/product
+concept: who this is for, why the entry point is shaped the way it is, and the
+agreed rebuild order) — read those too, this file covers project state, the
+current architectural problem, and the agreed order of work.
+
+**Before proposing UI or feature work, read `PRODUCT_CONCEPT.md` first.** It
+carries the one rule everything else derives from: the user cannot evaluate a
+colour correction with the perception being corrected, so every change must
+either remove a judgment they can't make or supply evidence that it works.
 
 ## Commit / release attribution (read this before your first commit)
 
