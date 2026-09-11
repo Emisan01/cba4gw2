@@ -168,6 +168,55 @@ things.
   analysis it's actually a *larger*, riskier scope change than the idea
   already shelved for exactly that reason. Record it as its own thing, not
   a "smaller/safer" alternative to revisit casually later.
+- **Nexus's own addon-reload has a file-swap race - not a CBA bug, no CBA-side
+  fix possible** (found 2026-09-11, live-testing a manual "Check for Updates"
+  in Nexus while cba4gw2 was loaded): two independent, unsynchronized code
+  paths in Nexus's `Loader.cpp` both call `UpdateSwapAddon()` (renames
+  `cba.dll`→`.old`, then `cba.dll.update`→`cba.dll`) on the same addon - the
+  update-check background thread's own reload sequence (~line 805-834, via
+  `QueueAddon(Reload, ...)`) and a periodic directory-watcher poll
+  (~line 501-526) that independently notices the same `.update` file and
+  re-triggers the same swap. Racing, this can leave `cba.dll` renamed away
+  with nothing to replace it - matches exactly what Emi saw live: two `.old`
+  files, filter stops responding (a `Reload` action first fully calls our own
+  `AddonUnload()` and `FreeLibrary`s the module, so during the broken window
+  no CBA code is running at all - nothing in CBA could show a hint even if
+  we wanted to). Confirmed resolved by a full game restart every time.
+  Practical mitigation: avoid manually clicking "Check for Updates" while
+  cba4gw2 is actively loaded; this is exactly why local dev builds keep
+  auto-update paused (`CBA_LOCAL_DEV`, see below).
+- **Investigated Nexus's ArcDPS "bridge" (`Engine/Loader/ArcDPS.cpp` in
+  Emi's local Nexus checkout) looking for a reusable update/restart
+  mechanism - dead end, but worth having actually checked.** The bridge is
+  pure combat-log event-relay compatibility (arcdps predates Nexus's addon
+  API entirely, loads via an old d3d11 proxy/chainload convention, and
+  Nexus's `ArcDPS::Detect()` + `DeployBridge()` just unpacks a small
+  `arcdps_integration64.dll` to relay `addextension2`/`listextension`
+  callbacks so other addons can receive its combat events) - zero
+  update-check or version-comparison code anywhere in that file. Whatever
+  in-game update UI Emi remembers from ArcDPS is ArcDPS's own closed-source
+  overlay (it gets its own `imgui` render callback slot via
+  `arcdps_exports_t`), not anything Nexus provides generically.
+- **The mechanism actually available to us, confirmed in Nexus's source but
+  deliberately NOT implemented yet**: `EAddonFlags::DisableHotloading`
+  (`EAddonFlags.h:10`, doc comment: "prevents unloading at runtime, aka.
+  will require a restart if updated, etc."). Setting this on `AddonDef.Flags`
+  for release builds would make Nexus treat cba4gw2 like a "locked" addon -
+  it skips the live unload/reload dance entirely (so the file-swap race
+  above becomes structurally impossible, not just less likely) and shows
+  Nexus's own built-in tooltip ("This addon is currently locked and requires
+  a restart for the update to take effect", `Addons.cpp:1160-1162`) instead.
+  No "restart game" button exists anywhere in Nexus (checked thoroughly,
+  Options/About/Addons/EULA files) - the restart itself would stay manual
+  either way. The idea, not yet designed in detail: same
+  `CBA_LOCAL_DEV`-style split - `DisableHotloading` only on real release
+  builds (`CBA_RELEASE_TAG` present), never on local dev builds, so Emi's
+  own fast hot-reload iteration loop this whole session relied on stays
+  completely unaffected. Emi's explicit call: good idea, keep it recorded,
+  not implementing now - revisit deliberately later, alongside the bigger
+  open question of what a CBA-owned "update detected, optional/ignorable"
+  startup prompt would actually look like (a separate, larger design than
+  just the flag).
 
 ## File map (plugins/nexus/src)
 
