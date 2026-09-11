@@ -1402,6 +1402,58 @@ deregistered the VS instance mid-session, so `cmake --build` failed with
 nothing. Not a code problem and not something to work around by editing the
 generator - it resolves when the installer finishes.
 
+## Session log (2026-09-11, night) - the two checking systems, merged
+
+**Two half-built systems found, unified.** `tools/audit_pro_review.py` (reads
+source, runs in CI) and `core/SelfTest.{h,cpp}` (reads live in-process state,
+runs on demand) had grown up unaware of each other with near-identical data
+models. They were never competitors - they are split by *what they can
+observe*. The gap between them turned out to be the cause of the doc rot:
+SelfTest already had a third result state (`isInfo`), the audit only knew
+pass/fail, so a fact that legitimately *varies* had no home in tooling and got
+hand-written into this file instead.
+
+The audit borrowed that vocabulary and gained `ratchet()` - a measurement
+allowed to shrink but not grow, printed every run so it cannot go stale, and
+failing only on a rise. Verified it actually fails when exceeded rather than
+assuming it. New Pillar 6 moved three rotting facts out of prose. In the other
+direction SelfTest gained assertions for the pipeline decomposition
+(`EffectiveDisplayMatrix` must be identity while the filter is off; the colour
+stack must equal the plain CVD correction while Eye-Sensitive is off) - i.e.
+the exact drift whose absence caused the Commander Tag bug that morning.
+
+**Both silent-field-shift traps removed rather than guarded.** We had built two
+separate guards around hand-maintained positional orderings; guarding a fragile
+design twice is worse than fixing it once.
+- `ExportPresetString` was one `snprintf` whose placeholder order and argument
+  list had to stay in sync by hand. The importer was always key-based, so the
+  ordering served nothing - now built field by field, key next to its value.
+- `L10n.h`'s language blocks are designated initializers (`.Field = "..."`).
+  A wrong order is now a compile error - verified by deliberately swapping two
+  entries and getting 8. The audit check stays for the one failure mode still
+  legal C++: an *omitted* field compiles and leaves a null `const char*`,
+  which reaches ImGui as a crash. Order is the compiler's job now,
+  completeness is the audit's.
+
+**SmartEnhancer fully removed** - Settings field, Load/Save, preset import
+branch, `ParameterRegistry` registration and its `ParamId`. It had had no
+behavioural reader since the selectivity fix and survived only because editing
+`L10n.h` by hand was risky; once that edit became mechanically verified, the
+reason to keep it disappeared. Removing the enum entry is safe despite the
+"do not remove" note there: nothing serializes off the integer, and SelfTest
+asserts enum/registry agreement, so a half-done removal fails loudly.
+
+**Vision Lab: a normal result no longer applies a correction.** Both
+"normal reading" branches of *Apply to CBA Profile* set 0.20 severity and left
+`Type` untouched, so the outcome depended on what had been tested before -
+run Moreland first, then measure normal on Rayleigh, and Apply switched on a
+20% Tritan correction right after the panel said "Normal Trichromat".
+
+**Not done on purpose while Emi was away:** no release tag. `main` was pushed
+(reaches no users), but a tag triggers the GitHub release that Nexus serves to
+players, and the entire day's UI had still never rendered on a screen. Cutting
+that unattended was the one action that would have been hard to walk back.
+
 ## Build feedback loop
 
 **This changed from earlier sessions**: Claude now has direct local access
