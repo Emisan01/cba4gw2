@@ -48,7 +48,7 @@ cba4gw2 v1.0 implements a mathematically verified, clinically grounded color cor
 
 ## 📦 Installation
 
-1. Download `cba.dll` from the latest Release: https://github.com/Emisan01/cba4gw2/releases/download/v1.0.2-pre/cba.dll (v1.0.2-pre)
+1. Download `cba.dll` from the latest Release: https://github.com/Emisan01/cba4gw2/releases/latest/download/cba.dll
 2. Place `cba.dll` into your Nexus addons folder:
    `<Guild Wars 2>/addons/`
 3. Launch Guild Wars 2 through Nexus.
