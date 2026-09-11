@@ -28,8 +28,13 @@ API for filtering — no D3D11 hooking, no overlay window, by design (see AGENTS
 §4). Originally a C#/WinForms prototype, then a TAC (Tyrian Art Companion) feature
 idea, now fully standalone.
 
-This local checkout is the current state of the project — ahead of the public
-GitHub releases (v0.1.0/v0.1.1). Local build is around v1.0.2-pre.
+This local checkout is the current state of the project. Releases are cut as
+git tags (`v*`), which trigger `.github/workflows/release.yml` — latest is
+**v1.11.0** (2026-09-11). Release builds get their version from the tag via
+`-DCBA_RELEASE_TAG`; local dev builds instead carry a simple +1-per-build
+counter in `AddonDef.Version.Build` so Nexus's displayed version proves which
+compile is actually loaded. Semver applies to the tags: Major for breaks,
+Minor for features/larger rebuilds, Build/Patch for fixes.
 
 ## The problem we're solving: UI "grip loss"
 
@@ -122,14 +127,20 @@ things.
 - `cba_session.lock` / Safe-Start crash detection: understood and now fixed
   (see below), but still fundamentally a workaround, not addressed by the
   registry work.
-- **5 ungoverned `CurrentSettings.Enabled = true` call sites** (found
+- **4 ungoverned `CurrentSettings.Enabled = true` call sites** (found
   2026-09-10, cross-checking an external AI tool's - Devin/Windsurf -
-  read-only analysis against actual source): `ModuleMain.cpp:1229`
-  (AutoStartSlot), `MainWindow.cpp:1183` (enhancer checkbox),
-  `SafeStartGate.cpp:65`, `VisionLab.cpp:407`, `VisionLab.cpp:579` all flip
+  read-only analysis against actual source; re-verified 2026-09-11 and the
+  count dropped from 5 to 4 - the `MainWindow.cpp` enhancer-checkbox site
+  disappeared with the checkbox itself in that day's UI dedup pass, and
+  line numbers have drifted, so re-grep rather than trusting these):
+  `ModuleMain.cpp:1234` (AutoStartSlot), `SafeStartGate.cpp:65`,
+  `VisionLab.cpp:407`, `VisionLab.cpp:579` all flip
   `Enabled` directly instead of through `ToggleMasterEnabled()`/
   `ActivateCommanderTagProfile()`, the two functions that already own this
-  correctly elsewhere. Not a live bug today - verified these are cleanly
+  correctly elsewhere. (A plain grep returns a 5th hit,
+  `ModuleMain.cpp:457` - that one IS `ActivateCommanderTagProfile`'s own
+  body, i.e. the governing function, not a violation. Don't re-flag it.)
+  Not a live bug today - verified these are cleanly
   mutually-exclusive branches (e.g. AutoStartSlot explicitly skips itself on
   crash recovery, so it doesn't race SafeStartGate), Devin's "Load sets
   false, AutoStartSlot overrides, SafeStartGate ignores it" framing
@@ -221,9 +232,15 @@ things.
 ## File map (plugins/nexus/src)
 
 - `core/` — `Settings.{h,cpp}` (the flat struct), `ParameterRegistry.{h,cpp}`
-  (new registry layer, see above), `ColorMatrix.{h,cpp}` (pure math),
-  `ColorEffectController.h` (Magnification API wrapper), `Shared.{h,cpp}`
-  (globals, Mumble/Nexus context).
+  (registry layer, see above), `ColorMatrix.{h,cpp}` + `ColorMath.h` (pure
+  math), `ColorEffectController.h` (Magnification API wrapper), `Shared.{h,cpp}`
+  (globals, Mumble/Nexus context), `FeatureModule.{h,cpp}` (optional-feature
+  registry), `SelfTest.{h,cpp}` (runtime self-checks), and
+  `FilterLayers.{h,cpp}` — the pipeline module: it owns both *which* layers
+  are active (`GetFilterLayerOrder`) and *how* they compose mathematically
+  (`ActiveCorrectionMatrix`, `ColorStackMatrix`, `EffectiveDisplayMatrix`).
+  Keeping those two in one place is deliberate — they drifted apart before
+  (see the 2026-09-11 pipeline-composition entry below).
 - `platform/` — `Magnification.cpp`, `HybridScanner.{h,cpp}` (DXGI readback
   worker + commander-tag/lab-filter highlight overlay — see "How filtering
   actually composes" below), `WindowMode.{h,cpp}`.
@@ -287,10 +304,11 @@ Two real bugs found + fixed here (2026-09-09):
   Commander-Tag-Enhancer's own un-tagged targets remains correct.
 - Commander Tag's replacement colors are computed from the *pre-DWM* framebuffer
   but then the DWM matrix transforms them again on the way to the screen — the
-  enhancer doesn't account for that second transform. Not fixed (would need the
-  enhancer to compute in post-DWM color space, a bigger change) — flagged as
-  the likely reason Auto Com-Tag + base correction can look visually "off"
-  together even though nothing is technically overriding anything.
+  enhancer didn't account for that second transform. **FIXED 2026-09-11** — see
+  the pipeline-composition entry in the session log below and COLOR_MATH.md
+  section 8. It turned out not to need a post-DWM color space at all: the
+  enhancer just had to evaluate `Sim(M x colour)` instead of `Sim(colour)` on
+  both sides of every comparison, with M from `EffectiveDisplayMatrix()`.
 - Per-pixel target matching in `HybridScanner::AnalyzeBuffer` used to break out
   on the *first* target in list order whose tolerance a pixel fell within, even
   if a later target was actually a closer/better match (e.g. a Filter Lab
@@ -1103,6 +1121,78 @@ tags. Only shown while Auto-Com-Tag is on.
 Built and unit-tested after every logical chunk (not after every single
 edit, per Emi's explicit ask to batch builds on large tasks) - 24/24 passing
 throughout.
+
+## Session log (2026-09-11, later) - pipeline composition made explicit
+
+Emi handed over an autonomous pass with only the Trinity ruleset (UX ->
+Performance -> Stability) as a constraint, plus three framing principles
+stated during the work, which shaped every decision below:
+1. The Filter Layer Matrix exists to **list the pipeline and avoid hidden
+   automation** - visualize what's active instead of adding clever logic.
+2. Modes stay cleanly separated and **nothing gets suppressed** unless the
+   user wants it (Hybrid = overlay mode, Filter Lab = free experimentation
+   / wavelength elimination, Vision Lab = the clinically grounded one).
+3. The whole point of the "automatics" was **to stop other settings from
+   corrupting them**.
+
+**The root finding (one bug, two symptoms).** The screen-wide DWM stage was
+never represented anywhere as data - only spelled out inline inside
+`Recompute()`. Two higher-level automatics therefore modelled a pipeline
+that omitted it:
+- *Commander Tag enhancer*: scored candidate replacement colours as
+  `Sim(colour)`, but the user perceives `Sim(M x colour)` - the DWM matrix
+  hits the scanner's own overlay markers too. It was optimising a stage that
+  never exists in isolation. This is exactly principle 3 violated from the
+  inside: the base correction was silently corrupting the automatic.
+- *Auto-Brightness*: `GetBrightnessRetention()` measured luminance loss of
+  the CVD matrix only, so Eye-Sensitive Mode's very real luminance cost
+  (blue filter, desaturation) went uncompensated - Emi's own "die
+  Helligkeitsregelung ist genial aber noch nicht vollstaendig in der Logik".
+
+**Fix**: `core/FilterLayers.*` (already the "which layers are active" module)
+now also owns the composition math, so display order and display maths live
+in one place: `ActiveCorrectionMatrix()` (the `if (Mixed)...` pattern that
+was copy-pasted at 7 sites), `ColorStackMatrix()` (CVD + Eye-Sensitive,
+deliberately WITHOUT GammaGain) and `EffectiveDisplayMatrix()` (the full
+`g * (E x C)`, identity while the master filter is off - a real state, the
+highlighter is not gated on `Enabled`). `Recompute()` now calls the last of
+these rather than keeping its own copy. The GammaGain/ColorStack split is
+load-bearing, not cosmetic: Auto-Brightness solves FOR the gain, so feeding
+a gain-containing matrix back into its own measurement would be a feedback
+loop. Full derivation: COLOR_MATH.md section 8.
+
+**Expect fewer shifted tags, and that is correct.** With M included, tags the
+base correction already separates no longer register as conflicts, so
+"N of 9 shifted" will read lower than before. Per Fidaner et al. (2005) that
+is the intended behaviour, not a regression - unit test
+`TestCorrectionIncreasesPerceivedSeparation` pins the underlying property
+(correction must increase a deutan's perceived red/green tag separation),
+and `TestOmittingTheDisplayMatrixChangesTheAnswer` pins that omitting M is a
+different answer, not an approximation. Nothing is suppressed: the base
+correction still runs in full, the enhancer merely accounts for it.
+
+**Pipeline made visible** (principle 1): the Filter Lab widget is now
+"Filter Pipeline" - a read-only *Stage 1 - screen-wide (DWM)* table (base CVD
+correction / Eye-Sensitive / Brightness, each with live status) above the
+existing reorderable *Stage 2 - target layers*. Pure visualization, no new
+automation, and it is what makes a low "N of 9 shifted" legible instead of
+looking broken. Read-only on purpose - one editable home per setting.
+
+**Also fixed / found while in there**:
+- `FilterLab.cpp` used `corrMat[1][0]` twice in the green row instead of
+  `[1][1]` - a real transcription bug, latent only because it sits in the
+  callerless `DrawContrastCombinationsWidget`. All 7 hand-expanded matrix
+  multiplies now go through the tested, clamping `ColorMatrix::ApplyPixel`.
+- Doc drift corrected: the ungoverned-`Enabled` list was 5, is now 4 (see
+  "Known loose ends"); the file map was missing 4 core modules; the
+  "local build is around v1.0.2-pre" line predated v1.11.0.
+
+**Deliberately NOT changed, needs Emi's call**: `GetBrightnessRetention()`
+samples `kGw2TagRefs[0..7]` - 8 of 9, skipping White. Reads like an
+off-by-one against a `[9]` array, but has a defensible reading (white is
+invariant under the correction, and neutrals are already represented by the
+ambient "Stein" sample). "Fixing" it would lower everyone's recommended gain,
+i.e. visibly change brightness - so it is flagged in-code and left alone.
 
 ## Build feedback loop
 

@@ -15,6 +15,7 @@
 #include "ColorEffectController.h"
 #include "ParameterRegistry.h"
 #include "FeatureModule.h"
+#include "FilterLayers.h"
 #include "SelfTest.h"
 #include "Shared.h"
 
@@ -666,10 +667,7 @@ namespace cba
 			// panel, the technical curve chart stays in the Studio).
 			{
 				double embCorrMat[3][3];
-				if (CurrentSettings.Mixed)
-					ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, embCorrMat);
-				else
-					ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, embCorrMat);
+				ActiveCorrectionMatrix(embCorrMat);
 				DrawContrastTestSwatches(isDe, embCorrMat, saveNeeded);
 			}
 			ImGui::Spacing();
@@ -1386,10 +1384,7 @@ namespace cba
 				ImGui::Spacing();
 
 				double mainCorrMat[3][3];
-				if (CurrentSettings.Mixed)
-					ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, mainCorrMat);
-				else
-					ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, mainCorrMat);
+				ActiveCorrectionMatrix(mainCorrMat);
 
 				float availW = ImGui::GetContentRegionAvail().x;
 				float graphW = (availW > 260.0f) ? availW : 260.0f;

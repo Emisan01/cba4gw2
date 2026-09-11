@@ -64,20 +64,20 @@ namespace cba
 		ColorMatrix::SimulatePixel(p.r1, p.g1, p.b1, CurrentSettings.Type, sim1R, sim1G, sim1B);
 		ColorMatrix::SimulatePixel(p.r2, p.g2, p.b2, CurrentSettings.Type, sim2R, sim2G, sim2B);
 
-		// Compute CBA Correction for pair
+		// Compute CBA Correction for pair. Both the matrix build and the
+		// per-pixel multiply go through shared, tested code now - this site
+		// used to hand-expand the multiply and had corrMat[1][0] twice in the
+		// green row instead of [1][1], silently rendering a wrong "with
+		// filter" green (2026-09-11). ApplyPixel already clamps to [0,1].
 		double corrMat[3][3];
-		if (CurrentSettings.Mixed)
-			ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, corrMat);
-		else
-			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, corrMat);
+		ActiveCorrectionMatrix(corrMat);
 
-		float cor1R = (float)std::clamp(corrMat[0][0]*p.r1 + corrMat[0][1]*p.g1 + corrMat[0][2]*p.b1, 0.0, 1.0);
-		float cor1G = (float)std::clamp(corrMat[1][0]*p.r1 + corrMat[1][0]*p.g1 + corrMat[1][2]*p.b1, 0.0, 1.0);
-		float cor1B = (float)std::clamp(corrMat[2][0]*p.r1 + corrMat[2][1]*p.g1 + corrMat[2][2]*p.b1, 0.0, 1.0);
+		double c1r, c1g, c1b, c2r, c2g, c2b;
+		ColorMatrix::ApplyPixel(p.r1, p.g1, p.b1, corrMat, c1r, c1g, c1b);
+		ColorMatrix::ApplyPixel(p.r2, p.g2, p.b2, corrMat, c2r, c2g, c2b);
 
-		float cor2R = (float)std::clamp(corrMat[0][0]*p.r2 + corrMat[0][1]*p.g2 + corrMat[0][2]*p.b2, 0.0, 1.0);
-		float cor2G = (float)std::clamp(corrMat[1][0]*p.r2 + corrMat[1][0]*p.g2 + corrMat[1][2]*p.b2, 0.0, 1.0);
-		float cor2B = (float)std::clamp(corrMat[2][0]*p.r2 + corrMat[2][1]*p.g2 + corrMat[2][2]*p.b2, 0.0, 1.0);
+		float cor1R = (float)c1r, cor1G = (float)c1g, cor1B = (float)c1b;
+		float cor2R = (float)c2r, cor2G = (float)c2g, cor2B = (float)c2b;
 
 		ImGui::Spacing();
 
@@ -546,14 +546,86 @@ namespace cba
 				// core/FilterLayers.h and HybridScanner::AnalyzeBuffer). Row
 				// 1 always wins any pixel it matches, regardless of whether
 				// a lower row's color would have been a closer match.
-				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Filter-Layer-Matrix" : "Filter Layer Matrix");
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Filter-Pipeline" : "Filter Pipeline");
 				if (ImGui::IsItemHovered())
 				{
 					ImGui::SetTooltip(isDe
-						? "Zeigt jeden aktiven Ziel-Layer in der Reihenfolge, in der er wirkt.\nEin frueherer Layer gewinnt immer gegen einen spaeteren - auch wenn dessen Farbe naeher waere.\nPfeile verschieben die Prioritaet."
-						: "Shows every active target layer in the order it applies.\nAn earlier layer always wins over a later one - even if its color would be a closer match.\nArrows move priority up/down.");
+						? "Die vollstaendige Wirkkette, in der Reihenfolge in der sie wirkt.\nStufe 1 faerbt den ganzen Bildschirm (DWM), Stufe 2 ersetzt einzelne Zielfarben darueber.\nEin frueherer Ziel-Layer gewinnt immer gegen einen spaeteren - auch wenn dessen Farbe naeher waere."
+						: "The complete chain, in the order it actually applies.\nStage 1 tints the entire screen (DWM), stage 2 replaces individual target colors on top of it.\nAn earlier target layer always wins over a later one - even if its color would be a closer match.");
 				}
 				ImGui::Spacing();
+
+				// ── Stage 1: the screen-wide DWM stack ──────────────────────
+				// Added 2026-09-11. The matrix used to list only the target
+				// layers, which made it look like they were the whole
+				// pipeline - they are not: everything below is composited on
+				// top of an already-transformed screen. Showing stage 1 is
+				// also what makes the enhancer's behaviour legible: Commander
+				// Tag now measures its colors AFTER this stage (see
+				// UpdateTagEnhancerConflicts), so a strong base correction
+				// legitimately leaves fewer tags needing a shift. Read-only
+				// on purpose - each of these has exactly one editable home
+				// elsewhere, this is the map, not a second set of controls.
+				{
+					const char* typeName = CurrentSettings.Mixed
+						? (isDe ? "Gemischt" : "Mixed")
+						: (CurrentSettings.Type == BalanceType::Protan ? "Protan"
+						 : CurrentSettings.Type == BalanceType::Deutan ? "Deutan" : "Tritan");
+
+					ImGui::TextDisabled("%s", isDe ? "Stufe 1 - bildschirmweit (DWM):" : "Stage 1 - screen-wide (DWM):");
+
+					if (ImGui::BeginTable("##pipeline_stage1", 3,
+						ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+					{
+						ImGui::TableSetupColumn(isDe ? "Reihenfolge" : "Order", ImGuiTableColumnFlags_WidthFixed, 78.0f);
+						ImGui::TableSetupColumn(isDe ? "Stufe" : "Stage", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+						ImGui::TableSetupColumn(isDe ? "Status" : "Status", ImGuiTableColumnFlags_WidthStretch, 1.6f);
+						ImGui::TableHeadersRow();
+
+						auto stageRow = [&](const char* aOrder, const char* aName,
+						                    bool aActive, const char* aStatus) {
+							ImGui::TableNextRow();
+							ImGui::TableSetColumnIndex(0);
+							ImGui::TextDisabled("%s", aOrder);
+							ImGui::TableSetColumnIndex(1);
+							if (aActive) ImGui::TextUnformatted(aName);
+							else         ImGui::TextDisabled("%s", aName);
+							ImGui::TableSetColumnIndex(2);
+							if (aActive) ImGui::TextColored(Theme::kTextGoldLabel, "%s", aStatus);
+							else         ImGui::TextDisabled("%s", aStatus);
+						};
+
+						const char* offLabel = isDe ? "aus" : "off";
+						char statusBuf[96];
+
+						bool baseActive = CurrentSettings.Enabled;
+						if (baseActive)
+							std::snprintf(statusBuf, sizeof(statusBuf), "%s %.0f%%", typeName, CurrentSettings.Severity01 * 100.0f);
+						else
+							std::snprintf(statusBuf, sizeof(statusBuf), "%s", offLabel);
+						stageRow("1", isDe ? "Basis-CVD-Korrektur" : "Base CVD correction", baseActive, statusBuf);
+
+						bool eyeActive = CurrentSettings.Enabled && CurrentSettings.EyeComfortModeEnabled;
+						if (eyeActive)
+							std::snprintf(statusBuf, sizeof(statusBuf), isDe ? "Blau %.0f%% / Warm %.0f%%" : "Blue %.0f%% / Warm %.0f%%",
+								CurrentSettings.BlueFilter01 * 100.0f, CurrentSettings.WarmTint01 * 100.0f);
+						else
+							std::snprintf(statusBuf, sizeof(statusBuf), "%s", offLabel);
+						stageRow("2", "Eye-Sensitive Mode", eyeActive, statusBuf);
+
+						if (baseActive)
+							std::snprintf(statusBuf, sizeof(statusBuf),
+								CurrentSettings.AutoBrightness ? "%.2fx (Auto)" : "%.2fx", CurrentSettings.GammaGain);
+						else
+							std::snprintf(statusBuf, sizeof(statusBuf), "%s", offLabel);
+						stageRow("3", isDe ? "Helligkeit (Gamma)" : "Brightness (Gamma)", baseActive, statusBuf);
+
+						ImGui::EndTable();
+					}
+					ImGui::Spacing();
+					ImGui::TextDisabled("%s", isDe ? "Stufe 2 - Ziel-Layer (Overlay darueber):"
+					                               : "Stage 2 - target layers (overlay on top):");
+				}
 
 				std::vector<FilterLayerInfo> layerMatrix = GetFilterLayerOrder();
 				if (layerMatrix.empty())

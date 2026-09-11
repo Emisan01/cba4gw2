@@ -165,3 +165,61 @@ m_{02} & m_{12} & m_{22} & 0 & 0 \\
    Stanford University Technical Report.
 4. **W3C Web Accessibility Initiative (WAI). (2018).**  
    *Web Content Accessibility Guidelines (WCAG) 2.1 – Contrast (Minimum) Success Criterion 1.4.3.*
+
+---
+
+## 8. Pipeline-Komposition: Was der Nutzer tatsächlich wahrnimmt
+
+*(Ergänzt 2026-09-11. Führt keine neue Farbmathematik ein — komponiert ausschließlich die bereits in Abschnitt 2–6 hergeleiteten Operatoren entlang des realen Signalwegs.)*
+
+### 8.1 Der vollständige Signalweg
+
+CBA besitzt zwei unabhängige Wirkebenen (siehe CLAUDE.md, *„How filtering actually composes"*). Entscheidend ist, dass **die DWM-Stufe alles erfasst, was auf dem Bildschirm liegt** — auch das eigene Overlay des Tag-Highlighters:
+
+$$\vec{x}_{\text{Framebuffer}} \;\xrightarrow{\;\mathbf{M}\;}\; \vec{x}_{\text{Monitor}} \;\xrightarrow{\;\mathbf{Sim}\;}\; \vec{x}_{\text{wahrgenommen}}$$
+
+Die wahrgenommene Farbe eines Pixels ist demnach:
+
+$$\vec{p}(\vec{x}) = \mathbf{Sim}\big(\mathbf{M} \cdot \vec{x}\big) \qquad \textbf{nicht} \qquad \mathbf{Sim}(\vec{x})$$
+
+Dabei ist $\mathbf{M}$ die tatsächlich anliegende Displaymatrix aus Abschnitt 8.2.
+
+### 8.2 Zusammensetzung der Displaymatrix $\mathbf{M}$
+
+In der Reihenfolge, in der `Recompute()` sie aufbaut (Implementierung: `EffectiveDisplayMatrix()` in `core/FilterLayers.cpp`):
+
+$$\mathbf{M} = g \cdot \big(\mathbf{E} \cdot \mathbf{C}\big)$$
+
+| Symbol | Bedeutung | Quelle |
+|---|---|---|
+| $\mathbf{C}$ | CVD-Korrektur $\mathbf{M}(s)$ bzw. $\mathbf{M}_{mixed}$ | Abschnitt 4.4 / 5 |
+| $\mathbf{E}$ | Eye-Sensitive-Matrix (getönte Linse davor) | `EyeComfortMatrix` |
+| $g$ | Helligkeitsskalar `GammaGain` $\in [0{,}70,\ 1{,}30]$ | linear, kanalgleich |
+
+Ist der Hauptfilter aus, gilt $\mathbf{M} = \mathbf{I}$. Das ist ein real erreichbarer Zustand: Der Tag-Highlighter ist **nicht** an `Enabled` gekoppelt und kann zeichnen, während keine DWM-Transformation anliegt.
+
+### 8.3 Konsequenz für den Commander-Tag-Enhancer
+
+Der Enhancer sucht eine Ersatzfarbe, die sich von allen übrigen Tagfarben maximal unterscheidet. Bewertet werden muss dafür der **wahrgenommene** Abstand, also mit $\mathbf{M}$ auf **beiden** Seiten des Vergleichs:
+
+$$d_{ij} = \Big\lVert\; \mathbf{Sim}_s\big(\mathbf{M}\vec{c}_i\big) \;-\; \mathbf{Sim}_s\big(\mathbf{M}\vec{t}_j\big) \;\Big\rVert_2$$
+
+mit der Severity-Interpolation $\mathbf{Sim}_s(\vec{v}) = \vec{v} + s\,\big(\mathbf{Sim}(\vec{v}) - \vec{v}\big)$.
+
+Zuvor wurde $\mathbf{M}$ hier ausgelassen, der Enhancer optimierte also für eine Stufe, die isoliert gar nicht existiert. Das ist die mathematische Ursache des lange notierten Befunds *„Auto-Com-Tag und Basiskorrektur sehen zusammen ‚off' aus"*.
+
+**Wichtig — kein Widerspruch zum Automatik-Gedanken:** Die Korrektur unterdrückt keine Ebene. Sie bewirkt lediglich, dass die Automatik die ihr vorgelagerte Stufe *kennt*, statt von ihr überschrieben zu werden. Nach Fidaner et al. (2005) vergrößert $\mathbf{C}$ die wahrgenommenen Abstände verwechselbarer Paare gezielt — dadurch benötigen weniger Tags überhaupt eine Verschiebung. Weniger verschobene Farben sind hier also das *korrekte* Ergebnis, kein Funktionsverlust. Diese Eigenschaft ist als Unit-Test abgesichert (`TestCorrectionIncreasesPerceivedSeparation`).
+
+### 8.4 Konsequenz für die automatische Helligkeit
+
+`GetBrightnessRetention()` bestimmt den Luminanzverlust des Farbstapels und leitet daraus $g$ ab. Gemessen wird deshalb über
+
+$$\mathbf{S} = \mathbf{E} \cdot \mathbf{C} \qquad (\text{ohne } g)$$
+
+$$\text{retention} = \frac{\sum_k Y\!\left(\mathrm{clamp}(\mathbf{S}\vec{a}_k)\right)}{\sum_k Y(\vec{a}_k)}, \qquad Y = \text{BT.709-Relativluminanz}$$
+
+über eine feste Stichprobe $\vec{a}_k$ aus Tag- und Ambientfarben.
+
+$g$ **darf hier nicht enthalten sein**: Es ist die gesuchte Größe. Wäre es Teil von $\mathbf{S}$, entstünde eine Rückkopplung ($g$ hoch $\to$ Retention hoch $\to$ empfohlenes $g$ runter). Genau deshalb sind Farbstapel ($\mathbf{S}$) und Displaymatrix ($\mathbf{M}$) im Code getrennte Funktionen.
+
+$\mathbf{E}$ wurde hier bis 2026-09-11 fälschlich ausgelassen — Blaufilter und Entsättigung kosten reale Luminanz, die Automatik kompensierte sie aber nicht.

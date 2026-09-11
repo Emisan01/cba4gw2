@@ -9,6 +9,7 @@
 #include "L10n.h"
 #include "ColorMatrix.h"
 #include "ColorMath.h"
+#include "FilterLayers.h"
 #include "Shared.h"
 
 #include <imgui.h>
@@ -176,10 +177,7 @@ namespace cba
 
 			// Precompute main correction matrix for filter preview in all tabs
 			double corrMat[3][3];
-			if (CurrentSettings.Mixed)
-				ColorMatrix::MixedCorrectionMatrix(CurrentSettings.MixedRgSeverity01, CurrentSettings.MixedBySeverity01, corrMat);
-			else
-				ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, corrMat);
+			ActiveCorrectionMatrix(corrMat);
 
 			if (ImGui::BeginTabBar("##VisionLabTabs", ImGuiTabBarFlags_None))
 			{

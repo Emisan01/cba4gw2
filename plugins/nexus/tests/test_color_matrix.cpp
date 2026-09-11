@@ -192,6 +192,72 @@ static void TestEyeComfortSaturationReductionIsGreyscaleAtMax()
 	Check(Near(r, g, 1e-6) && Near(g, b, 1e-6), "Full saturation reduction produces a true greyscale output (R=G=B)");
 }
 
+// ── Pipeline composition (2026-09-11) ────────────────────────────────────
+// These two back the tag-enhancer fix in UpdateTagEnhancerConflicts(): it
+// used to score candidate replacement colours as Sim(colour), but what a
+// user actually perceives is Sim(M x colour), because the DWM correction
+// matrix M is applied to everything on screen including the scanner's own
+// overlay markers. See COLOR_MATH.md section 8.
+
+static double PerceivedDistance(BalanceType aType, const double aM[3][3],
+                                const double aC1[3], const double aC2[3])
+{
+	double a[3], b[3];
+	ColorMatrix::ApplyPixel(aC1[0], aC1[1], aC1[2], aM, a[0], a[1], a[2]);
+	ColorMatrix::ApplyPixel(aC2[0], aC2[1], aC2[2], aM, b[0], b[1], b[2]);
+	double sa[3], sb[3];
+	ColorMatrix::SimulatePixel(a[0], a[1], a[2], aType, sa[0], sa[1], sa[2]);
+	ColorMatrix::SimulatePixel(b[0], b[1], b[2], aType, sb[0], sb[1], sb[2]);
+	double dr = sa[0] - sb[0], dg = sa[1] - sb[1], db = sa[2] - sb[2];
+	return std::sqrt(dr * dr + dg * dg + db * db);
+}
+
+static void TestCorrectionIncreasesPerceivedSeparation()
+{
+	// The core premise of Fidaner et al. (2005) daltonization, and the reason
+	// the tag enhancer MUST model M: for a pair that a dichromat confuses,
+	// pushing it through the correction first has to leave it MORE separated
+	// in perception, not less. GW2's own red and green commander tags are the
+	// canonical confusable pair for a deutan.
+	const double red[3]   = { 0.851, 0.275, 0.235 }; // #d9463c
+	const double green[3] = { 0.247, 0.616, 0.302 }; // #3f9d4d
+
+	double corrected[3][3];
+	ColorMatrix::CorrectionMatrix(BalanceType::Deutan, 1.0, corrected);
+
+	double uncorrectedDist = PerceivedDistance(BalanceType::Deutan, kIdentity, red, green);
+	double correctedDist   = PerceivedDistance(BalanceType::Deutan, corrected, red, green);
+
+	Check(correctedDist > uncorrectedDist,
+	      "Correction increases a deutan's perceived red/green tag separation");
+}
+
+static void TestOmittingTheDisplayMatrixChangesTheAnswer()
+{
+	// Guards the specific bug that was fixed: evaluating perception WITHOUT
+	// the display matrix is not an approximation of evaluating it WITH one -
+	// it is a different answer. If this ever becomes false, the enhancer's
+	// whole reason for calling EffectiveDisplayMatrix() is gone.
+	const double tag[3] = { 0.247, 0.616, 0.302 };
+
+	double corrected[3][3];
+	ColorMatrix::CorrectionMatrix(BalanceType::Deutan, 1.0, corrected);
+
+	double withM[3], withoutM[3];
+	{
+		double d[3];
+		ColorMatrix::ApplyPixel(tag[0], tag[1], tag[2], corrected, d[0], d[1], d[2]);
+		ColorMatrix::SimulatePixel(d[0], d[1], d[2], BalanceType::Deutan, withM[0], withM[1], withM[2]);
+	}
+	ColorMatrix::SimulatePixel(tag[0], tag[1], tag[2], BalanceType::Deutan,
+	                           withoutM[0], withoutM[1], withoutM[2]);
+
+	bool differs = !Near(withM[0], withoutM[0], 1e-3)
+	            || !Near(withM[1], withoutM[1], 1e-3)
+	            || !Near(withM[2], withoutM[2], 1e-3);
+	Check(differs, "Sim(M x colour) and Sim(colour) are genuinely different results");
+}
+
 int main()
 {
 	TestIdentityAtZeroSeverity();
@@ -204,6 +270,8 @@ int main()
 	TestEyeComfortMatrixIsIdentityAtZero();
 	TestEyeComfortBlueFilterReducesBlue();
 	TestEyeComfortSaturationReductionIsGreyscaleAtMax();
+	TestCorrectionIncreasesPerceivedSeparation();
+	TestOmittingTheDisplayMatrixChangesTheAnswer();
 
 	std::printf("%d/%d checks passed\n", g_checks - g_failures, g_checks);
 	return g_failures == 0 ? 0 : 1;

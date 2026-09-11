@@ -10,6 +10,7 @@
 #include "ColorEffectController.h"
 #include "ParameterRegistry.h"
 #include "FeatureModule.h"
+#include "FilterLayers.h"
 
 #include <imgui.h>
 #include <chrono>
@@ -501,12 +502,7 @@ namespace cba
 
 		// Correction curves
 		double corrMat[3][3];
-		if (CurrentSettings.Mixed)
-			ColorMatrix::MixedCorrectionMatrix(
-				CurrentSettings.MixedRgSeverity01,
-				CurrentSettings.MixedBySeverity01, corrMat);
-		else
-			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, corrMat);
+		ActiveCorrectionMatrix(corrMat);
 
 		float availW = ImGui::GetContentRegionAvail().x;
 		float graphW = (availW > 260.0f) ? availW : 260.0f;

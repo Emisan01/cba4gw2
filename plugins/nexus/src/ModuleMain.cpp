@@ -233,20 +233,49 @@ namespace cba
 				float simR, simG, simB;
 				float luma;
 			};
+			// Full-pipeline perception model (2026-09-11). What a user actually
+			// SEES for a colour sitting in the pre-DWM framebuffer is
+			// Sim(M x colour), not Sim(colour): the DWM correction matrix M is
+			// applied to everything on screen, the scanner's own overlay
+			// markers included (see "How filtering actually composes" in
+			// CLAUDE.md). This enhancer used to evaluate Sim(colour) - i.e. it
+			// optimised for a pipeline stage that never exists in isolation,
+			// which is the long-standing "Auto Com-Tag + base correction looks
+			// off together" item. Both sides of every comparison below now run
+			// through the same model, so conflicts and replacements are judged
+			// on what reaches the eye. Derivation: COLOR_MATH.md section 8.
+			//
+			// M is identity while the master filter is off, so this is an
+			// exact no-op in that state, not a behaviour change.
+			double dispM[3][3];
+			EffectiveDisplayMatrix(dispM);
+
+			auto perceived = [&](float aR, float aG, float aB,
+			                     float& aOutR, float& aOutG, float& aOutB)
+			{
+				double dr = 0.0, dg = 0.0, db = 0.0;
+				ColorMatrix::ApplyPixel(aR, aG, aB, dispM, dr, dg, db);   // what the monitor emits
+				double sr = 0.0, sg = 0.0, sb = 0.0;
+				ColorMatrix::SimulatePixel(dr, dg, db, defType, sr, sg, sb); // what the eye reconstructs
+				aOutR = (float)(dr + sev * (sr - dr));                    // severity interpolation
+				aOutG = (float)(dg + sev * (sg - dg));
+				aOutB = (float)(db + sev * (sb - db));
+			};
+
 			std::array<SimTag, 9> simTags{};
 			for (int i = 0; i < 9; ++i)
 			{
 				simTags[i].origR = kGw2TagRefs[i].r;
 				simTags[i].origG = kGw2TagRefs[i].g;
 				simTags[i].origB = kGw2TagRefs[i].b;
+				// Luma stays measured on the SOURCE colour: it feeds the
+				// "don't return something much darker than the tag was"
+				// readability floor further down, which compares two
+				// pre-DWM values against each other.
 				simTags[i].luma = RelativeLuma(kGw2TagRefs[i].r, kGw2TagRefs[i].g, kGw2TagRefs[i].b);
 
-				double outR = 0.0, outG = 0.0, outB = 0.0;
-				ColorMatrix::SimulatePixel(simTags[i].origR, simTags[i].origG, simTags[i].origB, defType, outR, outG, outB);
-
-				simTags[i].simR = (float)(simTags[i].origR + sev * (outR - simTags[i].origR));
-				simTags[i].simG = (float)(simTags[i].origG + sev * (outG - simTags[i].origG));
-				simTags[i].simB = (float)(simTags[i].origB + sev * (outB - simTags[i].origB));
+				perceived(simTags[i].origR, simTags[i].origG, simTags[i].origB,
+				          simTags[i].simR, simTags[i].simG, simTags[i].simB);
 			}
 
 			// Real, severity-aware conflict detection (2026-09-11 - fixed the
@@ -312,19 +341,20 @@ namespace cba
 						b = std::clamp(b * scale, 0.0f, 1.0f);
 					}
 
-					double candSimR = 0, candSimG = 0, candSimB = 0;
-					ColorMatrix::SimulatePixel(r, g, b, defType, candSimR, candSimG, candSimB);
-					candSimR = r + sev * (candSimR - r);
-					candSimG = g + sev * (candSimG - g);
-					candSimB = b + sev * (candSimB - b);
+					// Same full-pipeline model as simTags above - the candidate
+					// is a colour the scanner would write into the pre-DWM
+					// framebuffer, so it gets transformed by M on its way to
+					// the eye exactly like the reference tags do.
+					float candSimR = 0.0f, candSimG = 0.0f, candSimB = 0.0f;
+					perceived(r, g, b, candSimR, candSimG, candSimB);
 
 					float minDist = 999.0f;
 					for (int j = 0; j < 9; ++j)
 					{
 						if (i == j) continue;
-						float dr = (float)candSimR - simTags[j].simR;
-						float dg = (float)candSimG - simTags[j].simG;
-						float db = (float)candSimB - simTags[j].simB;
+						float dr = candSimR - simTags[j].simR;
+						float dg = candSimG - simTags[j].simG;
+						float db = candSimB - simTags[j].simB;
 						float d = std::sqrt(dr * dr + dg * dg + db * db);
 						if (d < minDist) minDist = d;
 					}
@@ -526,18 +556,18 @@ namespace cba
 			{ 0.95f, 0.90f, 0.70f }  // Sonnenlicht
 		};
 
+		// Measures the whole COLOUR stack, not just the CVD correction
+		// (2026-09-11, Emi: "die Helligkeitsregelung orientiert sich am
+		// Filter-Setting, ist aber noch nicht vollstaendig in der Logik").
+		// Eye-Sensitive Mode genuinely costs luminance - a blue filter and a
+		// desaturation both darken the picture - but this measurement used to
+		// see only the CVD matrix, so Auto-Brightness under-compensated
+		// whenever Eye-Sensitive Mode was turned up. ColorStackMatrix()
+		// deliberately excludes GammaGain, which is the very value being
+		// solved for here: including it would close a feedback loop.
+		// No-op while Eye-Sensitive Mode is off (its matrix is identity then).
 		double m3x3[3][3];
-		if (CurrentSettings.Mixed)
-		{
-			ColorMatrix::MixedCorrectionMatrix(
-				CurrentSettings.MixedRgSeverity01,
-				CurrentSettings.MixedBySeverity01,
-				m3x3);
-		}
-		else
-		{
-			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, m3x3);
-		}
+		ColorStackMatrix(m3x3);
 
 		float sumOrig = 0.0f;
 		float sumTrans = 0.0f;
@@ -558,6 +588,16 @@ namespace cba
 			sumTrans += transLuma;
 		};
 
+		// NOTE: 8, not 9 - kGw2TagRefs[8] is White, and it is skipped. Flagged
+		// 2026-09-11 as genuinely ambiguous rather than silently "fixed",
+		// because it reads exactly like an off-by-one against a [9] array but
+		// has a defensible reading too: white is invariant under the
+		// correction (see COLOR_MATH.md's white-point proof), so including it
+		// would add an identical value to both sums and drag the retention
+		// ratio toward 1.0 - and neutrals are already represented in the
+		// ambient sample below by "Stein" (0.52 grey). Including it would
+		// lower the recommended gain, i.e. visibly change everyone's
+		// brightness, so it is Emi's call to make, not a silent edit.
 		for (int i = 0; i < 8; ++i)
 		{
 			processColor(kGw2TagRefs[i].r, kGw2TagRefs[i].g, kGw2TagRefs[i].b);
@@ -646,50 +686,16 @@ namespace cba
 			return;
 		}
 
+		// The whole composition (CVD correction, then Eye-Sensitive Mode on
+		// top of it, then GammaGain) lives in EffectiveDisplayMatrix()
+		// (core/FilterLayers.cpp) as of 2026-09-11 - it used to be spelled
+		// out here, which meant the tag enhancer had no way to ask "what is
+		// actually being applied to the screen right now" and silently
+		// modelled a pipeline without this stage at all. Reaching this line
+		// already implies Enabled == true, so the function's !Enabled
+		// identity branch is not in play here.
 		double m3x3[3][3];
-		if (CurrentSettings.Mixed)
-		{
-			ColorMatrix::MixedCorrectionMatrix(
-				CurrentSettings.MixedRgSeverity01,
-				CurrentSettings.MixedBySeverity01,
-				m3x3);
-		}
-		else
-		{
-			ColorMatrix::CorrectionMatrix(CurrentSettings.Type, CurrentSettings.Severity01, m3x3);
-		}
-
-		// Eye-Sensitive Mode (2026-09-09) - independent layer, composed on
-		// top of the CVD correction like a tinted lens in front of an
-		// already-corrected image. Off by default (all three components
-		// start at 0.0, EyeComfortMatrix(0,0,0) is identity), so this is a
-		// no-op unless the module is actually enabled and turned up.
-		if (CurrentSettings.EyeComfortModeEnabled)
-		{
-			double eyeComfort[3][3];
-			ColorMatrix::EyeComfortMatrix(CurrentSettings.BlueFilter01, CurrentSettings.WarmTint01,
-				CurrentSettings.SaturationReduction01, eyeComfort);
-			double composed[3][3];
-			for (int r = 0; r < 3; ++r)
-				for (int c = 0; c < 3; ++c)
-				{
-					double sum = 0.0;
-					for (int k = 0; k < 3; ++k) sum += eyeComfort[r][k] * m3x3[k][c];
-					composed[r][c] = sum;
-				}
-			for (int r = 0; r < 3; ++r)
-				for (int c = 0; c < 3; ++c)
-					m3x3[r][c] = composed[r][c];
-		}
-
-		// Linear brightness scaling (GammaGain, range 0.70 - 1.30)
-		for (int r = 0; r < 3; ++r)
-		{
-			for (int c = 0; c < 3; ++c)
-			{
-				m3x3[r][c] *= CurrentSettings.GammaGain;
-			}
-		}
+		EffectiveDisplayMatrix(m3x3);
 
 		MAGCOLOREFFECT effect = ColorMatrix::ToMagColorEffect(m3x3);
 		ApplyThrottled(effect, aForce);
