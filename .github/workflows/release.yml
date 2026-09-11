@@ -29,7 +29,14 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.event.inputs.tag_name || github.ref_name }}"
-          cmake -S plugins/nexus -B plugins/nexus/build -A x64 -DCBA_LOCAL_DEV=OFF -DCBA_RELEASE_TAG=$tag
+          # PowerShell does NOT expand $tag inside an unquoted argument passed
+          # to a native exe (cmake.exe here) - found 2026-09-11 when this
+          # literally passed the 5 characters "$tag" as the tag, failing the
+          # build with "$tag: undeclared identifier" once compiled in. The
+          # fix is the double quotes around the whole -D argument below -
+          # verified locally (unquoted: CMakeCache got CBA_RELEASE_TAG=$tag
+          # literally; quoted: CBA_RELEASE_TAG=v1.10.2 correctly).
+          cmake -S plugins/nexus -B plugins/nexus/build -A x64 -DCBA_LOCAL_DEV=OFF "-DCBA_RELEASE_TAG=$tag"
           cmake --build plugins/nexus/build --config Release
 
       - name: Package builds
