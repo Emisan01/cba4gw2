@@ -2,6 +2,8 @@
 
 A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. Applies a real-time, hardware-accelerated color balance and contrast assistance filter [...]
 
+📦 **[All Releases](https://github.com/Emisan01/cba4gw2/releases)** · ⬇️ **[Download cba.dll (latest)](https://github.com/Emisan01/cba4gw2/releases/latest/download/cba.dll)** — always points at the current release, no version number to keep track of.
+
 ---
 
 ## 🔬 Scientific & Mathematical Foundation
