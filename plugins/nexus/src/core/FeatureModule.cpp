@@ -36,7 +36,11 @@ namespace cba
 			[]() { return Theme::kTextGoldLabel; },
 			[]() { return CurrentSettings.CommanderTagMode != 0; },
 			[](bool) -> std::string {
-				return CurrentSettings.SmartEnhancer ? "Com-Tag: Smart-Auto" : "Com-Tag: Preset";
+				// Used to distinguish "Smart-Auto" vs "Preset" here, back
+				// when SmartEnhancer actually toggled between two different
+				// conflict-detection algorithms - removed 2026-09-11, see
+				// ModuleMain.cpp's UpdateTagEnhancerConflicts.
+				return "Com-Tag: Auto-Contrast";
 			},
 			[]() { CurrentSettings.CommanderTagMode = 0; }
 		});

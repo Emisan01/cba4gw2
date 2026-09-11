@@ -1054,278 +1054,100 @@ namespace cba
 		// ── Section 1: Farbprofil & Korrektur ────────────────────────────────
 		if (renderSectionHeader(0, t.HeaderSection1, ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			// Radio buttons for balance types
-			auto typeBtn = [&](const char* aLabel, bool aActive, BalanceType aType) {
-				if (ImGui::RadioButton(aLabel, aActive)) {
-					if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
-						CurrentSettings.Mixed = false;
-						CurrentSettings.Type  = aType;
-						CurrentSettings.Severity01 = 0.0;
-						changed = true;
-					}
-				}
-			};
-			typeBtn(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Protan, BalanceType::Protan);
-			ImGui::SameLine();
-			typeBtn(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Deutan, BalanceType::Deutan);
-			ImGui::SameLine();
-			typeBtn(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Tritan, BalanceType::Tritan);
-			ImGui::SameLine();
-			if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
-				if (!CurrentSettings.Mixed) {
-					CurrentSettings.Mixed = true;
-					CurrentSettings.MixedRgSeverity01 = 0.0;
-					CurrentSettings.MixedBySeverity01 = 0.0;
-					changed = true;
-				}
-			}
-
-			ImGui::Spacing();
-
+			// Base profile (Type/Mixed/Severity/RG/BY) is now read-only here
+			// (2026-09-11, "ein Zuhause pro Einstellung" - see CLAUDE.md's
+			// UI-restructure entry). It used to be a full duplicate editor
+			// of the exact same radios+sliders the Nexus-embedded panel
+			// already owns (a third copy also lives in Sensor Graph HUD) -
+			// three different widgets for the same value, easy to lose
+			// track of which one you last touched. Studio is the diagnostic/
+			// power-user surface now; the embedded panel is the only editor.
+			const char* activeTypeLabel = CurrentSettings.Mixed
+				? (isDe ? "Gemischt" : "Mixed")
+				: (CurrentSettings.Type == BalanceType::Protan ? t.Protan
+					: CurrentSettings.Type == BalanceType::Deutan ? t.Deutan : t.Tritan);
 			if (CurrentSettings.Mixed) {
-				ImGui::TextUnformatted(t.RgStrength);
-				float avail = ImGui::GetContentRegionAvail().x;
-				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
-				float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
-				float sp = 6.0f;
-				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
-
-				ImGui::SetNextItemWidth(sW);
-				// Registry-backed (CLAUDE.md, Registry/Control Layer) - same
-				// pattern as Tolerance/GammaGain. NoInput already blocked the
-				// Ctrl-click-to-type overscaling bypass here (stronger than the
-				// AlwaysClamp used elsewhere), kept as-is; registry Set() still
-				// clamps too for one shared source of truth on the range.
-				{
-					float rg = ParameterRegistry::Get().GetFloat(ParamId::MixedRgSeverity01);
-					if (ImGui::SliderFloat("##rg_det", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-						ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, rg);
-						changed = true;
-					}
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-				ImGui::SameLine(0, sp);
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-				if (ImGui::Button("Reset##rg_det", ImVec2(btnW, 0.0f))) { 
-					CurrentSettings.MixedRgSeverity01 = 0.0f; 
-					changed = true; 
-					saveNeeded = true; 
-				}
-				ImGui::PopStyleColor(4);
-				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
-				
-				ImGui::TextUnformatted(t.ByStrength);
-				ImGui::SetNextItemWidth(sW);
-				{
-					float by = ParameterRegistry::Get().GetFloat(ParamId::MixedBySeverity01);
-					if (ImGui::SliderFloat("##by_det", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-						ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, by);
-						changed = true;
-					}
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-				ImGui::SameLine(0, sp);
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-				if (ImGui::Button("Reset##by_det", ImVec2(btnW, 0.0f))) { 
-					CurrentSettings.MixedBySeverity01 = 0.0f; 
-					changed = true; 
-					saveNeeded = true; 
-				}
-				ImGui::PopStyleColor(4);
-				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
+				ImGui::Text("%s: %s  (%s %.0f%% / %s %.0f%%)",
+					isDe ? "Aktives Profil" : "Active Profile", activeTypeLabel,
+					t.RgStrength, CurrentSettings.MixedRgSeverity01 * 100.0f,
+					t.ByStrength, CurrentSettings.MixedBySeverity01 * 100.0f);
 			} else {
-				ImGui::TextUnformatted(t.Strength);
-				float avail = ImGui::GetContentRegionAvail().x;
-				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
-				float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
-				float sp = 6.0f;
-				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
-
-				ImGui::SetNextItemWidth(sW);
-				{
-					float sev = ParameterRegistry::Get().GetFloat(ParamId::Severity01);
-					if (ImGui::SliderFloat("##sev_det", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-						ParameterRegistry::Get().SetFloat(ParamId::Severity01, sev);
-						changed = true;
-					}
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-				ImGui::SameLine(0, sp);
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-				if (ImGui::Button("Reset##sev_det", ImVec2(btnW, 0.0f))) { 
-					CurrentSettings.Severity01 = 0.0f; 
-					changed = true; 
-					saveNeeded = true; 
-				}
-				ImGui::PopStyleColor(4);
-				if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
+				ImGui::Text("%s: %s  (%s %.0f%%)",
+					isDe ? "Aktives Profil" : "Active Profile", activeTypeLabel,
+					t.Strength, CurrentSettings.Severity01 * 100.0f);
 			}
+			ImGui::TextDisabled("%s", isDe ? "Bearbeiten: Nexus-Panel (Optionen -> cba4gw2)"
+			                               : "Edit in: Nexus Panel (Options -> cba4gw2)");
 
 			ImGui::Spacing();
 			ImGui::Separator();
 			ImGui::Spacing();
 
 			// ── Commander-Tag & Contrast Enhancer Block ─────────────────────
+			// The on/off toggle + 3 profile-select buttons removed here
+			// 2026-09-11 ("ein Zuhause pro Einstellung") were an exact
+			// duplicate of the Nexus-embedded panel's "Commander Tag
+			// Contrast" quick-select buttons (both ultimately call
+			// ActivateCommanderTagProfile()) - kept only what's genuinely
+			// unique to Studio: saving the current profile into the named
+			// slot bank. The unused "Load on startup" width calculation
+			// that used to sit alongside this (computed, never actually
+			// rendered as a checkbox) was dead code, removed with it.
 			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
-			if (ImGui::Checkbox(isDe ? "Aktiv: Automatisches Kontrast-Profil##enhancer_toggle" 
-			                         : "Active: Automatic Contrast Profile##enhancer_toggle", &enhancerActive)) {
-				CurrentSettings.CommanderTagMode = enhancerActive ? 1 : 0;
-				if (enhancerActive) {
-					CurrentSettings.Enabled = true;
-					CurrentSettings.SmartEnhancer = true;
-				}
-				UpdateTagEnhancerConflicts();
-				Recompute(/*aForce=*/true);
-				changed = true;
-				saveNeeded = true;
-			}
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.CmdrEnhancerDesc);
-
 			int shiftedCount = 0;
 			for (int i = 0; i < 9; ++i) {
 				if (s_tagConflictStates[i].inConflict) shiftedCount++;
 			}
-			ImGui::SameLine(0, 12.0f);
-			const char* curDefName = CurrentSettings.Type == BalanceType::Protan ? (isDe ? "Protan (Rot)" : "Protan (Red)") 
+			const char* curDefName = CurrentSettings.Type == BalanceType::Protan ? (isDe ? "Protan (Rot)" : "Protan (Red)")
 				: (CurrentSettings.Type == BalanceType::Deutan ? (isDe ? "Deutan (Gruen)" : "Deutan (Green)") : (isDe ? "Tritan (Blau)" : "Tritan (Blue)"));
-			ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "%s - %d von 9 Farben verschoben" : "%s - %d of 9 colors shifted", curDefName, shiftedCount);
+			if (enhancerActive)
+				ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "Com-Tag-Kontrast: %s - %d von 9 Farben verschoben" : "Com-Tag Contrast: %s - %d of 9 colors shifted", curDefName, shiftedCount);
+			else
+				ImGui::TextDisabled("%s", isDe ? "Com-Tag-Kontrast: Inaktiv (im Nexus-Panel einschalten)" : "Com-Tag Contrast: Inactive (enable in Nexus Panel)");
 
 			if (enhancerActive)
 			{
 				ImGui::Spacing();
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
-				float availRow2 = ImGui::GetContentRegionAvail().x;
-				const char* name1 = isDe ? "Profil 1 (Rot)" : "Profile 1 (Red)";
-				const char* name2 = isDe ? "Profil 2 (Gruen)" : "Profile 2 (Green)";
-				const char* name3 = isDe ? "Profil 3 (Blau)" : "Profile 3 (Blue)";
-				const char* saveText = isDe ? "Speichern" : "Save";
-				const char* startupText = isDe ? "Beim Start laden" : "Load on startup";
-
-				float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
-				float spacingX = ImGui::GetStyle().ItemSpacing.x;
-
-				// Dynamic button widths computed directly from localized text size
-				float w1 = ImGui::CalcTextSize(name1).x + padX + 8.0f;
-				float w2 = ImGui::CalcTextSize(name2).x + padX + 8.0f;
-				float w3 = ImGui::CalcTextSize(name3).x + padX + 8.0f;
-				float maxProfileW = std::max({ w1, w2, w3 });
-
-				float saveW = ImGui::CalcTextSize(saveText).x + padX + 12.0f;
-				float startupW = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(startupText).x + 4.0f;
-
-				// Compute total width needed if all 5 elements are on a single line
-				float totalNeededSingleLine = (maxProfileW * 3.0f) + saveW + startupW + (4.0f * spacingX);
-				bool fitsSingleLine = (availRow2 >= totalNeededSingleLine);
-
-				float btnW = fitsSingleLine ? maxProfileW : std::max(maxProfileW, (availRow2 - 2.0f * spacingX) / 3.0f);
-
-				// Row 2: 3 Com-Tag Profile Activation Buttons (Red / Green / Blue)
-				auto comTagProfileBtn = [&](const char* name, BalanceType dType, int profNum) {
-					bool act = (CurrentSettings.CommanderTagMode != 0 && !CurrentSettings.Mixed && CurrentSettings.Type == dType);
-					if (act) {
-						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-					} else {
-						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-					}
-					if (ImGui::Button(name, ImVec2(btnW, 23.0f))) {
-						ActivateCommanderTagProfile(dType);
-						changed = true;
-						saveNeeded = true;
-					}
-					ImGui::PopStyleColor(4);
-					if (ImGui::IsItemHovered())
-					{
-						ImGui::SetTooltip(isDe ? "Aktiviert Com-Tag Profil %d (%s) sofort im Filter"
-						                       : "Activates Com-Tag Profile %d (%s) immediately in filter", profNum, name);
-					}
-				};
-
-				comTagProfileBtn(name1, BalanceType::Protan, 1);
-				ImGui::SameLine(0, 4.0f);
-				comTagProfileBtn(name2, BalanceType::Deutan, 2);
-				ImGui::SameLine(0, 4.0f);
-				comTagProfileBtn(name3, BalanceType::Tritan, 3);
-
-				auto renderSaveAndStartup = [&]() {
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-					if (ImGui::Button(isDe ? "Speichern##save_com_bank" : "Save##save_com_bank", ImVec2(saveW, 23.0f)))
-					{
-						EnsureDeferredInitialized();
-						int targetSlot = (CurrentSettings.Type == BalanceType::Protan) ? 0 :
-						                 (CurrentSettings.Type == BalanceType::Deutan) ? 1 : 2;
-						CurrentSettings.Slots[targetSlot].Used = true;
-						// Only auto-generate a name if the slot doesn't
-						// already have one - previously overwrote
-						// unconditionally, so a user's manually-renamed slot
-						// ("WvW Raid Preset") could silently lose its name
-						// the next time this quick-save button was clicked
-						// (found in the 2026-09-09 codebase review), matching
-						// the .Name.empty() check every other slot-save path
-						// in this file already uses.
-						if (CurrentSettings.Slots[targetSlot].Name.empty())
-						{
-							char buf[64];
-							std::snprintf(buf, sizeof(buf), "Com-Tag %s", (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
-							                                              (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan");
-							CurrentSettings.Slots[targetSlot].Name = buf;
-						}
-						CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
-						CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
-						CurrentSettings.Slots[targetSlot].Mixed = false;
-						CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
-
-						CurrentSettings.Save(AddonDir);
-						saveNeeded = true;
-					}
-					ImGui::PopStyleColor(4);
-					if (ImGui::IsItemHovered())
-					{
-						ImGui::SetTooltip(isDe ? "Speichert das aktuell gesetzte Com-Tag Profil dauerhaft in der Profilspeicherbank"
-						                       : "Saves the currently configured Com-Tag profile to the profile bank");
-					}
-				};
-
-				if (fitsSingleLine)
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				if (ImGui::Button(isDe ? "Aktuelles Profil in Profilbank speichern##save_com_bank" : "Save current profile to profile bank##save_com_bank"))
 				{
-					ImGui::SameLine(0, 6.0f);
-					renderSaveAndStartup();
-				}
-
-				ImGui::Spacing();
-
-				// Row 3: Smart-Auto toggle (and Save/Startup if wrapped)
-				if (ImGui::Checkbox(isDe ? "Smart-Auto##smart_toggle" : "Smart Auto##smart_toggle", &CurrentSettings.SmartEnhancer)) {
 					EnsureDeferredInitialized();
-					UpdateTagEnhancerConflicts();
-					Recompute(/*aForce=*/true);
-					changed = true;
+					int targetSlot = (CurrentSettings.Type == BalanceType::Protan) ? 0 :
+					                 (CurrentSettings.Type == BalanceType::Deutan) ? 1 : 2;
+					CurrentSettings.Slots[targetSlot].Used = true;
+					// Only auto-generate a name if the slot doesn't
+					// already have one - previously overwrote
+					// unconditionally, so a user's manually-renamed slot
+					// ("WvW Raid Preset") could silently lose its name
+					// the next time this quick-save button was clicked
+					// (found in the 2026-09-09 codebase review), matching
+					// the .Name.empty() check every other slot-save path
+					// in this file already uses.
+					if (CurrentSettings.Slots[targetSlot].Name.empty())
+					{
+						char buf[64];
+						std::snprintf(buf, sizeof(buf), "Com-Tag %s", (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
+						                                              (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan");
+						CurrentSettings.Slots[targetSlot].Name = buf;
+					}
+					CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
+					CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
+					CurrentSettings.Slots[targetSlot].Mixed = false;
+					CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+
+					CurrentSettings.Save(AddonDir);
 					saveNeeded = true;
 				}
-				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.SmartEnhancerDesc);
-
-				if (!fitsSingleLine)
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
 				{
-					ImGui::SameLine(0, 10.0f);
-					renderSaveAndStartup();
+					ImGui::SetTooltip(isDe ? "Speichert das aktuell gesetzte Com-Tag Profil dauerhaft in der Profilspeicherbank"
+					                       : "Saves the currently configured Com-Tag profile to the profile bank");
 				}
 
 				ImGui::PopStyleVar();
@@ -1559,7 +1381,6 @@ namespace cba
 					EnsureDeferredInitialized();
 					CurrentSettings.CommanderTagMode = 0;
 					CurrentSettings.EnhancerTolerance = 0.12f;
-					CurrentSettings.SmartEnhancer = true;
 					UpdateTagEnhancerConflicts();
 					Recompute(/*aForce=*/true);
 					changed = true;

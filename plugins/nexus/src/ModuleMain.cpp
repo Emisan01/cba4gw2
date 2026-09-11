@@ -235,43 +235,32 @@ namespace cba
 				simTags[i].simB = (float)(simTags[i].origB + sev * (outB - simTags[i].origB));
 			}
 
+			// Real, severity-aware conflict detection (2026-09-11 - fixed the
+			// "Auto Com-Tag isn't selective anymore" report). This used to
+			// branch: SmartEnhancer=true took a STATIC per-CVD-type table
+			// (same 5-of-9 "in conflict" indices no matter what Severity
+			// was set to - a Severity=0.05 and a Severity=1.0 profile
+			// flagged identically), while SmartEnhancer=false ran this real
+			// simTags-distance computation instead - the actually-adaptive
+			// logic was live in the code the whole time, just hidden behind
+			// a checkbox that defaults ON to the cruder table. Both states
+			// now use the same real computation; SmartEnhancerDesc already
+			// promises "passt... an das oben gewaehlte Farbprofil an" -
+			// Severity is part of that profile and now actually matters.
 			std::array<bool, 9> hasConflict{};
-			if (CurrentSettings.SmartEnhancer)
+			constexpr float kConflictThreshold = 0.16f;
+			for (int i = 0; i < 9; ++i)
 			{
-				if (defType == BalanceType::Protan) {
-					hasConflict[0] = true; // Rot
-					hasConflict[1] = true; // Orange
-					hasConflict[3] = true; // Gruen
-					hasConflict[5] = true; // Blau
-					hasConflict[6] = true; // Lila
-				} else if (defType == BalanceType::Deutan) {
-					hasConflict[0] = true; // Rot
-					hasConflict[1] = true; // Orange
-					hasConflict[3] = true; // Gruen
-				} else {
-					hasConflict[2] = true; // Gelb
-					hasConflict[3] = true; // Gruen
-					hasConflict[4] = true; // Cyan
-					hasConflict[5] = true; // Blau
-					hasConflict[7] = true; // Magenta
-				}
-			}
-			else
-			{
-				constexpr float kConflictThreshold = 0.16f;
-				for (int i = 0; i < 9; ++i)
+				for (int j = i + 1; j < 9; ++j)
 				{
-					for (int j = i + 1; j < 9; ++j)
+					float dr = simTags[i].simR - simTags[j].simR;
+					float dg = simTags[i].simG - simTags[j].simG;
+					float db = simTags[i].simB - simTags[j].simB;
+					float dist = std::sqrt(dr * dr + dg * dg + db * db);
+					if (dist < kConflictThreshold)
 					{
-						float dr = simTags[i].simR - simTags[j].simR;
-						float dg = simTags[i].simG - simTags[j].simG;
-						float db = simTags[i].simB - simTags[j].simB;
-						float dist = std::sqrt(dr * dr + dg * dg + db * db);
-						if (dist < kConflictThreshold)
-						{
-							hasConflict[i] = true;
-							hasConflict[j] = true;
-						}
+						hasConflict[i] = true;
+						hasConflict[j] = true;
 					}
 				}
 			}
@@ -459,7 +448,6 @@ namespace cba
 		// on invisible prior state - exactly the kind of inconsistency the
 		// Strength slider must not have.
 		CurrentSettings.Severity01 = 1.0f;
-		CurrentSettings.SmartEnhancer = true;
 		// Same redundant-and-unprotected UpdateTagEnhancerConflicts() call
 		// removed as in ResetFilterSettingsAndDisable() above - Recompute()
 		// below already calls it once, under s_recomputeMutex.

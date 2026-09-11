@@ -957,6 +957,83 @@ single dot + tiny crosshair ticks from the first redesign. Still two glints,
 still counter-clockwise, still one lap per 5.5s - only the glint's own shape
 changed.
 
+## Session log (2026-09-11) - UI finalization pass, "ein Zuhause pro Einstellung"
+
+Large in-progress restructure, agreed with Emi after a full-screenshot review
+of all 5 windows open at once showed the real problem: the same settings
+edited in 2-3 places with different interaction patterns each - exactly the
+"grip loss" root cause from the top of this file, now visible instead of
+theoretical. Agreed principle: **every setting gets exactly one editable
+home** (the Nexus-embedded panel, for anything base-level); every other
+window either doesn't show that setting at all, or shows it read-only as
+diagnostics. This session's work is a first pass, not finished - see
+"Still open" below.
+
+**Auto-Com-Tag selectivity bug, root-caused and fixed**: `UpdateTagEnhancerConflicts()`
+(`ModuleMain.cpp`) had two branches - `SmartEnhancer=true` (the default) used
+a **static per-CVD-type table** of which of the 9 reference tag colors count
+as "in conflict" (e.g. Protan always flagged the same 5 of 9, Severity never
+consulted), while `SmartEnhancer=false` ran a real simulation-distance
+computation that actually reacts to Severity. The genuinely adaptive logic
+was live in the code the whole time, just hidden behind a checkbox
+defaulting to the cruder table - this is what Emi meant by "funktioniert
+nicht mehr selektiv." Fixed: both paths now always use the real distance
+computation; the now-functionally-inert `SmartEnhancer` checkbox was removed
+from `MainWindow.cpp` (three call sites), `FeatureModule.cpp`'s status text
+generalized. Deliberately did **not** touch `Settings.h`/`.cpp`,
+`ParameterRegistry`, `SelfTest`, or `L10n.h`'s `SmartEnhancer` field/strings -
+those live in positional aggregate initializers this file already warns
+about (silent field-shift risk), so the field stays as inert legacy storage
+rather than risking that class of bug mid-refactor.
+
+**Duplicate editors removed** (each was a second or third full copy of a
+control the embedded panel already owns):
+- Main Window Section 1's Type/Mixed radios + Strength/RG/BY sliders -
+  replaced with a read-only "Active Profile: X (Y%)" status line.
+- Sensor Graph HUD's identical copy of the same radios/sliders - same
+  read-only replacement.
+- Main Window's Commander-Tag on/off checkbox + 3 profile-select buttons -
+  removed (embedded panel's "Commander Tag Contrast" quick-buttons are the
+  same `ActivateCommanderTagProfile()` call). Kept the one thing Main
+  Window's version had that the embedded panel doesn't: saving the current
+  profile into the named Slot bank - repurposed as a standalone button under
+  a read-only status line. Also found and removed dead code in the same
+  block: a `startupText`/`startupW` "Load on startup" width calculation that
+  was computed but never actually rendered as a checkbox anywhere.
+
+**Checked and deliberately left alone**: the embedded panel's compact
+Profile Slots (Save + `[1][2][3]` chips) vs. Main Window's own fuller
+Profile Slots section (rename/delete/dirty-tracking) - this one is **not**
+a redundant duplicate, it's an intentional, already-documented compact-vs-
+full split (the embedded panel's own comment already explains why). Left
+untouched.
+
+**Still open / deliberately not touched this pass**:
+- **Filter-Layer-Precedence semantics** - talked through with Emi in detail.
+  Confirmed: base filter (Type/Severity/Mixed) and Auto-Com-Tag are
+  congruent by construction (Auto-Com-Tag reads the base filter directly),
+  so there's no real conflict to arbitrate there - nothing to build. What's
+  still unresolved: how Filter Lab edits should affect Auto-Com-Tag beyond
+  today's one-shot disable-on-touch, and whether Sensor Graph HUD's filter
+  (same value as the base filter) needs decoupling at all. Emi's own words:
+  "ich mag zu viel Automatik nicht aber zu wenig könnte den User auch
+  irritieren" - genuinely unresolved, not implementing until it is.
+- Two Curve-View/spectrum-graph widgets (Main Window's static transfer-curve
+  view vs. Sensor Graph HUD's live filtered-spectrum view) share the same
+  Polygonal/Harmonic/Rays selector look even though the underlying data
+  differs - flagged as a visual-distinction polish item, not a functional
+  duplicate (both are already read-only diagnostics), lower priority than
+  the structural work above.
+- Contrast Test Swatches sizing/clarity, Commander Tag pre/post-DWM
+  double-transform, slider-overscaling, `DisableHotloading` CI split, and
+  the D-tier items (5 ungoverned `Enabled=true` sites, OS-banner sync,
+  `cba_session.lock`, `FreeFilterEnabled`) are all still queued from the
+  agreed A-D punch list, not started yet this pass.
+
+Built and unit-tested after every logical chunk (not after every single
+edit, per Emi's explicit ask to batch builds on large tasks) - 24/24 passing
+throughout.
+
 ## Build feedback loop
 
 **This changed from earlier sessions**: Claude now has direct local access

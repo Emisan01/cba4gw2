@@ -573,118 +573,26 @@ namespace cba
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		auto typeBtnHUD = [&](const char* aLabel, bool aActive, BalanceType aType) {
-			if (ImGui::RadioButton(aLabel, aActive)) {
-				if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
-					CurrentSettings.Mixed = false;
-					CurrentSettings.Type  = aType;
-					CurrentSettings.Severity01 = 0.0;
-					changed = true;
-					saveNeeded = true;
-				}
+		// Read-only now (2026-09-11, "ein Zuhause pro Einstellung") - this
+		// used to be a third full copy of the same Type/Mixed radios +
+		// Strength/RG/BY sliders the Nexus-embedded panel (the only editor
+		// now) and Main Window Section 1 also had. Sensor Graph HUD is a
+		// live-monitoring surface, not an editor.
+		{
+			const char* activeTypeLabel = CurrentSettings.Mixed
+				? (isDe ? "Gemischt" : "Mixed")
+				: (CurrentSettings.Type == BalanceType::Protan ? t.Protan
+					: CurrentSettings.Type == BalanceType::Deutan ? t.Deutan : t.Tritan);
+			if (CurrentSettings.Mixed) {
+				ImGui::Text("%s: %s  (%s %.0f%% / %s %.0f%%)",
+					isDe ? "Profil" : "Profile", activeTypeLabel,
+					t.RgStrength, CurrentSettings.MixedRgSeverity01 * 100.0f,
+					t.ByStrength, CurrentSettings.MixedBySeverity01 * 100.0f);
+			} else {
+				ImGui::Text("%s: %s  (%s %.0f%%)",
+					isDe ? "Profil" : "Profile", activeTypeLabel,
+					t.Strength, CurrentSettings.Severity01 * 100.0f);
 			}
-		};
-		typeBtnHUD(t.Protan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Protan, BalanceType::Protan);
-		ImGui::SameLine();
-		typeBtnHUD(t.Deutan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Deutan, BalanceType::Deutan);
-		ImGui::SameLine();
-		typeBtnHUD(t.Tritan, !CurrentSettings.Mixed && CurrentSettings.Type == BalanceType::Tritan, BalanceType::Tritan);
-		ImGui::SameLine();
-		if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
-			if (!CurrentSettings.Mixed) {
-				CurrentSettings.Mixed = true;
-				CurrentSettings.MixedRgSeverity01 = 0.0;
-				CurrentSettings.MixedBySeverity01 = 0.0;
-				changed = true;
-				saveNeeded = true;
-			}
-		}
-
-		ImGui::Spacing();
-
-		if (CurrentSettings.Mixed) {
-			ImGui::TextUnformatted(t.RgStrength);
-			float avail = ImGui::GetContentRegionAvail().x;
-			float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
-			float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
-			float sp = 6.0f;
-			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
-
-			ImGui::SetNextItemWidth(sW);
-			// Registry-backed, same ParamId as the Main Window's RG slider -
-			// one clamp source shared across both windows.
-			{
-				float rg = ParameterRegistry::Get().GetFloat(ParamId::MixedRgSeverity01);
-				if (ImGui::SliderFloat("##rg_hud", &rg, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, rg);
-					changed = true;
-				}
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine(0, sp);
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-			if (ImGui::Button("Reset##rg_hud", ImVec2(btnW, 0.0f))) { 
-				CurrentSettings.MixedRgSeverity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-			ImGui::PopStyleColor(4);
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
-			
-			ImGui::TextUnformatted(t.ByStrength);
-			ImGui::SetNextItemWidth(sW);
-			{
-				float by = ParameterRegistry::Get().GetFloat(ParamId::MixedBySeverity01);
-				if (ImGui::SliderFloat("##by_hud", &by, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, by);
-					changed = true;
-				}
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine(0, sp);
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-			if (ImGui::Button("Reset##by_hud", ImVec2(btnW, 0.0f))) { 
-				CurrentSettings.MixedBySeverity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-			ImGui::PopStyleColor(4);
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
-		} else {
-			ImGui::TextUnformatted(t.Strength);
-			float avail = ImGui::GetContentRegionAvail().x;
-			float padX = ImGui::GetStyle().FramePadding.x * 2.0f;
-			float btnW = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
-			float sp = 6.0f;
-			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
-
-			ImGui::SetNextItemWidth(sW);
-			{
-				float sev = ParameterRegistry::Get().GetFloat(ParamId::Severity01);
-				if (ImGui::SliderFloat("##sev_hud", &sev, 0.0f, 1.25f, "%.3f", ImGuiSliderFlags_NoInput)) {
-					ParameterRegistry::Get().SetFloat(ParamId::Severity01, sev);
-					changed = true;
-				}
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			ImGui::SameLine(0, sp);
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-			if (ImGui::Button("Reset##sev_hud", ImVec2(btnW, 0.0f))) { 
-				CurrentSettings.Severity01 = 0.0f; 
-				changed = true; 
-				saveNeeded = true; 
-			}
-			ImGui::PopStyleColor(4);
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Wert auf 0.00 zuruecksetzen" : "Reset value to 0.00");
 		}
 
 		// ── Section: Eye Comfort / Helligkeits-Logik ────────────────────────
