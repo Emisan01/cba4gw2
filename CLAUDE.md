@@ -154,6 +154,30 @@ things.
   overstated it as a live conflict. Real issue is future-divergence risk -
   same "wiring tax" pattern `FeatureModuleRegistry` was built to solve
   elsewhere, worth the same consolidation treatment if touched again.
+- **Found 2026-09-11 during a Trinity sweep, deliberately NOT fixed yet
+  (no compiler available at the time - a VS background update had
+  deregistered the toolchain, and stacking more unverified edits was the
+  worse risk).** All three are read-verified, none are urgent:
+  - *Performance*: `RenderMainWindow` calls `DetectWindowMode()` at three
+    separate places (~1517, ~2457, ~2634), i.e. up to three
+    `IDXGISwapChain::GetFullscreenState()` COM round-trips per frame for
+    one value that cannot change within a frame. Compute once at the top,
+    reuse. (The embedded panel's own call added the same day is a fourth,
+    but that panel only renders while the Nexus options page is open.)
+  - *Performance, minor*: `GetFilterLayerOrder()` builds a fresh
+    `std::vector<FilterLayerInfo>` with two `std::string`s per entry on
+    every call, and the Filter Lab UI calls it once per frame while open.
+    Fine for a handful of layers, worth knowing before anything calls it
+    in a hot path.
+  - *Stability, latent*: `FilterLab.cpp:231` does
+    `std::clamp(SelectedLabFilterIndex, 0, count - 1)`. With an empty
+    `LabFilters` that is `clamp(v, 0, -1)` - lo > hi is undefined
+    behaviour, and MSVC returns -1, which then indexes `LabFilters[-1]`.
+    Currently unreachable because `Settings::Load()` unconditionally seeds
+    two defaults when the vector is empty, and the delete button guards
+    with `size() > 1`. It becomes reachable the moment anything else can
+    empty that vector (a "delete all", an import path), so treat the
+    non-empty invariant as load-bearing.
 - **Stale "OS blocked" banner possible across an exclusive-fullscreen
   transition** (found 2026-09-10, same cross-check): `g_DwmLastCallSuccessful`
   (Magnification.cpp) and `DetectWindowMode()` (WindowMode.cpp) never
@@ -1200,6 +1224,81 @@ off-by-one against a `[9]` array, but has a defensible reading (white is
 invariant under the correction, and neutrals are already represented by the
 ambient "Stein" sample). "Fixing" it would lower everyone's recommended gain,
 i.e. visibly change brightness - so it is flagged in-code and left alone.
+
+## Session log (2026-09-11, evening) - base panel rebuilt around one job
+
+Driven by `PRODUCT_CONCEPT.md` (written this session, read it first). Emi's
+framing: the base product should be **one usable feature done completely**,
+with everything else clearly in the extended tier, where "half diffuse" is an
+acceptable state for a workshop but not for the entry point.
+
+**Chosen base feature: Commander Tag contrast.** Deliberately not AoE circles
+despite them arguably being the bigger GW2 complaint - an AoE ring is
+alpha-blended over grass/stone/snow, so its actual pixel colours vary wildly,
+while a tag is a discrete icon with constant colours. For a colour-distance
+matcher the tag is a reliable target and the ring is not. AoE belongs in the
+extended tier where experimenting is the point.
+
+**Guided entry replaces the three type buttons.** "Protan / Deutan / Tritan"
+asks for a diagnosis most players have never had. The panel now asks what the
+user can SEE: which pair is hardest to separate, then - only on the red-green
+axis - whether the red reads much darker (the one protan/deutan discriminator
+a person can actually answer, since protanopia genuinely lowers luminance
+response to long wavelengths). Severity is set the same way: the pair is shown
+AS CORRECTED and the user answers "can you tell them apart now?". Direct type
+buttons still exist for anyone who knows their diagnosis - under Advanced.
+
+**Hold-to-compare** (`CTRL+SHIFT+V`, remappable): suspends both filter stages
+while physically held, so "is this doing anything?" gets answered against live
+game content. Nexus's `KEYBINDS_PROCESS` already delivers the release edge
+(`aIsRelease`), so this needed no second raw-input path - the deliberately
+removed `WM_KEYDOWN` path stays removed. The Watchdog clears the flag when GW2
+loses focus or is minimized, because a lost release event would otherwise
+suppress the filter indefinitely.
+
+**Base panel reduced**: profile slots gated behind Advanced Mode (empty on a
+fresh install = pure noise), profile-code field moved into Advanced. Nothing
+removed, everything still reachable.
+
+**Eye Comfort promoted into the base panel.** Emi reported it as the feature
+that actually keeps him using the tool while playing - and checking revealed
+its entire UI lived in Main Window Section 2, i.e. behind the Advanced gate.
+Same structural mistake as Vision Lab's, at the most expensive possible spot.
+**Rule recorded: an acquisition feature may sit behind a gate, a retention
+feature may not.** The compact block (activate + three sliders) is a second
+*binding*, not a duplicate editor - all three values are
+ParameterRegistry-backed, so storage and clamp are shared with Section 2,
+which is literally the registry's own stated litmus test.
+
+**"The filter cannot work right now" banner added to the base panel.** Both
+conditions (exclusive fullscreen, DWM rejecting) were previously reported only
+in the Main Window - so a base-panel user in exclusive fullscreen saw "ON", a
+live status dot and "Active - N of 9 shifted" while nothing whatsoever
+happened on screen. That is not a missing warning, it is the panel supplying
+false evidence, which the concept exists to prevent.
+
+**Zero-shifted is now spelled out as success.** After the pipeline fix earlier
+today the enhancer legitimately shifts fewer tags, often none. A bare
+"0 of 9" reads as broken and would send someone hunting a non-existent fault.
+
+**Self-review found five defects in the same session's own UI code** (written
+without any ability to run it - worth repeating that discipline):
+- "I can tell them all apart" was a no-op that re-entered question 1 forever.
+- "Off" had become a one-way door once the type buttons moved to Advanced.
+- The step-3 preview briefly swapped `CurrentSettings` fields to borrow
+  `ActiveCorrectionMatrix()`, racing the Watchdog's 50ms `Recompute()`.
+- The compare-hold safety net skipped the minimized case - the likeliest way
+  to lose a release event in the first place.
+- `InvisibleButton` took `GetContentRegionAvail()` unchecked; inside Nexus's
+  user-resizable window that can go non-positive, which is an ImGui assert.
+- Plus one caught by reading before compiling: `Theme::kDotReadyCol` is an
+  `ImU32` for draw-list calls and was being passed to `TextColored`.
+
+**Note on the build environment**: a Visual Studio background update
+deregistered the VS instance mid-session, so `cmake --build` failed with
+"could not find specified instance of Visual Studio" while `vswhere` returned
+nothing. Not a code problem and not something to work around by editing the
+generator - it resolves when the installer finishes.
 
 ## Build feedback loop
 

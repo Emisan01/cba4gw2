@@ -309,3 +309,11 @@ Punkte, die bewusst nicht einseitig entschieden wurden:
 - **Wellenlängen-Elimination** als eigentliche Filter-Lab-Idee: Bänder dämpfen
   statt RGB tauschen. Passt wissenschaftlich zur vorhandenen LMS-Basis, die
   Spektralgraphen existieren bereits — aber eigener, größerer Umbau.
+- **Dauerhaft fehlgeschlagene `MagInitialize`** wird im Basis-Panel nicht
+  gemeldet. `GetColorEffectController().IsInitialized()` wäre der saubere
+  Indikator, aber die Initialisierung ist absichtlich verzögert (30 Frames
+  Warmup, 1-Sekunden-Retry) — ein Banner darauf würde bei *jedem* Start kurz
+  aufblitzen und wäre damit selbst ein falscher Beleg, also genau das, was
+  Abschnitt 1 verbietet. Sauber wäre „schlägt seit mehr als N Sekunden fehl",
+  das braucht aber einen eigenen Timer. Bewusst offen gelassen statt schlecht
+  gelöst; der Fall ist selten, der Fehlalarm wäre es nicht.

@@ -145,8 +145,20 @@ namespace cba
 				size_t underPos = key.find('_', 10);
 				if (underPos != std::string::npos)
 				{
+					// Upper bound added 2026-09-11. This index comes straight
+					// from file content and drove an UNBOUNDED resize: a single
+					// corrupted or hand-edited line like
+					// "LabFilter_999999999_Enabled=1" asked for a billion-element
+					// vector of string-carrying structs, i.e. tens of GB, and the
+					// resulting bad_alloc unwound all the way out of AddonLoad -
+					// CBA would simply fail to load with no explanation. Every
+					// other parsed index here (Slots, ContrastPairIdx,
+					// AutoStartSlot) was already clamped; this one was not.
+					// Out-of-range entries are skipped rather than clamped, so a
+					// junk index cannot silently overwrite a real filter.
+					constexpr int kMaxLabFilters = 64;
 					int fIdx = safeStoi(key.substr(10, underPos - 10), -1);
-					if (fIdx >= 0)
+					if (fIdx >= 0 && fIdx < kMaxLabFilters)
 					{
 						if (fIdx >= (int)s.LabFilters.size())
 							s.LabFilters.resize(fIdx + 1);

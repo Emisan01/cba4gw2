@@ -223,6 +223,44 @@ namespace cba
 			: "Automatic color & contrast correction for Guild Wars 2");
 		ImGui::Spacing();
 
+		// ── "The filter physically cannot work right now" banner ───────────
+		// Added 2026-09-11 (PRODUCT_CONCEPT.md section 1). Both of these
+		// conditions used to be reported ONLY in the Main Window, i.e. inside
+		// Studio, i.e. behind the Advanced Mode gate - so a base-panel user in
+		// exclusive fullscreen saw "ON", a live status dot and
+		// "Active - N of 9 colors shifted" while absolutely nothing happened
+		// on screen. That is not a missing warning, it is the panel actively
+		// supplying FALSE evidence, which is the one thing the whole concept
+		// exists to prevent. It sits above everything else because it
+		// invalidates every status line below it.
+		{
+			WindowMode embWinMode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
+			bool exclusiveFs = (embWinMode == WindowMode::ExclusiveFullscreen);
+			bool osBlocked = CurrentSettings.Enabled && !g_DwmLastCallSuccessful;
+			if (exclusiveFs || osBlocked)
+			{
+				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.38f, 0.14f, 0.10f, 0.55f));
+				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
+				float bannerH = ImGui::GetTextLineHeightWithSpacing() * 3.0f + 12.0f;
+				if (ImGui::BeginChild("##emb_blocked", ImVec2(0.0f, bannerH), false, ImGuiWindowFlags_NoScrollbar))
+				{
+					ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.38f, 1.0f), "%s", isDe
+						? "Der Filter kann gerade nicht wirken"
+						: "The filter cannot take effect right now");
+					ImGui::TextWrapped("%s", exclusiveFs
+						? (isDe ? "GW2 laeuft im exklusiven Vollbild. Stelle in den Grafik-Optionen auf 'Vollbild im Fenster' um - Windows kann die Farbkorrektur sonst nicht anwenden."
+						        : "GW2 is in exclusive fullscreen. Switch Graphics Options to 'Windowed Fullscreen' - Windows cannot apply the colour correction otherwise.")
+						: (isDe ? "Windows nimmt die Farbkorrektur gerade nicht an. Das passiert meist im exklusiven Vollbild oder waehrend eines Aufloesungswechsels."
+						        : "Windows is currently rejecting the colour correction. This usually happens in exclusive fullscreen or during a resolution change."));
+				}
+				ImGui::EndChild();
+				ImGui::PopStyleVar(2);
+				ImGui::PopStyleColor();
+				ImGui::Spacing();
+			}
+		}
+
 		// ── Row 1: Master ON/OFF + live status. Pushed to the very top
 		// (2026-09-09, Emi's reorder request) - this is "the basic button,"
 		// the single most fundamental control, so it's the first thing on
@@ -679,7 +717,28 @@ namespace cba
 			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
 			int shiftedCount = 0;
 			for (int i = 0; i < 9; ++i) if (s_tagConflictStates[i].inConflict) shiftedCount++;
-			if (enhancerActive)
+			if (enhancerActive && shiftedCount == 0)
+			{
+				// Zero is a SUCCESS state, not a failure, and it became far
+				// more common after the 2026-09-11 pipeline fix: the enhancer
+				// now measures the tags as they actually appear, so anything
+				// the base correction already separates no longer counts as a
+				// conflict. Spelling that out matters - a bare "0 of 9" reads
+				// as "broken" and would send a user hunting for a fault that
+				// is not there (PRODUCT_CONCEPT.md section 1).
+				// kTextCyanLicht, not kDotReadyCol: the latter is an ImU32 for
+				// draw-list calls, TextColored takes an ImVec4.
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe
+					? "Aktiv - alle 9 Tag-Farben bereits klar unterscheidbar"
+					: "Active - all 9 tag colours already clearly distinct");
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe
+						? "Es muss nichts verschoben werden: Deine Farbkorrektur trennt die Tag-Farben bereits ausreichend.\nDer Verstaerker greift automatisch wieder ein, sobald das nicht mehr reicht."
+						: "Nothing needs shifting: your colour correction already separates the tag colours well enough.\nThe enhancer steps back in automatically as soon as that stops being true.");
+				}
+			}
+			else if (enhancerActive)
 				ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "Aktiv - %d von 9 Farben verschoben" : "Active - %d of 9 colors shifted", shiftedCount);
 			else
 				ImGui::TextDisabled("%s", isDe ? "Inaktiv" : "Inactive");
@@ -823,6 +882,27 @@ namespace cba
 				? "Blaufilter, Warmton und Saettigungsreduktion - unabhaengig von der Farbkorrektur, wird zusaetzlich angewendet.\nWirkt sofort sichtbar und ist die eine Einstellung, die du direkt selbst beurteilen kannst."
 				: "Blue-light filter, warm tint and saturation reduction - independent of the colour correction, applied on top of it.\nVisible immediately, and the one setting you can judge for yourself directly.");
 		}
+		// Dead end (2026-09-11): Recompute() returns early while the master
+		// filter is off, so Eye Comfort is enabled-but-inert in that state and
+		// the sliders below would move with no visible result. That case is
+		// not exotic - per PRODUCT_CONCEPT.md 2D this feature has a far wider
+		// audience than CVD, so "I only want the eye comfort" is a normal
+		// path, and those users have no reason to guess that a filter they do
+		// not need has to be on first. Say it, and offer the one click.
+		if (CurrentSettings.EyeComfortModeEnabled && !CurrentSettings.Enabled)
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.38f, 1.0f), "%s", isDe
+				? "Wirkt erst, wenn der Filter oben an ist."
+				: "Only takes effect once the filter above is on.");
+			ImGui::SameLine(0, 8.0f);
+			if (ImGui::SmallButton(isDe ? "Jetzt einschalten##eye_enable" : "Turn on now##eye_enable"))
+			{
+				ToggleMasterEnabled();
+				changed = true;
+				saveNeeded = true;
+			}
+		}
+
 		if (CurrentSettings.EyeComfortModeEnabled)
 		{
 			ImGui::Indent(12.0f);
