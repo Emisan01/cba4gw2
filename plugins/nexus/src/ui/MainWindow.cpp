@@ -2454,8 +2454,15 @@ namespace cba
 		// ── Section 3: Spiel- & Fenstermodus ──────────────────────────────────
 		if (renderSectionHeader(2, t.HeaderSection3))
 		{
-			WindowMode mode = DetectWindowMode(
-				APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
+			// Reuses curWinMode from the fullscreen banner above rather than
+			// querying again (2026-09-11): DetectWindowMode is an
+			// IDXGISwapChain::GetFullscreenState() COM round-trip, and the
+			// value cannot change within a single frame - so a second call
+			// here was pure duplicated cost every frame this section stayed
+			// expanded. The third call site (the diagnostics button) keeps its
+			// own fresh query on purpose: it runs on click, not per frame, and
+			// a snapshot report should read current truth.
+			WindowMode mode = curWinMode;
 			if (mode == WindowMode::ExclusiveFullscreen) {
 				ImGui::TextColored({1.0f,0.55f,0.2f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode, isDe));
 				ImGui::TextWrapped(isDe 

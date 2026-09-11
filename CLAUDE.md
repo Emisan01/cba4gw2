@@ -154,30 +154,40 @@ things.
   overstated it as a live conflict. Real issue is future-divergence risk -
   same "wiring tax" pattern `FeatureModuleRegistry` was built to solve
   elsewhere, worth the same consolidation treatment if touched again.
-- **Found 2026-09-11 during a Trinity sweep, deliberately NOT fixed yet
-  (no compiler available at the time - a VS background update had
-  deregistered the toolchain, and stacking more unverified edits was the
-  worse risk).** All three are read-verified, none are urgent:
-  - *Performance*: `RenderMainWindow` calls `DetectWindowMode()` at three
-    separate places (~1517, ~2457, ~2634), i.e. up to three
-    `IDXGISwapChain::GetFullscreenState()` COM round-trips per frame for
-    one value that cannot change within a frame. Compute once at the top,
-    reuse. (The embedded panel's own call added the same day is a fourth,
-    but that panel only renders while the Nexus options page is open.)
-  - *Performance, minor*: `GetFilterLayerOrder()` builds a fresh
-    `std::vector<FilterLayerInfo>` with two `std::string`s per entry on
-    every call, and the Filter Lab UI calls it once per frame while open.
-    Fine for a handful of layers, worth knowing before anything calls it
-    in a hot path.
-  - *Stability, latent*: `FilterLab.cpp:231` does
-    `std::clamp(SelectedLabFilterIndex, 0, count - 1)`. With an empty
-    `LabFilters` that is `clamp(v, 0, -1)` - lo > hi is undefined
-    behaviour, and MSVC returns -1, which then indexes `LabFilters[-1]`.
-    Currently unreachable because `Settings::Load()` unconditionally seeds
-    two defaults when the vector is empty, and the delete button guards
-    with `size() > 1`. It becomes reachable the moment anything else can
-    empty that vector (a "delete all", an import path), so treat the
-    non-empty invariant as load-bearing.
+- **Trinity sweep 2026-09-11 - three findings, one fixed, two closed as
+  "correctly leave alone" after re-checking.** Recorded because the
+  re-check is the useful part:
+  - *Performance, FIXED*: `RenderMainWindow` queried `DetectWindowMode()`
+    twice per frame (the fullscreen banner ~1517 and Section 3 ~2457) for a
+    value that cannot change within a frame - each one an
+    `IDXGISwapChain::GetFullscreenState()` COM round-trip. Section 3 now
+    reuses the banner's `curWinMode`. The third call site (the diagnostics
+    button, ~2634) deliberately keeps its own fresh query: it runs on click,
+    not per frame, and a snapshot report should read current truth. Note the
+    original sweep note overstated this as "three per frame" - one of the
+    three was never in the frame path at all.
+  - *Stability, NOT a bug after re-check*: `FilterLab.cpp:231` does
+    `std::clamp(SelectedLabFilterIndex, 0, count - 1)`, which would be UB
+    (lo > hi) on an empty `LabFilters`. It cannot be empty there:
+    `DrawFilterLabWidget` seeds a default filter at ~line 218 immediately
+    before, guarded by `if (LabFilters.empty())`. That guard is *local*, so
+    the invariant does not depend on `Settings::Load()`'s own seeding at
+    all - two independent sites enforce it. Adding a third guard would be
+    defending against an unreachable state; left alone on purpose.
+  - *Performance, NOT worth changing*: `GetFilterLayerOrder()` allocates a
+    fresh vector with two `std::string`s per entry each call, and Filter Lab
+    calls it per frame. For a handful of layers, inside a diagnostic panel
+    that only renders behind Advanced Mode, caching would add invalidation
+    logic (and staleness risk) to save a few small allocations. Left alone -
+    revisit only if something ever calls it from a real hot path.
+  - Dormant detail spotted while checking the above: `FilterLab.cpp`'s
+    emergency seed creates an **"AoE Rot zu Signal-Cyan"** filter, but it
+    only fires when the vector is already empty - which `Settings::Load()`
+    prevents by seeding its own two abstract defaults ("Gruen zu
+    Signal-Rot", "Blau zu Cyan-Kontrast") first. So the AoE default ships in
+    the code but effectively never appears. Relevant to
+    `PRODUCT_CONCEPT.md` section 2B, which argues that the AoE case deserves
+    to be a named shipped preset rather than handmade lab work.
 - **Stale "OS blocked" banner possible across an exclusive-fullscreen
   transition** (found 2026-09-10, same cross-check): `g_DwmLastCallSuccessful`
   (Magnification.cpp) and `DetectWindowMode()` (WindowMode.cpp) never
