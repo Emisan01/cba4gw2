@@ -9,22 +9,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Nexus's real GitHub-provider auto-update behavior.
 option(CBA_LOCAL_DEV "Disable Nexus auto-update while iterating locally" ON)
 
-# Build-time stamp for AddonVersion.Build/.Revision (2026-09-09) - Emi's idea,
-# because "is this DLL actually the one I just built" turned into a whole
-# afternoon of byte-comparing files after something (Nexus's own Library
-# auto-update, it looks like) kept silently reverting addons/cba.dll to an
-# older build. This regenerates every single build (it's a target with no
-# tracked OUTPUT, so CMake always re-runs it, unlike configure_file which
-# only updates when CMake reconfigures) and stamps Build=HH, Revision=MMSS
-# from the build time - so the version number Nexus displays in its addon
-# list changes on every real rebuild and can be eyeballed directly instead
-# of comparing file sizes.
+# Build-time stamp for AddonVersion.Build (2026-09-09) - Emi's idea, because
+# "is this DLL actually the one I just built" turned into a whole afternoon of
+# byte-comparing files after something (Nexus's own Library auto-update, it
+# looks like) kept silently reverting addons/cba.dll to an older build. This
+# regenerates every single build (it's a target with no tracked OUTPUT, so
+# CMake always re-runs it, unlike configure_file which only updates when
+# CMake reconfigures) and stamps a simple +1-per-local-build counter (was
+# hour/minute*100+second until 2026-09-11, see gen_buildstamp.ps1) - so the
+# version number Nexus displays in its addon list changes on every real
+# rebuild and can be eyeballed directly instead of comparing file sizes.
 add_custom_target(cba_gen_buildstamp
     COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_buildstamp.ps1"
         -OutFile "${CMAKE_CURRENT_SOURCE_DIR}/src/BuildStamp.h"
     BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/src/BuildStamp.h"
-    COMMENT "Stamping build version (Build=hour, Revision=minute*100+second)..."
+    COMMENT "Stamping build version (Build=+1 local build counter)..."
 )
 
 add_library(cba SHARED

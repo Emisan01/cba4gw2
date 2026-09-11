@@ -91,11 +91,6 @@ namespace cba
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
 		int ContrastPairIndex = 0; // 0=Blau/Grün, 1=Rot/Grün, 2=Gelb/Blau, 3=Cyan/Blau, 4=Orange/Rot
-		// Optional stylized "glass" look for the Contrast Test Swatches
-		// cards (2026-09-11, Emi's ask) - translucency + a soft top-edge
-		// highlight, NOT a real backdrop blur (CBA doesn't hook D3D11 to
-		// sample/blur what's behind the panel, by design - AGENTS.md §4).
-		bool GlassContrastCards = false;
 
 		// Filter-Labor & Experimentierfeld (Stackable custom filter instances with precision radius & diffusion)
 		struct LabFilter

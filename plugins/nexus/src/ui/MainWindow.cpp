@@ -98,24 +98,21 @@ namespace cba
 		// experience the "Without Filter" card is supposed to convey.
 		float cardH = 162.0f;
 
-		// Optional "Glass" look (2026-09-11, Emi's ask, clarified: "einfach
-		// den dunklen Hintergrund entfernen" - not a real blur, just drop
-		// the card's own dark fill so it reads as a light overlay instead
-		// of a heavy solid box). Off by default, doesn't change anyone's
-		// existing view unless they opt in.
-		ImGui::TextDisabled("%s", isDe ? "Darstellung:" : "Display:");
-		ImGui::SameLine(0, 6.0f);
-		ImGui::Checkbox(isDe ? "Glas-Look (kein dunkler Hintergrund)##glass_cards" : "Glass look (no dark background)##glass_cards", &CurrentSettings.GlassContrastCards);
-		if (ImGui::IsItemEdited()) saveNeeded = true;
-		ImGui::Spacing();
-
-		ImVec4 cardBg = CurrentSettings.GlassContrastCards
-			? ImVec4(0.09f, 0.11f, 0.15f, 0.10f)
-			: ImVec4(0.09f, 0.11f, 0.15f, 0.97f);
-		ImGui::PushStyleColor(ImGuiCol_ChildBg, cardBg);
-		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.40f, 0.48f, 0.62f, 0.90f));
-		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-		ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.5f);
+		// Flat, no-card look (2026-09-11, superseding the same-day "Glass"
+		// toggle below the same afternoon - Emi's live-testing diagnosis:
+		// a near-transparent child still sits on top of THIS WINDOW's own
+		// opaque background, so removing the card's own tint just revealed
+		// a flatter black underneath, not the live game behind it - true
+		// see-through would need the swatches drawn on the background draw
+		// list instead of inside a window, a bigger architectural change.
+		// The fix that actually works today, and Emi's own suggestion:
+		// drop the card fill entirely and match Vision Lab's Anomaloscope
+		// circle - plain shapes directly on the panel's own background,
+		// exactly as transparent as the rest of this window already is, no
+		// separate dark layer to fight with. Removed the now-pointless
+		// toggle along with Settings.GlassContrastCards (a keyed field,
+		// safe to drop outright - see CLAUDE.md on positional vs. keyed
+		// serialization risk).
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
 
 		// Round 2 (Emi: "muss hübscher sein, sieht aus wie eine Creditcard") -
@@ -138,7 +135,7 @@ namespace cba
 			dl->AddCircle(c2, aRadius, aFrameCol, 48, aFrameThick);
 		};
 
-		if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
+		if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground))
 		{
 			ImGui::SetWindowFontScale(1.05f);
 			ImGui::TextDisabled("%s", isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)");
@@ -163,7 +160,7 @@ namespace cba
 		if (cardW < availW) ImGui::SameLine(0, 12.0f);
 		else ImGui::Spacing();
 
-		if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
+		if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground))
 		{
 			ImGui::SetWindowFontScale(1.05f);
 			ImGui::TextDisabled("%s", isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)");
@@ -184,8 +181,7 @@ namespace cba
 		}
 		ImGui::EndChild();
 
-		ImGui::PopStyleVar(3);
-		ImGui::PopStyleColor(2);
+		ImGui::PopStyleVar(1);
 	}
 
 	void RenderEmbeddedOptions()
@@ -484,6 +480,52 @@ namespace cba
 					Recompute(/*aForce=*/true);
 					changed = true;
 					saveNeeded = true;
+				}
+			}
+		}
+
+		if (CurrentSettings.CommanderTagMode != 0)
+		{
+			// Compact "which color becomes which" row (2026-09-11, Emi's ask -
+			// inspired by Vision Lab's flat circle style, no card/box): all 9
+			// Commander Tag reference colors at a glance, each a tiny
+			// two-circle overlap swatch (original vs. the color the enhancer
+			// actually emits). Reuses s_tagConflictStates[i].rep* - the exact
+			// color the highlighter overlay draws, already computed above by
+			// UpdateTagEnhancerConflicts(); for tags with no conflict, rep*
+			// equals the original, so the two circles fully coincide and the
+			// pair just reads as one plain dot - no separate branch needed
+			// for "safe" vs. "shifted" tags, the visualization does the work.
+			ImGui::Spacing();
+			ImGui::TextDisabled("%s", isDe ? "Original -> Kontrastfarbe (alle 9 Tags):" : "Original -> contrast color (all 9 tags):");
+			float availMini = ImGui::GetContentRegionAvail().x;
+			float miniR = std::clamp(availMini / 9.0f * 0.28f, 6.0f, 9.0f);
+			float offset = miniR * 0.5f;
+			float cellW = 2.0f * (miniR + offset);
+			ImDrawList* dlMini = ImGui::GetWindowDrawList();
+			for (int i = 0; i < 9; ++i)
+			{
+				if (i > 0) ImGui::SameLine(0, 4.0f);
+				ImVec2 mp = ImGui::GetCursorScreenPos();
+				ImVec2 center(mp.x + cellW * 0.5f, mp.y + miniR);
+				ImU32 colOrig = IM_COL32((int)(kGw2TagRefs[i].r * 255), (int)(kGw2TagRefs[i].g * 255), (int)(kGw2TagRefs[i].b * 255), 255);
+				float repR = std::clamp(s_tagConflictStates[i].repR, 0.0f, 1.0f);
+				float repG = std::clamp(s_tagConflictStates[i].repG, 0.0f, 1.0f);
+				float repB = std::clamp(s_tagConflictStates[i].repB, 0.0f, 1.0f);
+				ImU32 colRep = IM_COL32((int)(repR * 255), (int)(repG * 255), (int)(repB * 255), 255);
+				dlMini->AddCircleFilled(ImVec2(center.x - offset, center.y), miniR, colOrig, 20);
+				dlMini->AddCircleFilled(ImVec2(center.x + offset, center.y), miniR, colRep, 20);
+				bool miniConflict = s_tagConflictStates[i].inConflict;
+				if (miniConflict)
+					dlMini->AddCircle(ImVec2(center.x + offset, center.y), miniR, IM_COL32(80, 240, 160, 220), 20, 1.5f);
+				ImGui::Dummy(ImVec2(cellW, miniR * 2.0f));
+				if (ImGui::IsItemHovered())
+				{
+					const char* tagLabel = kGw2TagRefs[i].labelFunc(t);
+					if (miniConflict)
+						ImGui::SetTooltip(isDe ? "%s: Original -> Kontrastfarbe (verschoben)" : "%s: Original -> contrast color (shifted)", tagLabel);
+					else
+						ImGui::SetTooltip(isDe ? "%s: Bereits klar erkennbar (unveraendert)" : "%s: Already clearly distinct (unchanged)", tagLabel);
 				}
 			}
 		}

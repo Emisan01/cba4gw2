@@ -30,3 +30,4 @@ plugins/nexus/build_status.txt
 
 # Generated every build by CMake's cba_gen_buildstamp target
 plugins/nexus/src/BuildStamp.h
+plugins/nexus/tools/.build_counter

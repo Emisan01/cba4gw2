@@ -1056,6 +1056,37 @@ hidden automation logic.
   deliberately to Filter Lab only so it doesn't become a third "what's
   active" list.
 
+**"Glass" Contrast Swatches bug found and fixed, same day it was added**:
+Emi's live-testing verdict on the 2026-09-11 Glass toggle above: checking it
+made the cards *more* opaque, not transparent ("macht nur den Hintergrund
+komplett schwarz, noch schwaerzer als vorher"). Root cause: the swatch cards
+are `BeginChild` windows nested inside this *window's own* already-opaque
+background (Theme's `WindowBg`) - dropping the child's own tint to alpha 0.10
+didn't reveal the live game behind the panel, it just revealed the flatter,
+darker window background underneath, which reads blacker than the tinted
+card fill it replaced. A real "see the game through this" effect would need
+the swatches drawn on `GetBackgroundDrawList()` instead of inside a window (a
+bigger change, not attempted). Emi's own fix suggestion, taken directly:
+drop the card concept entirely and match Vision Lab's Anomaloscope circle -
+plain shapes straight on the panel's own background, no separate dark layer.
+`DrawContrastTestSwatches` (`MainWindow.cpp`) now uses
+`ImGuiWindowFlags_NoBackground` with no border instead of a `ChildBg`
+push/toggle; `Settings.GlassContrastCards` (added and broken the same
+session) removed outright - keyed field, safe to drop with zero migration
+risk.
+
+**Compact "Original -> Contrast" row added to the Nexus-embedded panel**
+(2026-09-11, Emi's ask: a small always-visible proof of what Auto-Com-Tag
+actually does, "in Form von einer Reihe aller Commander-Tag-Farben"): right
+below the "Active - N of 9 colors shifted" status line, a row of 9 tiny
+two-circle overlap swatches (original tag color vs. `s_tagConflictStates[i]`'s
+already-computed replacement color, one per Commander Tag reference color).
+Deliberately reuses the existing per-tag conflict state instead of
+recomputing anything - for a tag with no conflict, `rep*` already equals the
+original, so its pair of circles fully coincide and reads as one plain dot
+automatically, no extra branch needed to distinguish "safe" from "shifted"
+tags. Only shown while Auto-Com-Tag is on.
+
 **Still open / deliberately not touched this pass**:
 - Two Curve-View/spectrum-graph widgets (Main Window's static transfer-curve
   view vs. Sensor Graph HUD's live filtered-spectrum view) share the same
@@ -1063,11 +1094,11 @@ hidden automation logic.
   differs - flagged as a visual-distinction polish item, not a functional
   duplicate (both are already read-only diagnostics), lower priority than
   the structural work above.
-- Contrast Test Swatches sizing/clarity, Commander Tag pre/post-DWM
-  double-transform, slider-overscaling, `DisableHotloading` CI split, and
-  the D-tier items (5 ungoverned `Enabled=true` sites, OS-banner sync,
-  `cba_session.lock`, `FreeFilterEnabled`) are all still queued from the
-  agreed A-D punch list, not started yet this pass.
+- Commander Tag pre/post-DWM double-transform, slider-overscaling,
+  `DisableHotloading` CI split, and the D-tier items (5 ungoverned
+  `Enabled=true` sites, OS-banner sync, `cba_session.lock`,
+  `FreeFilterEnabled`) are all still queued from the agreed A-D punch list,
+  not started yet this pass.
 
 Built and unit-tested after every logical chunk (not after every single
 edit, per Emi's explicit ask to batch builds on large tasks) - 24/24 passing
