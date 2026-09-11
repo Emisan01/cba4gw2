@@ -76,6 +76,46 @@ Die bildschirmweite CVD-Korrektur. Wissenschaftlich die stärkste Komponente,
 aber als *Standardeinstieg* die schlechteste UX (siehe 3.4).
 **Technik:** `Recompute()` + DWM — vorhanden und abgesichert.
 
+### D. „Meine Augen brennen nach drei Stunden GW2" — der Bindungsfaktor
+
+Nachgetragen 2026-09-11 aufgrund des bisher wertvollsten Nutzersignals: Eye
+Comfort ist die Funktion, die Emi nach eigener Aussage bereits *süchtig* nach
+dem Tool macht — im Alltag, beim normalen Spielen. Das ist kein Nebeneffekt,
+das ist eine strategische Information.
+
+Es trennt zwei Rollen, die vorher vermischt waren:
+
+| Rolle | Funktion | Warum |
+|---|---|---|
+| **Einstieg** (warum installiert jemand?) | Commander-Tag-Kontrast | Konkretes, benennbares GW2-Problem |
+| **Bindung** (warum bleibt es an?) | Eye Comfort | Wirkt in *jeder* Session, nicht nur im Zerg |
+
+Drei Gründe, warum das mehr Gewicht verdient, als es bisher hatte:
+
+1. **Es fällt als einziges nicht in die Designfalle.** Ob der Bildschirm zu
+   blau oder zu hell ist, kann auch jemand mit Farbsehschwäche zuverlässig
+   beurteilen. Kein Beleg nötig, kein Messgerät — der Nutzer *spürt* das
+   Ergebnis sofort. Entsprechend niedrig ist die Einstiegshürde.
+2. **Die Zielgruppe ist um ein Vielfaches größer.** Augenbelastung bei langen
+   Sessions betrifft nicht nur Farbsehschwache, sondern praktisch jeden
+   Abendspieler. Das kann Nutzer bringen, die gar keine CVD haben — und die
+   CVD-Funktionen sind dann für die da, die sie brauchen.
+3. **Es bestätigt eine längst getroffene Entscheidung.** Die Umbenennung von
+   „Colorblind Assist" zu „Color Balance Assist" war ausdrücklich dafür
+   gedacht, das Tool breiter zu positionieren (siehe `CLAUDE.md`). Dieses
+   Signal ist der erste empirische Beleg, dass die Entscheidung richtig war.
+
+**Konsequenz für die Basis-Ebene:** Eye Comfort bleibt sichtbar, auch wenn die
+Basis ansonsten auf *eine* Funktion reduziert wird. Es ist die zweite
+Funktion, die das verdient.
+
+**Ausbaurichtung (noch nicht entschieden):** Denkbar sind Voreinstellungen
+(„Abend", „Lange Session"), ein Tagesverlauf, oder kontextabhängige Anpassung
+über die bereits vorhandenen Mumble-Daten (`GetCurrentGameContext()` liefert
+Map, Maptyp, Kampfstatus). **Achtung:** Kontextautomatik ist genau die Sorte
+versteckter Logik, die Abschnitt 7 verbietet — sie wäre nur zulässig, wenn sie
+in der Pipeline-Ansicht sichtbar ist und abschaltbar bleibt.
+
 ---
 
 ## 3. UX-Bedarf ↔ technische Mechanik

@@ -31,6 +31,19 @@
 
 namespace cba
 {
+	// Guided-entry flow state (2026-09-11, see PRODUCT_CONCEPT.md 3.1 and the
+	// block in RenderEmbeddedOptions). Session-only by design: the derived
+	// profile itself is persisted in Settings like any other, but where the
+	// user is inside the questionnaire is transient UI state with no meaning
+	// across launches. File-scope statics rather than UIState globals - a
+	// single window's wizard step is not shared state, and UIState.h's own
+	// comment block rules out exactly this kind of value.
+	static int s_setupStep = 0;              // 0 = done/not in flow, 1..3 = question
+	static bool s_setupAxisRedGreen = true;  // which axis the user picked in step 1
+	static BalanceType s_setupPendingType = BalanceType::Deutan;
+	static bool s_setupPendingMixed = false;
+	static float s_setupStrength = 0.6f;     // proposed severity, raised by the user in step 3
+
 	void DrawContrastTestSwatches(bool isDe, const double aCorrMat[3][3], bool& saveNeeded)
 	{
 		const char* pairNamesDe[] = {
@@ -335,6 +348,13 @@ namespace cba
 		// checkbox lives only in the full Main Window (needs a saved slot to
 		// attach to and is a one-time setup action, not a per-session one).
 		ImGui::Spacing();
+		// Gated behind Advanced Mode 2026-09-11 (PRODUCT_CONCEPT.md section 2):
+		// on a fresh install all three slots are empty, so this row is pure
+		// noise in the one view whose whole job is making a single feature
+		// obvious. Nothing is removed - it returns in full the moment Advanced
+		// Mode is ticked, which is also when a user plausibly has more than
+		// one profile worth switching between.
+		if (CurrentSettings.AdvancedModeUnlocked)
 		{
 			ImGui::TextDisabled("%s:", isDe ? "Profile" : "Profiles");
 			ImGui::SameLine(0, 8.0f);
@@ -429,36 +449,214 @@ namespace cba
 			                       : "One click: picks your color profile and turns on the automatic contrast enhancer for commander tags.");
 		}
 
+		// ── Guided entry (2026-09-11, PRODUCT_CONCEPT.md 3.1) ──────────────
+		// Replaces "pick Protan / Deutan / Tritan" - a diagnosis most players
+		// have never actually had - with questions about what the user can
+		// SEE. They answer perception questions; the tool derives the type.
+		// Same principle a real anomaloscope works on.
+		//
+		// Severity is set the same honest way (step 3): show the pair AS IT
+		// WILL BE CORRECTED and ask "can you separate them now?" - a yes/no
+		// perceptual judgment the user can genuinely make, unlike "is 60%
+		// the right strength?", which nobody can answer about their own
+		// vision. This is the concept's core rule applied literally: remove
+		// the judgments the user cannot make.
 		{
-			float avail = ImGui::GetContentRegionAvail().x;
-			float btnW = (avail - 8.0f) / 3.0f;
-
-			auto quickProfileBtn = [&](const char* aName, BalanceType aType) {
-				bool active = (CurrentSettings.CommanderTagMode != 0 && !CurrentSettings.Mixed && CurrentSettings.Type == aType);
-				if (active) {
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-				} else {
-					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+			auto applyDerivedProfile = [&](BalanceType aType, bool aMixed, float aSeverity) {
+				// Routed through the shared activation function rather than
+				// setting the fields by hand (it owns EnsureDeferredInitialized,
+				// Enabled, CommanderTagMode and Recompute) - then severity is
+				// overridden, because that function deliberately forces 100%
+				// for its own one-click button semantics.
+				ActivateCommanderTagProfile(aType);
+				CurrentSettings.Mixed = aMixed;
+				ParameterRegistry::Get().SetFloat(ParamId::Severity01, aSeverity);
+				if (aMixed)
+				{
+					ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, aSeverity);
+					ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, aSeverity);
 				}
-				if (ImGui::Button(aName, ImVec2(btnW, 28.0f))) {
-					ActivateCommanderTagProfile(aType);
-					changed = true;
-					saveNeeded = true;
-				}
-				ImGui::PopStyleColor(4);
+				Recompute(/*aForce=*/true);
+				changed = true;
+				saveNeeded = true;
 			};
 
-			quickProfileBtn(isDe ? "Protan (Rot)" : "Protan (Red)", BalanceType::Protan);
-			ImGui::SameLine(0, 4.0f);
-			quickProfileBtn(isDe ? "Deutan (Gruen)" : "Deutan (Green)", BalanceType::Deutan);
-			ImGui::SameLine(0, 4.0f);
-			quickProfileBtn(isDe ? "Tritan (Blau)" : "Tritan (Blue)", BalanceType::Tritan);
+			// One option tile: two overlapping GW2 tag colours drawn at real
+			// size. Deliberately NOT run through SimulatePixel - the user's
+			// own eyes are the simulation; showing them a simulated version
+			// would be answering the question for them, and wrongly.
+			auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel) -> bool {
+				ImGui::PushID(aId);
+				float w = ImGui::GetContentRegionAvail().x;
+				float h = 46.0f;
+				ImVec2 p = ImGui::GetCursorScreenPos();
+				bool clicked = ImGui::InvisibleButton("##opt", ImVec2(w, h));
+				bool hovered = ImGui::IsItemHovered();
+				ImDrawList* dl = ImGui::GetWindowDrawList();
+				dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h),
+					hovered ? IM_COL32(60, 78, 100, 130) : IM_COL32(40, 52, 68, 90), 5.0f);
+				if (hovered)
+					dl->AddRect(p, ImVec2(p.x + w, p.y + h), IM_COL32(120, 190, 230, 200), 5.0f, 0, 1.5f);
+				float r = 15.0f;
+				float cy = p.y + h * 0.5f;
+				float cx = p.x + 14.0f + r;
+				ImU32 cA = IM_COL32((int)(kGw2TagRefs[aTagA].r * 255), (int)(kGw2TagRefs[aTagA].g * 255), (int)(kGw2TagRefs[aTagA].b * 255), 255);
+				ImU32 cB = IM_COL32((int)(kGw2TagRefs[aTagB].r * 255), (int)(kGw2TagRefs[aTagB].g * 255), (int)(kGw2TagRefs[aTagB].b * 255), 255);
+				dl->AddCircleFilled(ImVec2(cx, cy), r, cA, 32);
+				dl->AddCircleFilled(ImVec2(cx + r * 0.9f, cy), r, cB, 32);
+				dl->AddText(ImVec2(cx + r * 2.4f, cy - ImGui::GetTextLineHeight() * 0.5f),
+					IM_COL32(226, 232, 240, 255), aLabel);
+				ImGui::PopID();
+				return clicked;
+			};
+
+			bool configured = (CurrentSettings.CommanderTagMode != 0) || (CurrentSettings.Severity01 > 0.01f);
+			int step = s_setupStep;
+			if (!configured && step == 0) step = 1; // fresh install lands straight in the flow
+
+			if (step == 1)
+			{
+				ImGui::TextWrapped("%s", isDe
+					? "Welches Farbpaar faellt dir am schwersten zu unterscheiden?"
+					: "Which colour pair is hardest for you to tell apart?");
+				ImGui::Spacing();
+				// Indices into kGw2TagRefs: 0 Red, 2 Yellow, 3 Green, 5 Blue.
+				if (pairOption("rg", 0, 3, isDe ? "Rot und Gruen" : "Red and green"))
+				{
+					s_setupAxisRedGreen = true;
+					s_setupStep = 2;
+				}
+				if (pairOption("by", 2, 5, isDe ? "Gelb und Blau" : "Yellow and blue"))
+				{
+					s_setupAxisRedGreen = false;
+					s_setupPendingType = BalanceType::Tritan;
+					s_setupPendingMixed = false;
+					s_setupStep = 3;
+				}
+				if (pairOption("both", 0, 5, isDe ? "Beide etwa gleich schwer" : "Both about equally hard"))
+				{
+					s_setupAxisRedGreen = false;
+					s_setupPendingType = BalanceType::Deutan;
+					s_setupPendingMixed = true;
+					s_setupStep = 3;
+				}
+				ImGui::Spacing();
+				if (ImGui::SmallButton(isDe ? "Ich kann alle gut unterscheiden##skip" : "I can tell them all apart##skip"))
+				{
+					s_setupStep = 0;
+					CurrentSettings.CommanderTagMode = 0;
+					saveNeeded = true;
+				}
+			}
+			else if (step == 2)
+			{
+				// The one discriminator between Protan and Deutan that a user
+				// can actually answer: protans have markedly reduced luminance
+				// response to long wavelengths, so saturated red reads as much
+				// darker to them than it does to a deutan. Asking about
+				// BRIGHTNESS is answerable; asking "protan or deutan?" is not.
+				ImGui::TextWrapped("%s", isDe
+					? "Wie wirkt das Rot im Vergleich zum Gruen?"
+					: "How does the red look compared to the green?");
+				ImGui::Spacing();
+				if (pairOption("dark", 0, 3, isDe ? "Das Rot wirkt deutlich dunkler" : "The red looks much darker"))
+				{
+					s_setupPendingType = BalanceType::Protan;
+					s_setupPendingMixed = false;
+					s_setupStep = 3;
+				}
+				if (pairOption("same", 0, 3, isDe ? "Beide etwa gleich hell" : "Both about equally bright"))
+				{
+					s_setupPendingType = BalanceType::Deutan;
+					s_setupPendingMixed = false;
+					s_setupStep = 3;
+				}
+				ImGui::Spacing();
+				if (ImGui::SmallButton(isDe ? "Zurueck##back2" : "Back##back2")) s_setupStep = 1;
+			}
+			else if (step == 3)
+			{
+				ImGui::TextWrapped("%s", isDe
+					? "Und jetzt - kannst du die beiden Farben unterscheiden?"
+					: "And now - can you tell the two colours apart?");
+				ImGui::Spacing();
+
+				// Preview the pair exactly as the correction will render it,
+				// at the strength currently being proposed.
+				double previewMat[3][3];
+				{
+					BalanceType prevType = CurrentSettings.Type;
+					bool prevMixed = CurrentSettings.Mixed;
+					float prevSev = CurrentSettings.Severity01;
+					CurrentSettings.Type = s_setupPendingType;
+					CurrentSettings.Mixed = s_setupPendingMixed;
+					CurrentSettings.Severity01 = s_setupStrength;
+					ActiveCorrectionMatrix(previewMat);
+					CurrentSettings.Type = prevType;
+					CurrentSettings.Mixed = prevMixed;
+					CurrentSettings.Severity01 = prevSev;
+				}
+
+				int tagA = s_setupAxisRedGreen ? 0 : 2;
+				int tagB = s_setupAxisRedGreen ? 3 : 5;
+				if (s_setupPendingMixed) { tagA = 0; tagB = 5; }
+
+				double oa[3], ob[3];
+				ColorMatrix::ApplyPixel(kGw2TagRefs[tagA].r, kGw2TagRefs[tagA].g, kGw2TagRefs[tagA].b, previewMat, oa[0], oa[1], oa[2]);
+				ColorMatrix::ApplyPixel(kGw2TagRefs[tagB].r, kGw2TagRefs[tagB].g, kGw2TagRefs[tagB].b, previewMat, ob[0], ob[1], ob[2]);
+
+				{
+					float w = ImGui::GetContentRegionAvail().x;
+					float h = 56.0f;
+					ImVec2 p = ImGui::GetCursorScreenPos();
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					float r = 20.0f;
+					float cy = p.y + h * 0.5f;
+					float cx = p.x + w * 0.5f - r * 0.45f;
+					dl->AddCircleFilled(ImVec2(cx, cy), r, IM_COL32((int)(oa[0]*255), (int)(oa[1]*255), (int)(oa[2]*255), 255), 40);
+					dl->AddCircleFilled(ImVec2(cx + r * 0.9f, cy), r, IM_COL32((int)(ob[0]*255), (int)(ob[1]*255), (int)(ob[2]*255), 255), 40);
+					ImGui::Dummy(ImVec2(w, h));
+				}
+
+				ImGui::TextDisabled(isDe ? "Staerke: %.0f%%" : "Strength: %.0f%%", s_setupStrength * 100.0f);
+				ImGui::Spacing();
+
+				float availS = ImGui::GetContentRegionAvail().x;
+				float halfW = (availS - 6.0f) * 0.5f;
+				if (ImGui::Button(isDe ? "Nein, staerker##more" : "No, stronger##more", ImVec2(halfW, 30.0f)))
+				{
+					s_setupStrength = (s_setupStrength >= 1.0f) ? 1.0f : (s_setupStrength + 0.2f);
+				}
+				ImGui::SameLine(0, 6.0f);
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				if (ImGui::Button(isDe ? "Ja, passt##done" : "Yes, that works##done", ImVec2(halfW, 30.0f)))
+				{
+					applyDerivedProfile(s_setupPendingType, s_setupPendingMixed, s_setupStrength);
+					s_setupStep = 0;
+				}
+				ImGui::PopStyleColor(4);
+				ImGui::Spacing();
+				if (ImGui::SmallButton(isDe ? "Zurueck##back3" : "Back##back3"))
+					s_setupStep = s_setupAxisRedGreen ? 2 : 1;
+			}
+			else
+			{
+				// Configured: no questions, just the state and a way back in.
+				const char* typeName = CurrentSettings.Mixed
+					? (isDe ? "Gemischt" : "Mixed")
+					: (CurrentSettings.Type == BalanceType::Protan ? "Protan"
+					 : CurrentSettings.Type == BalanceType::Deutan ? "Deutan" : "Tritan");
+				ImGui::TextDisabled(isDe ? "Dein Profil: %s (%.0f%%)" : "Your profile: %s (%.0f%%)",
+					typeName, CurrentSettings.Severity01 * 100.0f);
+				if (ImGui::SmallButton(isDe ? "Sehtest wiederholen##retest" : "Redo the test##retest"))
+				{
+					s_setupStrength = 0.6f;
+					s_setupStep = 1;
+				}
+			}
 		}
 
 		{
@@ -531,6 +729,26 @@ namespace cba
 			}
 		}
 
+		// Hold-to-compare discovery hint (2026-09-11). A keybind nobody knows
+		// about is worth nothing, and this one is the panel's main answer to
+		// "how do I know it's working?" (PRODUCT_CONCEPT.md 3.2) - so it is
+		// named right where the proof row is, not buried in a keybind list.
+		// Shown only while the enhancer is on, i.e. when there is actually
+		// something to compare against.
+		if (CurrentSettings.CommanderTagMode != 0)
+		{
+			ImGui::Spacing();
+			ImGui::TextDisabled("%s", isDe
+				? "Tipp: Strg+Umschalt+V gedrueckt halten zeigt das Bild ungefiltert."
+				: "Tip: hold Ctrl+Shift+V to see the picture unfiltered.");
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe
+					? "Solange die Taste gedrueckt ist, werden beide Filterstufen ausgesetzt.\nSo siehst du direkt im Spiel, was CBA tatsaechlich veraendert.\nDie Taste ist in den Nexus-Keybinds frei belegbar."
+					: "While the key is held, both filter stages are suspended.\nLets you see in-game exactly what CBA is changing.\nThe bind is remappable in Nexus's own keybind settings.");
+			}
+		}
+
 		// Contrast Test Swatches moved into the "Advanced" section below
 		// (2026-09-10, UI-weighting pass) - at full size (enlarged
 		// 2026-09-09) this comparison competed with Commander Tag Contrast,
@@ -595,58 +813,11 @@ namespace cba
 
 
 
-		// Export/Import as one visible text field (2026-09-10, Emi's
-		// rethink) - used to be two buttons that silently talked to the OS
-		// clipboard with nothing shown on screen, only interesting once
-		// profile slots existed to share. Now: "Generate" fills this field
-		// (and still copies to clipboard, for anyone who prefers that flow)
-		// so the code is actually visible and selectable for manual
-		// copy-paste (e.g. into Discord), and the SAME field accepts a
-		// pasted-in code for "Import" - one field, both directions, instead
-		// of two opaque one-way buttons.
-		ImGui::Spacing();
-		ImGui::TextDisabled("%s:", isDe ? "Profil-Code (Export/Import)" : "Profile Code (Export/Import)");
-		{
-			static char s_presetIoBuf[256] = "";
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::InputText("##emb_preset_io", s_presetIoBuf, sizeof(s_presetIoBuf));
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip(isDe ? "Zeigt den generierten Profil-Code zum Kopieren, oder fuege hier einen erhaltenen Code ein und klicke Import."
-				                       : "Shows the generated profile code for copying, or paste in a received code and click Import.");
-			}
-
-			float ioAvail = ImGui::GetContentRegionAvail().x;
-			float ioBtnW = (ioAvail - 8.0f) * 0.5f;
-			if (ImGui::Button(isDe ? "Generieren" : "Generate", ImVec2(ioBtnW, 0.0f)))
-			{
-				std::string presetStr = CurrentSettings.ExportPresetString();
-				std::snprintf(s_presetIoBuf, sizeof(s_presetIoBuf), "%s", presetStr.c_str());
-				ImGui::SetClipboardText(presetStr.c_str());
-			}
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip(isDe ? "Erzeugt den Code fuer dein aktuelles Profil (auch in die Zwischenablage kopiert)."
-				                       : "Generates the code for your current profile (also copied to clipboard).");
-			}
-			ImGui::SameLine(0, 8.0f);
-			if (ImGui::Button(isDe ? "Import" : "Import", ImVec2(ioBtnW, 0.0f)))
-			{
-				std::string err;
-				if (CurrentSettings.ImportPresetString(s_presetIoBuf, &err))
-				{
-					CurrentSettings.Save(AddonDir);
-					GetColorEffectController().Clear();
-					Recompute(/*aForce=*/true);
-					saveNeeded = true;
-				}
-			}
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip(isDe ? "Uebernimmt den Code oben ins aktuelle Profil (ueberschreibt aktuelle Einstellungen)."
-				                       : "Applies the code above into the current profile (overwrites current settings).");
-			}
-		}
+		// Profile-code export/import moved into "Advanced" below (2026-09-11,
+		// PRODUCT_CONCEPT.md section 2): sharing a profile is a power-user
+		// action, and every element competing for space on the base panel
+		// costs a newcomer attention they need for the one job this panel
+		// exists to do.
 
 		ImGui::PopStyleVar(2);
 
@@ -660,6 +831,97 @@ namespace cba
 		ImGui::Spacing();
 		if (ImGui::TreeNodeEx(isDe ? "Erweitert##emb_advanced" : "Advanced##emb_advanced", ImGuiTreeNodeFlags_None))
 		{
+			// Direct type selection, for anyone who already knows their
+			// diagnosis (2026-09-11). The base panel deliberately asks about
+			// perception instead (see the guided entry above) because most
+			// players have never been measured - but someone who HAS been
+			// should not have to sit through a questionnaire to say so.
+			// Same shared ActivateCommanderTagProfile() the guided flow uses.
+			ImGui::TextDisabled("%s:", isDe ? "Ich kenne meinen Typ" : "I know my type");
+			{
+				float knownAvail = ImGui::GetContentRegionAvail().x;
+				float knownW = (knownAvail - 8.0f) / 3.0f;
+				auto knownTypeBtn = [&](const char* aName, BalanceType aType) {
+					bool active = (CurrentSettings.CommanderTagMode != 0 && !CurrentSettings.Mixed && CurrentSettings.Type == aType);
+					if (active) {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+					} else {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+					}
+					if (ImGui::Button(aName, ImVec2(knownW, 26.0f))) {
+						ActivateCommanderTagProfile(aType);
+						changed = true;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+				};
+				knownTypeBtn(isDe ? "Protan (Rot)" : "Protan (Red)", BalanceType::Protan);
+				ImGui::SameLine(0, 4.0f);
+				knownTypeBtn(isDe ? "Deutan (Gruen)" : "Deutan (Green)", BalanceType::Deutan);
+				ImGui::SameLine(0, 4.0f);
+				knownTypeBtn(isDe ? "Tritan (Blau)" : "Tritan (Blue)", BalanceType::Tritan);
+			}
+
+			// Export/Import as one visible text field (2026-09-10, Emi's
+			// rethink; relocated here 2026-09-11) - used to be two buttons
+			// that silently talked to the OS clipboard with nothing shown on
+			// screen. Now: "Generate" fills this field (and still copies to
+			// clipboard) so the code is visible and selectable for manual
+			// copy-paste (e.g. into Discord), and the SAME field accepts a
+			// pasted-in code for "Import" - one field, both directions.
+			ImGui::Spacing();
+			ImGui::TextDisabled("%s:", isDe ? "Profil-Code (Export/Import)" : "Profile Code (Export/Import)");
+			{
+				static char s_presetIoBuf[256] = "";
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				ImGui::InputText("##emb_preset_io", s_presetIoBuf, sizeof(s_presetIoBuf));
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Zeigt den generierten Profil-Code zum Kopieren, oder fuege hier einen erhaltenen Code ein und klicke Import."
+					                       : "Shows the generated profile code for copying, or paste in a received code and click Import.");
+				}
+
+				float ioAvail = ImGui::GetContentRegionAvail().x;
+				float ioBtnW = (ioAvail - 8.0f) * 0.5f;
+				if (ImGui::Button(isDe ? "Generieren" : "Generate", ImVec2(ioBtnW, 0.0f)))
+				{
+					std::string presetStr = CurrentSettings.ExportPresetString();
+					std::snprintf(s_presetIoBuf, sizeof(s_presetIoBuf), "%s", presetStr.c_str());
+					ImGui::SetClipboardText(presetStr.c_str());
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Erzeugt den Code fuer dein aktuelles Profil (auch in die Zwischenablage kopiert)."
+					                       : "Generates the code for your current profile (also copied to clipboard).");
+				}
+				ImGui::SameLine(0, 8.0f);
+				if (ImGui::Button(isDe ? "Import" : "Import", ImVec2(ioBtnW, 0.0f)))
+				{
+					std::string err;
+					if (CurrentSettings.ImportPresetString(s_presetIoBuf, &err))
+					{
+						CurrentSettings.Save(AddonDir);
+						GetColorEffectController().Clear();
+						Recompute(/*aForce=*/true);
+						saveNeeded = true;
+					}
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Uebernimmt den Code oben ins aktuelle Profil (ueberschreibt aktuelle Einstellungen)."
+					                       : "Applies the code above into the current profile (overwrites current settings).");
+				}
+			}
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
 			// Contrast Test Swatches (2026-09-10, moved here from the main
 			// flow - see the comment further up) - the practical "does this
 			// actually help" before/after comparison, without the spectral

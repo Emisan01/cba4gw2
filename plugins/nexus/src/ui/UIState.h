@@ -79,6 +79,21 @@ namespace cba
 	// be two independent statics, then a shared extern with std::clamp
 	// repeated at each write site).
 	extern int s_activeSlotIdx;
+
+	// Hold-to-compare (2026-09-11, PRODUCT_CONCEPT.md section 3.2): true only
+	// while the compare keybind is physically held down. Suspends BOTH filter
+	// stages - the DWM matrix in Recompute() and the tag overlay in
+	// AddonRender - so the user sees the completely unfiltered game and can
+	// answer "is this actually doing anything?" against real content instead
+	// of an abstract swatch.
+	//
+	// Deliberately NOT a Settings field: it is transient input state, must
+	// never persist across a session, and a crash while held must not leave
+	// the filter permanently suppressed. Nexus's own InputBinds reports the
+	// release edge (KEYBINDS_PROCESS's aIsRelease), so this needs no second
+	// raw-WM_KEYDOWN path - that one was removed deliberately, see CLAUDE.md.
+	extern std::atomic<bool> s_compareHoldActive;
+
 	void DrawFilterStatusIndicator(bool aWithText);
 	BrightnessRetentionResult GetBrightnessRetention();
 	void UpdateQuickAccessIcon();

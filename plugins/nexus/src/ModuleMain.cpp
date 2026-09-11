@@ -660,7 +660,11 @@ namespace cba
 			UpdateQuickAccessIcon();
 		}
 
-		if (!CurrentSettings.Enabled)
+		// Compare-hold suspends the DWM stage exactly like Enabled=false does,
+		// but without touching Enabled itself - the UI must keep showing "ON"
+		// while the user peeks at the raw image, otherwise the comparison
+		// would also flip every status readout it is meant to validate.
+		if (!CurrentSettings.Enabled || s_compareHoldActive.load())
 		{
 			if (s_hasApplied)
 			{
@@ -722,6 +726,25 @@ namespace cba
 					if (!s_deferredInitDone.load())
 					{
 						continue;
+					}
+
+					// Release-edge safety net for hold-to-compare: if GW2 loses
+					// focus while the key is physically down, Nexus never
+					// delivers the release, and the flag would keep the filter
+					// suppressed indefinitely - looking exactly like "the addon
+					// broke", with no recovery short of pressing and releasing
+					// the bind again. Same stuck-state class as the two
+					// effect/thread bugs already fixed here, so it gets the
+					// same treatment: the safety net clears it.
+					if (s_compareHoldActive.load() && !s_gw2Minimized.load())
+					{
+						HWND fgw = GetForegroundWindow();
+						DWORD fgpid = 0;
+						if (fgw) GetWindowThreadProcessId(fgw, &fgpid);
+						if (!fgw || fgpid != GetCurrentProcessId())
+						{
+							s_compareHoldActive.store(false);
+						}
 					}
 
 					// Self-heal the HybridScanner's background worker thread
@@ -838,6 +861,18 @@ namespace cba
 
 	void ProcessKeybind(const char* aIdentifier, bool aIsRelease)
 	{
+		// Hold-to-compare is the one bind that cares about the release edge -
+		// handled before the early-return below, which every other (toggle-
+		// style) bind relies on. See PRODUCT_CONCEPT.md 3.2: a toggle costs
+		// two presses and the moment; holding answers "is this doing
+		// anything?" against the live game in half a second.
+		if (strcmp(aIdentifier, "CBA - Compare (hold)") == 0 || strcmp(aIdentifier, "KB_CBA_COMPARE") == 0)
+		{
+			s_compareHoldActive.store(!aIsRelease);
+			Recompute(/*aForce=*/true);
+			return;
+		}
+
 		if (aIsRelease) return;
 
 		if (strcmp(aIdentifier, "CBA - Filter Off") == 0 || strcmp(aIdentifier, "CBA - Not-Aus") == 0 || strcmp(aIdentifier, "KB_CBA_PANIC") == 0)
@@ -965,9 +1000,12 @@ namespace cba
 				GetHybridScanner().ScanFrame(swapChain);
 			}
 
+			// Suppress the tag/target overlay too while compare-hold is down -
+			// otherwise the "unfiltered" reference would still carry stage 2,
+			// and the comparison would only prove half the pipeline.
 			int texW = 0, texH = 0;
 			ID3D11ShaderResourceView* srv = GetHybridScanner().GetOverlaySRV(texW, texH);
-			if (srv)
+			if (srv && !s_compareHoldActive.load())
 			{
 				ImVec2 disp = ImGui::GetIO().DisplaySize;
 				ImGui::GetBackgroundDrawList()->AddImage((ImTextureID)srv, ImVec2(0, 0), disp);
@@ -1307,6 +1345,7 @@ namespace cba
 				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+SHIFT+C");
 				APIDefs->InputBinds.RegisterWithString("CBA - Sensor Graph", ProcessKeybind, "CTRL+SHIFT+G");
 				APIDefs->InputBinds.RegisterWithString("CBA - Filter Off", ProcessKeybind, "CTRL+SHIFT+O");
+				APIDefs->InputBinds.RegisterWithString("CBA - Compare (hold)", ProcessKeybind, "CTRL+SHIFT+V");
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{
@@ -1384,6 +1423,7 @@ namespace cba
 					APIDefs->InputBinds.Deregister("CBA - Main Window");
 					APIDefs->InputBinds.Deregister("CBA - Filter Off");
 					APIDefs->InputBinds.Deregister("CBA - Sensor Graph");
+					APIDefs->InputBinds.Deregister("CBA - Compare (hold)");
 					APIDefs->InputBinds.Deregister("CBA - Not-Aus");
 					APIDefs->InputBinds.Deregister("KB_CBA_WINDOW");
 				}

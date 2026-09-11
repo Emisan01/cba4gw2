@@ -22,6 +22,9 @@ namespace cba
 	std::atomic<bool> s_deferredInitDone{false};
 	bool s_showGraphOpacityDrawer{false};
 	int s_activeSlotIdx{0}; // UI-only render thread, no atomic needed
+	// Atomic, unlike s_activeSlotIdx above: written from Nexus's input
+	// callback, read by the render thread and by Recompute() on the Watchdog.
+	std::atomic<bool> s_compareHoldActive{false};
 
 	std::atomic<HWND> s_gw2Hwnd{nullptr};
 	std::atomic<bool> s_gw2Minimized{false};
