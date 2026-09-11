@@ -85,9 +85,18 @@ namespace cba
 		float availW = ImGui::GetContentRegionAvail().x;
 		float cardW = (availW - 12.0f) * 0.5f;
 		if (cardW < 140.0f) cardW = availW;
-		// Enlarged 2026-09-09 (Emi: swatches too small, card barely visible) -
-		// was 80px tall with 16px-radius circles and a near-invisible border.
-		float cardH = 116.0f;
+		// Redesigned 2026-09-11 (Emi: "man sieht den Effekt gar nicht
+		// wirklich") - two separate circles with a gap between them always
+		// read as "two different colored things" regardless of how close
+		// the colors actually are, since the GAP itself already visually
+		// separates them - a sighted viewer's own normal color perception
+		// does the rest of the work, defeating the point of simulating a
+		// different one. Replaced with one continuous swatch split exactly
+		// down the middle, no gap, no per-half border - only the OUTER
+		// edge is framed. Whether the seam down the middle is visible now
+		// depends entirely on the color difference, which is the actual
+		// experience the "Without Filter" card is supposed to convey.
+		float cardH = 162.0f;
 
 		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.09f, 0.11f, 0.15f, 0.97f));
 		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.40f, 0.48f, 0.62f, 0.90f));
@@ -95,30 +104,44 @@ namespace cba
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.5f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
 
+		// Round 2 (Emi: "muss hübscher sein, sieht aus wie eine Creditcard") -
+		// a flat rectangle split down the middle was too card-like. Two
+		// large, generously overlapping circles (Venn-diagram style) read
+		// as a proper "compare these" UI, not a swatch chip, and the
+		// overlap lens itself becomes the test: circle 2 is painted on top
+		// of circle 1, so the arc where it cuts across circle 1 is the only
+		// visible seam - similar colors make that boundary nearly vanish,
+		// distinct colors make it obvious. Bigger overlap = more of the
+		// comparison happens in that one telling boundary, per Emi's ask.
+		auto drawOverlapSwatch = [&](ImVec2 aCenter, float aRadius, float aOverlapFrac, ImU32 aColL, ImU32 aColR, ImU32 aFrameCol, float aFrameThick) {
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			float offset = aRadius * (1.0f - aOverlapFrac);
+			ImVec2 c1 = ImVec2(aCenter.x - offset, aCenter.y);
+			ImVec2 c2 = ImVec2(aCenter.x + offset, aCenter.y);
+			dl->AddCircleFilled(c1, aRadius, aColL, 48);
+			dl->AddCircleFilled(c2, aRadius, aColR, 48);
+			dl->AddCircle(c1, aRadius, aFrameCol, 48, aFrameThick);
+			dl->AddCircle(c2, aRadius, aFrameCol, 48, aFrameThick);
+		};
+
 		if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
 		{
 			ImGui::SetWindowFontScale(1.05f);
 			ImGui::TextDisabled("%s", isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)");
 			ImVec2 sp = ImGui::GetCursorScreenPos();
-			ImDrawList* dl = ImGui::GetWindowDrawList();
 
-			float r = 22.0f;
-			float cx1 = sp.x + 36.0f;
-			float cx2 = sp.x + 74.0f;
-			float cy = sp.y + 36.0f;
+			float swW = ImGui::GetContentRegionAvail().x;
+			float swH = 88.0f;
+			float radius = std::min(44.0f, swW * 0.32f);
+			ImU32 cSim1 = IM_COL32((int)(sim1R*255), (int)(sim1G*255), (int)(sim1B*255), 255);
+			ImU32 cSim2 = IM_COL32((int)(sim2R*255), (int)(sim2G*255), (int)(sim2B*255), 255);
+			drawOverlapSwatch(ImVec2(sp.x + swW * 0.5f, sp.y + swH * 0.5f), radius, 0.55f, cSim1, cSim2, IM_COL32(190, 190, 190, 150), 1.5f);
 
-			ImU32 cSim1 = IM_COL32((int)(sim1R*255), (int)(sim1G*255), (int)(sim1B*255), 220);
-			ImU32 cSim2 = IM_COL32((int)(sim2R*255), (int)(sim2G*255), (int)(sim2B*255), 220);
-
-			dl->AddCircleFilled(ImVec2(cx1, cy), r, cSim1);
-			dl->AddCircleFilled(ImVec2(cx2, cy), r, cSim2);
-			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(210, 210, 210, 140), 0, 1.5f);
-			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(210, 210, 210, 140), 0, 1.5f);
-
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 20.0f));
-			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Identisch /" : "Identical /");
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 40.0f));
-			ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Verwechselbar" : "Confusable");
+			ImGui::SetCursorScreenPos(ImVec2(sp.x, sp.y + swH + 10.0f));
+			ImGui::SetNextItemWidth(swW);
+			float textW = ImGui::CalcTextSize(isDe ? "Identisch / Verwechselbar" : "Identical / Confusable").x;
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, (swW - textW) * 0.5f));
+			ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Identisch / Verwechselbar" : "Identical / Confusable");
 			ImGui::SetWindowFontScale(1.0f);
 		}
 		ImGui::EndChild();
@@ -131,25 +154,18 @@ namespace cba
 			ImGui::SetWindowFontScale(1.05f);
 			ImGui::TextDisabled("%s", isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)");
 			ImVec2 sp = ImGui::GetCursorScreenPos();
-			ImDrawList* dl = ImGui::GetWindowDrawList();
 
-			float r = 22.0f;
-			float cx1 = sp.x + 36.0f;
-			float cx2 = sp.x + 74.0f;
-			float cy = sp.y + 36.0f;
-
+			float swW = ImGui::GetContentRegionAvail().x;
+			float swH = 88.0f;
+			float radius = std::min(44.0f, swW * 0.32f);
 			ImU32 cCor1 = IM_COL32((int)(cor1R*255), (int)(cor1G*255), (int)(cor1B*255), 255);
 			ImU32 cCor2 = IM_COL32((int)(cor2R*255), (int)(cor2G*255), (int)(cor2B*255), 255);
+			drawOverlapSwatch(ImVec2(sp.x + swW * 0.5f, sp.y + swH * 0.5f), radius, 0.55f, cCor1, cCor2, IM_COL32(80, 240, 160, 220), 2.0f);
 
-			dl->AddCircleFilled(ImVec2(cx1, cy), r, cCor1);
-			dl->AddCircleFilled(ImVec2(cx2, cy), r, cCor2);
-			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(80, 240, 160, 200), 0, 2.0f);
-			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(80, 240, 160, 200), 0, 2.0f);
-
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 20.0f));
-			ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Absolut" : "Distinct /");
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 108.0f, sp.y + 40.0f));
-			ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "verschieden!" : "Separated!");
+			ImGui::SetCursorScreenPos(ImVec2(sp.x, sp.y + swH + 10.0f));
+			float textW = ImGui::CalcTextSize(isDe ? "Klar getrennt / verschieden!" : "Clearly separated!").x;
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, (swW - textW) * 0.5f));
+			ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "Klar getrennt / verschieden!" : "Clearly separated!");
 			ImGui::SetWindowFontScale(1.0f);
 		}
 		ImGui::EndChild();

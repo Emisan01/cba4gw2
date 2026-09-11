@@ -575,11 +575,27 @@ namespace cba
 					{
 						const FilterLayerInfo& layer = layerMatrix[row];
 						bool isCmdrTag = (layer.id == -1);
+						bool isSelected = !isCmdrTag && (layer.id == selIdx);
 						ImGui::PushID(layer.id);
 						ImGui::TableNextRow();
 
+						// Design polish (2026-09-11): the row that currently
+						// wins first (row 0) gets a faint gold-tinted
+						// background - "this one wins" should read at a
+						// glance, not just from the "1." in the Order
+						// column. The row you're actively editing (selected
+						// in Tab 1) gets its own subtle tint so it's obvious
+						// which filter the detail editor below refers to.
+						if (row == 0)
+							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(120, 100, 20, 40));
+						else if (isSelected)
+							ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(40, 90, 110, 45));
+
 						ImGui::TableSetColumnIndex(0);
-						ImGui::Text("%d.", row + 1);
+						if (row == 0)
+							ImGui::TextColored(Theme::kTextGoldLabel, "%d.", row + 1);
+						else
+							ImGui::Text("%d.", row + 1);
 						ImGui::SameLine();
 						// No ImGui::BeginDisabled in this vendored ImGui
 						// version - MoveFilterLayer() is already a safe
@@ -627,7 +643,17 @@ namespace cba
 						ImGui::TableSetColumnIndex(2);
 						if (isCmdrTag)
 						{
-							ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "An" : "On");
+							// Commander Tag's row only ever appears here when
+							// CommanderTagMode != 0 (see GetFilterLayerOrder),
+							// so it's always "active" by definition - a
+							// static status dot (same color token as the
+							// live filter indicator elsewhere, UIState.cpp's
+							// kDotReadyCol) reads more consistently with the
+							// rest of the app than plain on/off text.
+							ImVec2 dotCenter = ImGui::GetCursorScreenPos();
+							dotCenter.x += 8.0f; dotCenter.y += ImGui::GetTextLineHeight() * 0.5f;
+							ImGui::GetWindowDrawList()->AddCircleFilled(dotCenter, 4.0f, Theme::kDotReadyCol);
+							ImGui::Dummy(ImVec2(16.0f, ImGui::GetTextLineHeight()));
 						}
 						else
 						{
