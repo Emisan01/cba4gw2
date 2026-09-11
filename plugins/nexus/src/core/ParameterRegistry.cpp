@@ -137,10 +137,6 @@ namespace cba
 			ParamMeta{ "commander_tag_mode", "Commander Tag Contrast", "Commander-Tag-Kontrast",
 				ParamKind::Int, ParamGroup::Core, 0, 1 });
 
-		reg.RegisterBool(ParamId::SmartEnhancer, &CurrentSettings.SmartEnhancer,
-			ParamMeta{ "smart_enhancer", "Smart Auto", "Smart-Auto",
-				ParamKind::Bool, ParamGroup::Core, 0, 0 });
-
 		reg.RegisterFloat(ParamId::Severity01, &CurrentSettings.Severity01,
 			ParamMeta{ "severity01", "Strength", "Staerke",
 				ParamKind::Float, ParamGroup::Core, 0.0f, 1.25f });

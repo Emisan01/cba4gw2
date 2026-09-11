@@ -215,13 +215,19 @@ check("5. ImGui Resilience", "Safe-Start Gate & Crash-Breadcrumb Recovery", has_
 # reader trusting a stale line. See CLAUDE.md, "How to write in this file so
 # it does not rot".
 
-# 6.1 L10n positional-initializer alignment.
-# L10n.h's de{} / en{} are POSITIONAL aggregate initializers, so adding or
-# removing a struct field without touching both language blocks shifts every
-# later string by one - silently, with no compiler error. CLAUDE.md documents
-# this as a manual "verify 68/68/68 before and after" ritual performed by hand
-# during past edits. A ritual nobody can be forced to run is exactly what this
-# check replaces.
+# 6.1 L10n initializer completeness.
+# The de{} / en{} blocks were plain positional aggregate initializers until
+# 2026-09-11: adding or removing a struct field without touching both language
+# blocks shifted every later string by one, silently, with no compiler error.
+# CLAUDE.md carried this as a manual "verify 68/68/68 by hand" ritual.
+#
+# They are designated initializers now (.Field = "..."), which makes a WRONG
+# ORDER a hard compile error - verified by deliberately swapping two entries
+# and getting 8 errors. This check is still needed for the one failure mode
+# that remains legal C++: an OMITTED field. That compiles fine and leaves a
+# null const char*, which reaches ImGui as a crash rather than a wrong label.
+# So the two guards are complementary, not redundant - order is the compiler's
+# job, completeness is this one's.
 l10n_path = os.path.join(UI_DIR, "L10n.h")
 with open(l10n_path, "r", encoding="utf-8", errors="ignore") as f:
     l10n_lines = f.read().split("\n")
@@ -247,15 +253,20 @@ for lang in ("de", "en"):
     n = 0
     for l in l10n_lines[bs + 1:be]:
         s = l.strip()
-        if s and not s.startswith("//") and (s.startswith('"') or s.startswith('u8"')):
+        if not s or s.startswith("//"):
+            continue
+        # Designated form (.Field = "...") since 2026-09-11; the bare-string
+        # form is still accepted so this check keeps working if a block is
+        # ever written the old way again.
+        if re.match(r'\.\w+\s*=', s) or s.startswith('"') or s.startswith('u8"'):
             n += 1
     lang_counts[lang] = n
 
 aligned = field_count > 0 and field_count == lang_counts["de"] == lang_counts["en"]
-check("6. Codebase Health", "L10n struct fields and de/en blocks stay positionally aligned",
+check("6. Codebase Health", "Every L10n field is initialized in both language blocks",
       aligned,
       f"{field_count} fields / {lang_counts['de']} de / {lang_counts['en']} en"
-      + ("" if aligned else "  <-- MISALIGNED: every later string is shifted, silently"))
+      + ("" if aligned else "  <-- an omitted field leaves a null const char*, which reaches ImGui as a crash"))
 
 # 6.2 Ungoverned master-enable writes, as a ratchet rather than a hand-counted
 # list. CLAUDE.md carried these as explicit file:line references; within a

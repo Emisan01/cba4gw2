@@ -22,7 +22,10 @@ namespace cba
 		EnhancerTolerance,
 		GammaGain,
 		CommanderTagMode,
-		SmartEnhancer,
+		// SmartEnhancer lived here until 2026-09-11. Removing an enum entry is
+		// safe despite the warning below precisely because nothing serializes
+		// off the integer value - and SelfTest asserts enum/registry agreement
+		// at runtime, so a half-done removal fails loudly instead of silently.
 		Severity01,
 		MixedRgSeverity01,
 		MixedBySeverity01,

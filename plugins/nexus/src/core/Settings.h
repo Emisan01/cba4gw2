@@ -62,7 +62,14 @@ namespace cba
 
 		// Commander Tag Enhancer
 		int CommanderTagMode = 0; // 0=Off, 1=On
-		bool SmartEnhancer = true; // true = auto conflict resolution based on CVD profile
+		// SmartEnhancer removed 2026-09-11. It used to switch between a static
+		// per-CVD-type conflict table and the real severity-aware computation;
+		// the selectivity fix made both paths use the real one, leaving the
+		// field with no behavioural reader at all. It was kept as inert legacy
+		// storage for one day because removing it also meant editing L10n.h's
+		// positional language blocks - that edit is now verified mechanically
+		// by the audit ("L10n struct fields and de/en blocks stay positionally
+		// aligned"), so the reason to keep it went away.
 		float EnhancerTolerance = 0.12f; // 0.04 - 0.20
 		// Filter Layer Matrix (2026-09-11) - explicit, user-visible priority
 		// instead of hidden "automation overrides manual" logic. Lower value
