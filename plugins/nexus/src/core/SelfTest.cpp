@@ -3,6 +3,7 @@
 #include "ParameterRegistry.h"
 #include "Settings.h"
 #include "ColorEffectController.h"
+#include "FilterLayers.h"
 #include "Shared.h"
 #include "../platform/HybridScanner.h"
 #include "../ui/UIState.h"
@@ -130,7 +131,11 @@ namespace cba
 				&& Near(scratch.MixedBySeverity01, CurrentSettings.MixedBySeverity01, 0.01)
 				&& Near(scratch.GammaGain, CurrentSettings.GammaGain, 0.01)
 				&& scratch.CommanderTagMode == CurrentSettings.CommanderTagMode
-				&& scratch.SmartEnhancer == CurrentSettings.SmartEnhancer
+				// SmartEnhancer was dropped from the exported string
+				// 2026-09-11 (dead field, no behavioural reader left), so it
+				// is deliberately no longer round-tripped. Import still
+				// accepts it for codes from older builds.
+				&& scratch.CommanderTagLayerPriority == CurrentSettings.CommanderTagLayerPriority
 				&& scratch.EyeComfortModeEnabled == CurrentSettings.EyeComfortModeEnabled
 				&& Near(scratch.BlueFilter01, CurrentSettings.BlueFilter01, 0.01)
 				&& Near(scratch.WarmTint01, CurrentSettings.WarmTint01, 0.01)
@@ -179,6 +184,48 @@ namespace cba
 			Add(r, "State", "AutoStartSlot points at a used profile slot (or is -1/none)", ok);
 		}
 
+		// ── Pipeline composition (2026-09-11). These guard the exact failure
+		// that caused the Commander Tag "looks off with the base correction"
+		// bug: the DWM stage's composition existed only as inline code inside
+		// Recompute(), so the enhancer and Auto-Brightness silently modelled a
+		// pipeline missing a stage. core/FilterLayers.cpp now owns that
+		// composition; these assert its two defining properties, so a future
+		// refactor cannot quietly pull them apart again.
+		// Full derivation: COLOR_MATH.md section 8.
+		{
+			double disp[3][3];
+			EffectiveDisplayMatrix(disp);
+			bool ok = CurrentSettings.Enabled || MatrixNear(disp, kIdentity);
+			Add(r, "Pipeline", "EffectiveDisplayMatrix is identity while the master filter is off", ok,
+				CurrentSettings.Enabled
+					? "(filter currently on, trivially true)"
+					: (ok ? "" : "A non-identity matrix here means the tag enhancer is compensating for a transform that is not being applied."));
+		}
+		{
+			// Eye-Sensitive off must leave the colour stack exactly equal to
+			// the CVD correction - i.e. the extra layer really is a no-op when
+			// disabled, rather than subtly rescaling everything.
+			double stack[3][3], corr[3][3];
+			ColorStackMatrix(stack);
+			ActiveCorrectionMatrix(corr);
+			bool ok = CurrentSettings.EyeComfortModeEnabled || MatrixNear(stack, corr);
+			Add(r, "Pipeline", "Colour stack equals the plain CVD correction while Eye-Sensitive is off", ok,
+				CurrentSettings.EyeComfortModeEnabled ? "(Eye-Sensitive currently on, trivially true)" : "");
+		}
+		{
+			// Clamped at its use site in FilterLab, but a stored out-of-range
+			// value still means something wrote past the vector - and the
+			// clamp there is std::clamp(idx, 0, count-1), which would be UB if
+			// the vector were ever empty (see CLAUDE.md, Trinity sweep).
+			int n = (int)CurrentSettings.LabFilters.size();
+			bool ok = n > 0
+				&& CurrentSettings.SelectedLabFilterIndex >= 0
+				&& CurrentSettings.SelectedLabFilterIndex < n;
+			Add(r, "Pipeline", "SelectedLabFilterIndex points inside LabFilters", ok,
+				ok ? "" : (n == 0 ? "LabFilters is EMPTY - the non-empty invariant several call sites rely on is broken."
+				                  : "Index is outside the vector."));
+		}
+
 		// ── Runtime/platform status - informational, not pass/fail. "OS
 		// blocked the DWM call" is a legitimate, expected state under real
 		// exclusive fullscreen, not a bug by itself - shown here so it's
@@ -200,6 +247,19 @@ namespace cba
 			bool ok = !needsScanner || GetHybridScanner().IsRunning();
 			Add(r, "Platform", "HybridScanner worker thread is running when a feature needs it", ok,
 				ok ? "" : "Thread is not running - Watchdog will restart it within ~50ms, or click Reset Filter now.");
+		}
+		{
+			// Hold-to-compare suppresses BOTH filter stages while its key is
+			// physically down. Info rather than a failure because holding the
+			// bind while clicking this button is legitimate, if unusual - but
+			// a stuck flag would look exactly like "the filter stopped
+			// working", the same shape as the scanner-death bug above, so it
+			// belongs in a diagnostic report either way. The Watchdog clears
+			// it on focus loss; see ProcessKeybind / WatchdogLoop.
+			bool held = s_compareHoldActive.load();
+			AddInfo(r, "Platform", "Hold-to-compare is not suppressing the filter", !held,
+				held ? "Compare-hold is ACTIVE - both filter stages are suspended right now. Expected only while Ctrl+Shift+V is held down."
+				     : "");
 		}
 
 		return r;
