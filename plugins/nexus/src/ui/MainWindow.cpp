@@ -218,9 +218,31 @@ namespace cba
 		// branding block at the very bottom. Kept to one muted line here on
 		// purpose - the fuller branding text stays the footer, this is just
 		// enough context to not be confusing on first sight.
+		// Named after the jobs, not the machinery (2026-09-11). This used to
+		// read "Automatischer Farbkontrast-Ausgleich" - an accurate
+		// description of the mechanism that tells a player nothing about
+		// whether they want it. Same change the README got: lead with what it
+		// does FOR you. Two lines because there are genuinely two jobs, and
+		// per PRODUCT_CONCEPT.md 2D the second one reaches a far wider
+		// audience than the first.
+		ImGui::TextColored(Theme::kTextPrimary, "%s", isDe
+			? "Commander-Tags im Zerg auseinanderhalten."
+			: "Tell commander tags apart in a zerg.");
 		ImGui::TextColored(Theme::kTextSecondary, "%s", isDe
-			? "Automatischer Farbkontrast-Ausgleich fuer Guild Wars 2"
-			: "Automatic color & contrast correction for Guild Wars 2");
+			? "Augen schonen bei langen Sessions."
+			: "Take the strain off your eyes on long sessions.");
+
+		// First-run orientation only. Disappears the moment anything is set
+		// up, so it never becomes clutter for a returning user - and it points
+		// at the one action that actually gets a newcomer somewhere, instead
+		// of leaving them to guess which control to touch first.
+		if (CurrentSettings.CommanderTagMode == 0 && CurrentSettings.Severity01 <= 0.01f)
+		{
+			ImGui::Spacing();
+			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
+				? "Noch nicht eingerichtet - der Sehtest unten dauert eine Minute."
+				: "Not set up yet - the short vision check below takes a minute.");
+		}
 		ImGui::Spacing();
 
 		// ── "The filter physically cannot work right now" banner ───────────
@@ -487,6 +509,14 @@ namespace cba
 			ImGui::SetTooltip(isDe ? "1-Klick: Waehlt dein Farbprofil und schaltet den automatischen Kontrast-Verstaerker fuer Commander-Tags ein."
 			                       : "One click: picks your color profile and turns on the automatic contrast enhancer for commander tags.");
 		}
+		// One muted line under each feature heading saying what it does FOR
+		// the player (2026-09-11). "Commander-Tag-Kontrast" names a mechanism;
+		// this says why you would want it - and specifically that it is
+		// selective, which is the whole point and the thing a user would
+		// otherwise have to discover by watching the shifted-count.
+		ImGui::TextDisabled("%s", isDe
+			? "Verschiebt nur die Tag-Farben, die du tatsaechlich verwechselst."
+			: "Shifts only the tag colours you actually confuse.");
 
 		// ── Guided entry (2026-09-11, PRODUCT_CONCEPT.md 3.1) ──────────────
 		// Replaces "pick Protan / Deutan / Tritan" - a diagnosis most players
@@ -871,6 +901,9 @@ namespace cba
 		ImGui::Separator();
 		ImGui::Spacing();
 		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Augenschonung" : "Eye Comfort");
+		ImGui::TextDisabled("%s", isDe
+			? "Blaulicht, Warmton und Saettigung - unabhaengig von der Farbkorrektur."
+			: "Blue light, warm tint and saturation - independent of the colour correction.");
 		if (ImGui::Checkbox(isDe ? "Aktivieren##emb_eye" : "Activate##emb_eye", &CurrentSettings.EyeComfortModeEnabled))
 		{
 			changed = true;
@@ -1158,8 +1191,13 @@ namespace cba
 		ImGui::TextColored(Theme::kTextCyanLicht, "Color Logic Balancer & Enhancer");
 		ImGui::SameLine();
 		ImGui::TextDisabled("(cba4gw2)");
-		ImGui::TextColored(Theme::kTextSecondary, isDe ? "Barrierefreie Farb- & Kontrastoptimierung fuer Guild Wars 2"
-		                                               : "Accessible color & contrast balancer for Guild Wars 2");
+		// Widened 2026-09-11: "barrierefrei"/"accessible" alone framed CBA as a
+		// CVD-only tool, but Eye Comfort is the part that gets left switched on
+		// and its audience is anyone playing long evenings (PRODUCT_CONCEPT.md
+		// 2D). Saying so keeps the accessibility purpose first without turning
+		// away the larger group it also serves.
+		ImGui::TextColored(Theme::kTextSecondary, isDe ? "Farb- & Kontrasthilfe fuer Guild Wars 2 - nicht nur bei Farbsehschwaeche"
+		                                               : "Colour & contrast assist for Guild Wars 2 - not only for colour blindness");
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);
