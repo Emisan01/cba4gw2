@@ -1,87 +1,99 @@
-# cba4gw2 — Color Balance Assist for Guild Wars 2 (v1.0)
+# cba4gw2 — Color Balance Assist for Guild Wars 2
 
-A high-performance, 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. Applies a real-time, hardware-accelerated color balance and contrast assistance filter [...]
+**Tell commander tags apart in a zerg. Take the strain off your eyes on long sessions.**
 
-📦 **[All Releases](https://github.com/Emisan01/cba4gw2/releases)** · ⬇️ **[Download cba.dll (latest)](https://github.com/Emisan01/cba4gw2/releases/latest/download/cba.dll)** — always points at the current release, no version number to keep track of.
+A 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) addon loader. It corrects colour and contrast in real time through the Windows Magnification API — no DirectX hooks, no shader injection, no game-memory access.
 
----
-
-## 🔬 Scientific & Mathematical Foundation
-
-cba4gw2 v1.0 implements a mathematically verified, clinically grounded color correction pipeline:
-
-* **Color Space:** Standard sRGB is transformed into the physiological **LMS (Long, Medium, Short) cone response space** using the **Hunt-Pointer-Estévez (HPE)** conversion matrix.
-* **Dichromacy Simulation:** Missing cone channels are projected according to **Viénot, Brettel & Mollon (1999)**, ensuring that the equi-energy neutral axis (white, gray, black) remains complete[...]
-* **Daltonization Compensation:** Lost contrasts are calculated and redistributed into visible channels using type-specific shift matrices based on **Fidaner, Lin & Özgüven (2005)**.
-* **Contrast Standards:** Optimized in accordance with **W3C WCAG 2.1** color contrast recommendations and **HRR / Farnsworth-Munsell** clinical scales.
-
-👉 **For complete formulas, matrix proofs, and mathematical derivations, see [`COLOR_MATH.md`](COLOR_MATH.md).**
+📦 **[All Releases](https://github.com/Emisan01/cba4gw2/releases)** · ⬇️ **[Download cba.dll (latest)](https://github.com/Emisan01/cba4gw2/releases/latest/download/cba.dll)** — always points at the current release.
 
 ---
 
-## ⚡ Key Features (v1.0)
+## 👁️ What it actually does for you
 
-- **100% Hookless & Safe (Weg A):** Zero DirectX / D3D11 present hooks, zero shader injection, zero game memory tampering. Applies strictly via the Windows Magnification API (`MagSetFullscreenColo[...]
-- **Color Balance Profiles:**
-  - **Protan** (Rot-Fokus / Red Contrast Focus)
-  - **Deutan** (Grün-Fokus / Green Contrast Focus)
-  - **Tritan** (Blau-Fokus / Blue Contrast Focus)
-  - **Mixed Mode** (Unabhängige Rot-Grün- und Blau-Gelb-Farbbalance)
-- **Event-Driven Auto-Sleep (`WndProc`):**
-  - Instant neutral color restoration when tabbing out (`WM_ACTIVATE` / `WA_INACTIVE`) or minimizing (`WM_SIZE` / `SIZE_MINIMIZED`).
-  - Instant filter reactivation when returning to GW2.
-  - Transparent message passthrough ensuring no mouse, keyboard, or context menu clicks are swallowed.
-- **Performance & I/O Throttling:**
-  - **DWM IPC Capped at 60 Hz:** Sliders can be dragged rapidly without causing Desktop Window Manager stutter.
-  - **Deferred Disk Writes:** Settings are written to disk only when sliders are released or buttons are clicked, preventing unnecessary SSD I/O.
-- **Modern Interactive UI & Controls:**
-  - **Fixed Header Bar:** Always-accessible Master ON/OFF toggle with animated pulse indicator, 3-slot Profile Quickbar (color-coded empty/saved/full states), and one-click `Reset UI` button.
-  - **Detachable Filter Laboratory (`Filter-Labor`):** Interactive XY Color Ray Matrix with live tone mapping, stackable custom filter instances with tone radius ($\pm 1$ to $\pm 32$) and soft dif[...]
-  - **Clinical Vision Lab (`Vision-Lab`):** Interactive Nagel & Moreland Anomaloscope with split eyepiece disc and live Anomalous Quotient (AQ) calculation, ICD-10 medical report translator, HRR/I[...]
-  - **Commander Tag & Squad UI Enhancer:** Contrast amplification for squad commander tags (Blue/Red/Green) in large Zergs and WvW.
-  - **Adaptive Eye Comfort:** Dynamic brightness and gamma compensation to prevent eye strain between bright and dark game environments.
-  - **3 Scientific Graph Modes:** Polygonal (PWL), Harmonisch (Gauss/LMS), and Strahlen (Ray Scope) with 32-sample transfer curves and live filtered spectrum beam.
-  - **Spacious Live-Feedback Status Card:** Displays active profile, exact percentages, and clinical HRR / Farnsworth severity classifications.
-  - **Ergonomic Hotkeys:** `Ctrl+Shift+C` (Toggle Main UI), `Ctrl+Shift+G` (Toggle Sensor Graph), `Ctrl+Shift+O` (Filter Emergency Off).
-  - **100% Clean ASCII Typography:** Fully centered button labels with generous margins and zero font glyph rendering glitches (`?`).
-  - **Bilingual:** Automatic system detection for German and English with manual overrides.
+**Commander tags you can tell apart.** In a big zerg the squad tag colours sit right next to each other. If you have a red-green or blue-yellow deficiency, several of them collapse into the same colour. CBA measures which of the nine GW2 tag colours are genuinely confusable *for your vision*, and shifts only those — the ones you can already distinguish are left untouched.
+
+**Eye comfort on long evenings.** An independent blue-light filter, warm tint and saturation reduction, applied on top of everything else. This one has nothing to do with colour blindness — it is simply the part most people end up leaving on.
+
+**A colour correction for the whole screen**, based on published clinical models rather than a "make it more colourful" slider. See the science section below if that matters to you.
+
+---
+
+## ⚠️ One requirement before anything works
+
+Set Guild Wars 2 to **Windowed** or **Windowed Fullscreen (Borderless)** in Graphics Options.
+
+Windows cannot apply a colour correction to an *exclusive* fullscreen window — the desktop compositor is bypassed entirely in that mode. CBA will tell you in its own panel if it detects this, but it cannot work around it. This is not a CBA limitation, it applies to every tool built this way.
 
 ---
 
 ## 📦 Installation
 
-1. Download [`cba.dll`](https://github.com/Emisan01/cba4gw2/releases/latest/download/cba.dll) from the [latest Release](https://github.com/Emisan01/cba4gw2/releases/latest)
-2. Place `cba.dll` into your Nexus addons folder:
-   `<Guild Wars 2>/addons/`
-3. Launch Guild Wars 2 through Nexus.
-4. In Nexus → **Addons** → **cba4gw2**, click **Options** to configure your profile.
-
-> **Important:** Set Guild Wars 2 to **Windowed** or **Windowed Fullscreen (Borderless)** in Graphics Options. The Windows Magnification API cannot apply to Exclusive Fullscreen windows.
->
-> **ArenaNet Policy Notice:** Third-party addon, used at your own risk per ArenaNet's Third-Party Programs Policy — no automation, no game-memory access, visual-only.
+1. Download [`cba.dll`](https://github.com/Emisan01/cba4gw2/releases/latest/download/cba.dll) from the [latest release](https://github.com/Emisan01/cba4gw2/releases/latest)
+2. Drop it into your Nexus addons folder: `<Guild Wars 2>/addons/`
+3. Start Guild Wars 2 through Nexus
+4. Open **Nexus → Addons → cba4gw2 → Options**
 
 ---
 
-## 🛠️ Building from Source
+## 🚀 Setting it up (about a minute)
 
-Requirements: **Visual Studio 2022 (MSVC v143)**, **CMake ≥ 3.20**, Windows SDK.
+You do **not** need to know whether you are protan, deutan or tritan. Most people never had that measured, and it is the wrong question to start from anyway.
+
+Instead the panel asks what you can *see*:
+
+1. **Which colour pair is hardest for you to tell apart?** — real GW2 tag colours, shown as they are. Your own eyes do the work.
+2. *(red-green only)* **Does the red look much darker than the green?** — this is the one difference between protan and deutan that a person can actually answer about themselves.
+3. **Can you tell them apart now?** — the same pair is shown *as the correction will render it*. If not, turn it up. That is how strength gets set: a yes/no you can answer, not a percentage you would have to guess.
+
+If you already know your diagnosis, the direct type buttons are under **Advanced**.
+
+**Hold `Ctrl+Shift+V`** at any time to suspend the filter while the key is down. That is the honest way to check whether it is doing anything — against the actual game, not a swatch. Every keybind is remappable in Nexus's own keybind settings.
+
+---
+
+## 🔧 Going further (optional)
+
+Tick **Advanced Mode** to unlock the Studio: profile slots and shareable profile codes, a Filter Lab for building your own colour-replacement layers, a Vision Lab with a Nagel/Moreland anomaloscope and Anomalous Quotient calculation, live spectrum and transfer-curve graphs, and a filter-pipeline view showing exactly which stages are active and in what order.
+
+None of it is needed for the two things above. It is there because some people want to see the machinery.
+
+---
+
+## 🔬 Scientific foundation
+
+CBA implements a published, mathematically verifiable correction pipeline rather than an ad-hoc colour tweak:
+
+* **Colour space:** sRGB is transformed into the physiological **LMS cone response space** using the **Hunt-Pointer-Estévez (HPE)** matrix.
+* **Dichromacy simulation:** missing cone channels are projected per **Viénot, Brettel & Mollon (1999)**, which keeps the equi-energy neutral axis intact — white, grey and black stay exactly where they are.
+* **Daltonization:** lost contrast is measured and redistributed into channels you can still see, using type-specific shift matrices per **Fidaner, Lin & Özgüven (2005)**.
+* **Contrast reference:** ITU-R BT.709 / **WCAG 2.1** relative luminance, with HRR and Farnsworth-Munsell scales used for the clinical readouts.
+
+Every claim there is checked by unit tests that assert the *properties* (white-point invariance, identity at zero severity, that the correction genuinely increases a dichromat's perceived separation) rather than re-encoding the implementation's own arithmetic.
+
+👉 Full derivations, matrices and proofs: [`COLOR_MATH.md`](COLOR_MATH.md). The reasoning behind the UI: [`PRODUCT_CONCEPT.md`](PRODUCT_CONCEPT.md).
+
+---
+
+## 🛡️ Safety and ArenaNet policy
+
+> Third-party addon, used at your own risk per ArenaNet's Third-Party Programs Policy — **no automation, no game-memory access, visual-only.**
+
+CBA does not read or write Guild Wars 2 process memory, does not hook game functions, does not generate input, and does not touch the ArenaNet or ArcDPS crash reporters. It is a presentation-layer tool: it changes what the *screen* shows, through an official Windows API. See [`SECURITY_COMPLIANCE.md`](SECURITY_COMPLIANCE.md).
+
+---
+
+## 🛠️ Building from source
+
+Requirements: **Visual Studio (MSVC v143 or newer)**, **CMake ≥ 3.20**, Windows SDK.
 
 ```powershell
 cd plugins/nexus
 cmake -S . -B build -A x64
 cmake --build build --config Release
-# Output binary: plugins/nexus/build/bin/Release/cba.dll
+# Output: plugins/nexus/build/bin/Release/cba.dll
 ```
 
-All dependencies (ImGui, Nexus API headers) are vendored in `thirdparty/` — zero external package downloads required during build.
-
----
-
-## 📋 Scope-Freeze & Roadmap Notes (v1.0)
-
-To guarantee rock-solid stability and account safety, the following boundaries are enforced for v1.0:
-* **In v1.0:** 100% Hookless Magnification API (Weg A), Viénot/HPE/Fidaner Daltonization, Live Curves, Live Beam, Live Feedback Status Card, DWM Throttling, Deferred Save, WndProc Auto-Sleep.
-* **Deferred to future updates:** In-engine D3D11 Present hooks (Weg B), selective pixel-shader hue rotation (Smart Enhancer), pipette color pickers, and dynamic scene histogram analysis.
+All dependencies (ImGui, Nexus API headers) are vendored in `thirdparty/` — nothing is downloaded during the build.
 
 ---
 
