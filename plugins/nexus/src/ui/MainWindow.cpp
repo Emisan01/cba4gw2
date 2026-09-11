@@ -98,7 +98,21 @@ namespace cba
 		// experience the "Without Filter" card is supposed to convey.
 		float cardH = 162.0f;
 
-		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.09f, 0.11f, 0.15f, 0.97f));
+		// Optional "Glass" look (2026-09-11, Emi's ask, clarified: "einfach
+		// den dunklen Hintergrund entfernen" - not a real blur, just drop
+		// the card's own dark fill so it reads as a light overlay instead
+		// of a heavy solid box). Off by default, doesn't change anyone's
+		// existing view unless they opt in.
+		ImGui::TextDisabled("%s", isDe ? "Darstellung:" : "Display:");
+		ImGui::SameLine(0, 6.0f);
+		ImGui::Checkbox(isDe ? "Glas-Look (kein dunkler Hintergrund)##glass_cards" : "Glass look (no dark background)##glass_cards", &CurrentSettings.GlassContrastCards);
+		if (ImGui::IsItemEdited()) saveNeeded = true;
+		ImGui::Spacing();
+
+		ImVec4 cardBg = CurrentSettings.GlassContrastCards
+			? ImVec4(0.09f, 0.11f, 0.15f, 0.10f)
+			: ImVec4(0.09f, 0.11f, 0.15f, 0.97f);
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, cardBg);
 		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.40f, 0.48f, 0.62f, 0.90f));
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.5f);

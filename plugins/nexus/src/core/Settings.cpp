@@ -137,6 +137,7 @@ namespace cba
 			else if (key == "ToolbarIconPosY")     s.ToolbarIconPosY = safeStof(value, 8.0f);
 			else if (key == "SystemWide")        s.SystemWide = (value == "1");
 			else if (key == "ContrastPairIdx")   s.ContrastPairIndex = std::clamp(safeStoi(value, 0), 0, 4);
+			else if (key == "GlassContrastCards") s.GlassContrastCards = (value == "1");
 			else if (key == "AutoStartSlot")     s.AutoStartSlot = std::clamp(safeStoi(value, -1), -1, 2);
 			else if (key == "LabModeEnabled")    s.LabModeEnabled = (value == "1");
 			else if (key == "SelectedLabFilter") s.SelectedLabFilterIndex = safeStoi(value, 0);
@@ -289,6 +290,7 @@ namespace cba
 		file << "ToolbarIconPosY=" << ToolbarIconPosY << "\n";
 		file << "SystemWide=" << (SystemWide ? "1" : "0") << "\n";
 		file << "ContrastPairIdx=" << ContrastPairIndex << "\n";
+		file << "GlassContrastCards=" << (GlassContrastCards ? "1" : "0") << "\n";
 		file << "AutoStartSlot=" << AutoStartSlot << "\n";
 		file << "LabModeEnabled=" << (LabModeEnabled ? "1" : "0") << "\n";
 		file << "SelectedLabFilter=" << SelectedLabFilterIndex << "\n";
