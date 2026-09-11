@@ -12,6 +12,47 @@ carries the one rule everything else derives from: the user cannot evaluate a
 colour correction with the perception being corrected, so every change must
 either remove a judgment they can't make or supply evidence that it works.
 
+## How to write in this file so it does not rot
+
+Added 2026-09-11 after a session that hit five stale claims in one day: the
+"5 ungoverned Enabled=true sites" list (actually 4, line numbers drifted, and
+a plain grep returns a 6th hit that is not a violation), "local build is around
+v1.0.2-pre" (releases were at v1.11.0), a file map missing four `core/`
+modules, a ParameterRegistry "registered so far" list missing three params, and
+a README still advertising a feature that had been removed.
+
+**The pattern:** every rotten line was a *derived fact written down by hand* -
+a count, a file:line, a "currently registered" list, a version. Not one entry
+in the dated session logs had gone stale, because "on 2026-09-09 we removed X"
+stays true forever. Present-tense claims about the codebase are the rot
+surface; dated history is not.
+
+Three rules follow:
+
+1. **Write the command, not the count.** Anything the code can invalidate
+   silently - counts, line numbers, lists of call sites - goes in as the way to
+   re-derive it, with the expected shape as a hint rather than a promise:
+   > ungoverned sites - find with `grep -rn "CurrentSettings.Enabled = true" src/`
+   > (expect ~4; `ModuleMain.cpp`'s hit inside `ActivateCommanderTagProfile` is
+   > the governing function, not a violation)
+
+   A count can drift. A grep cannot. If a fact cannot be turned into a check,
+   that is a signal it belongs in a dated log entry instead.
+
+2. **Re-derive before you rely on it.** Never act on a documented file:line,
+   count or "X is wired up" from this file without checking it first - today
+   that would have caught four of the five. Citing this file as evidence is
+   exactly the failure mode; it is a map, not the territory.
+
+3. **Only write "X is in place" after looking.** One of today's stale claims
+   was written from intent, not observation ("Eye Comfort stays visible on the
+   base panel" - its entire UI was behind the Advanced gate). If the check was
+   not run, say what was *decided*, not what *is*.
+
+Corollary for the session logs: keep them dated and past-tense. They are the
+one part of this file that does not need maintenance, and that is precisely
+because they never claim to describe the present.
+
 ## Commit / release attribution (read this before your first commit)
 
 Do **not** add `Co-Authored-By` (or any equivalent AI-attribution trailer) to
@@ -65,9 +106,12 @@ things.
    physically lives in `CurrentSettings` (registry just holds a pointer +
    metadata per parameter) — migration is incremental, un-migrated fields keep
    working via direct access.
-   - **Registered so far** (`RegisterAllParameters()` in `ParameterRegistry.cpp`):
-     `EnhancerTolerance`, `GammaGain`, `CommanderTagMode`, `SmartEnhancer`,
-     `Severity01`, `MixedRgSeverity01`, `MixedBySeverity01`, `ActiveSlotIdx`.
+   - **Which parameters are registered** — do not trust a list here, it was
+     already three entries stale once. Derive it:
+     `grep -n "Register\(Float\|Bool\|Int\)(ParamId::" src/core/ParameterRegistry.cpp`
+     (the `ParamId` enum in the header is the other half of the picture, and
+     `SelfTest` already asserts the two agree, so a mismatch is a hard FAIL at
+     runtime rather than something to track by hand here).
      (`EnhancerHue` was dead scaffolding — no consumer anywhere — removed
      2026-09-09 along with the rest of the dead-code pass below, not just
      unregistered.)
@@ -134,19 +178,17 @@ things.
 - `cba_session.lock` / Safe-Start crash detection: understood and now fixed
   (see below), but still fundamentally a workaround, not addressed by the
   registry work.
-- **4 ungoverned `CurrentSettings.Enabled = true` call sites** (found
-  2026-09-10, cross-checking an external AI tool's - Devin/Windsurf -
-  read-only analysis against actual source; re-verified 2026-09-11 and the
-  count dropped from 5 to 4 - the `MainWindow.cpp` enhancer-checkbox site
-  disappeared with the checkbox itself in that day's UI dedup pass, and
-  line numbers have drifted, so re-grep rather than trusting these):
-  `ModuleMain.cpp:1234` (AutoStartSlot), `SafeStartGate.cpp:65`,
-  `VisionLab.cpp:407`, `VisionLab.cpp:579` all flip
-  `Enabled` directly instead of through `ToggleMasterEnabled()`/
-  `ActivateCommanderTagProfile()`, the two functions that already own this
-  correctly elsewhere. (A plain grep returns a 5th hit,
-  `ModuleMain.cpp:457` - that one IS `ActivateCommanderTagProfile`'s own
-  body, i.e. the governing function, not a violation. Don't re-flag it.)
+- **Ungoverned `CurrentSettings.Enabled = true` call sites.** Find them with
+  `grep -rn "CurrentSettings.Enabled = true" src/` — expect around four
+  violations plus one false positive: the hit inside
+  `ActivateCommanderTagProfile` is the *governing* function, not a violation,
+  so don't re-flag it. (Originally written as a fixed list of five with line
+  numbers, found 2026-09-10 by cross-checking an external AI tool's -
+  Devin/Windsurf - read-only analysis; by 2026-09-11 the count and every line
+  number had already drifted, which is what prompted the anti-rot rule at the
+  top of this file.) These flip `Enabled` directly instead of going through
+  `ToggleMasterEnabled()`/`ActivateCommanderTagProfile()`, the two functions
+  that already own this correctly elsewhere.
   Not a live bug today - verified these are cleanly
   mutually-exclusive branches (e.g. AutoStartSlot explicitly skips itself on
   crash recovery, so it doesn't race SafeStartGate), Devin's "Load sets
