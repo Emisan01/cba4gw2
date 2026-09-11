@@ -419,7 +419,18 @@ namespace cba
 							}
 							else
 							{
-								CurrentSettings.Severity01 = 0.20f;
+								// A normal reading must apply NO correction
+								// (2026-09-11). This used to set 0.20 severity
+								// and leave Type untouched, so the applied
+								// profile depended on whatever was tested
+								// before: run Moreland first (Type becomes
+								// Tritan), then measure normal on Rayleigh,
+								// and pressing Apply switched on a 20% Tritan
+								// correction right after the panel said
+								// "Normal Trichromat". Severity 0 takes
+								// ColorMatrix's documented identity fast-path,
+								// so the stale Type stops mattering as well.
+								CurrentSettings.Severity01 = 0.0f;
 							}
 						}
 						else
@@ -439,7 +450,11 @@ namespace cba
 							}
 							else
 							{
-								CurrentSettings.Severity01 = 0.20f;
+								// Same as the Rayleigh normal branch above: a
+								// normal blue-receptor reading applies nothing,
+								// rather than a fifth of a correction whose
+								// Type came from a previous test.
+								CurrentSettings.Severity01 = 0.0f;
 							}
 						}
 

@@ -263,6 +263,19 @@ things.
     the code but effectively never appears. Relevant to
     `PRODUCT_CONCEPT.md` section 2B, which argues that the AoE case deserves
     to be a named shipped preset rather than handmade lab work.
+- **Vision Lab's Clinical Report asks for two measurements and discards both**
+  (found 2026-09-11 reading the file for the first time this session).
+  `s_repAqInput` (a typed Nagel Anomalous Quotient) and `s_repHrrInput` (an
+  HRR / Ishihara plate score) have exactly two references each: the
+  declaration and the input widget. Nothing ever reads them. The verbal
+  type/severity combos right above do all the work of the applied profile.
+  Same class as the removed `Presets[3]` ("written here, read nowhere") and
+  the inverse of the removed `FreeFilter*` scaffolding. Not fixed because the
+  choice is Emi's, and both directions are defensible: wire them up (a real
+  AQ could drive severity the way the anomaloscope branch already does) or
+  remove them (an input that implies function and has none is worse than no
+  input). Relevant because this tab carries the clinical framing - it is the
+  part that has to be genuinely grounded.
 - **Stale "OS blocked" banner possible across an exclusive-fullscreen
   transition** (found 2026-09-10, same cross-check): `g_DwmLastCallSuccessful`
   (Magnification.cpp) and `DetectWindowMode()` (WindowMode.cpp) never
