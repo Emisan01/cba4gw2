@@ -43,6 +43,7 @@ namespace cba
 	static BalanceType s_setupPendingType = BalanceType::Deutan;
 	static bool s_setupPendingMixed = false;
 	static float s_setupStrength = 0.6f;     // proposed severity, raised by the user in step 3
+	static bool s_setupDismissed = false;    // user said "I can tell them all apart" this session
 
 	void DrawContrastTestSwatches(bool isDe, const double aCorrMat[3][3], bool& saveNeeded)
 	{
@@ -487,7 +488,13 @@ namespace cba
 			// would be answering the question for them, and wrongly.
 			auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel) -> bool {
 				ImGui::PushID(aId);
+				// Floor the width: this panel lives inside Nexus's own window,
+				// whose width the user controls, and GetContentRegionAvail can
+				// come back tiny or negative there. A non-positive InvisibleButton
+				// size is an ImGui assert, i.e. someone else's narrow panel would
+				// take the addon down.
 				float w = ImGui::GetContentRegionAvail().x;
+				if (w < 60.0f) w = 60.0f;
 				float h = 46.0f;
 				ImVec2 p = ImGui::GetCursorScreenPos();
 				bool clicked = ImGui::InvisibleButton("##opt", ImVec2(w, h));
@@ -510,9 +517,16 @@ namespace cba
 				return clicked;
 			};
 
+			// s_setupDismissed is what makes "I can tell them all apart" stick.
+			// Without it that button is a no-op: it leaves both CommanderTagMode
+			// and Severity01 at zero, so `configured` stays false and the next
+			// frame drops the user straight back into question 1 - an
+			// inescapable questionnaire. Session-only on purpose: someone who
+			// dismisses it today should still be met by the offer next launch,
+			// since a new player may simply not have realised yet that it helps.
 			bool configured = (CurrentSettings.CommanderTagMode != 0) || (CurrentSettings.Severity01 > 0.01f);
 			int step = s_setupStep;
-			if (!configured && step == 0) step = 1; // fresh install lands straight in the flow
+			if (!configured && !s_setupDismissed && step == 0) step = 1; // fresh install lands straight in the flow
 
 			if (step == 1)
 			{
@@ -544,6 +558,7 @@ namespace cba
 				if (ImGui::SmallButton(isDe ? "Ich kann alle gut unterscheiden##skip" : "I can tell them all apart##skip"))
 				{
 					s_setupStep = 0;
+					s_setupDismissed = true;
 					CurrentSettings.CommanderTagMode = 0;
 					saveNeeded = true;
 				}
@@ -581,25 +596,25 @@ namespace cba
 					: "And now - can you tell the two colours apart?");
 				ImGui::Spacing();
 
-				// Preview the pair exactly as the correction will render it,
-				// at the strength currently being proposed.
+				// Preview the pair exactly as the correction will render it, at
+				// the strength currently being proposed. Built from explicit
+				// parameters rather than via ActiveCorrectionMatrix(), which
+				// reads CurrentSettings: briefly swapping those fields in and
+				// out to borrow it would race the Watchdog thread, which calls
+				// Recompute() on the same fields every 50ms and would then push
+				// a not-yet-chosen matrix to the whole screen.
 				double previewMat[3][3];
-				{
-					BalanceType prevType = CurrentSettings.Type;
-					bool prevMixed = CurrentSettings.Mixed;
-					float prevSev = CurrentSettings.Severity01;
-					CurrentSettings.Type = s_setupPendingType;
-					CurrentSettings.Mixed = s_setupPendingMixed;
-					CurrentSettings.Severity01 = s_setupStrength;
-					ActiveCorrectionMatrix(previewMat);
-					CurrentSettings.Type = prevType;
-					CurrentSettings.Mixed = prevMixed;
-					CurrentSettings.Severity01 = prevSev;
-				}
+				if (s_setupPendingMixed)
+					ColorMatrix::MixedCorrectionMatrix(s_setupStrength, s_setupStrength, previewMat);
+				else
+					ColorMatrix::CorrectionMatrix(s_setupPendingType, s_setupStrength, previewMat);
 
+				// Mixed is built on a Deutan base, so the red/green pair is what
+				// actually demonstrates it - red/blue would show the axis this
+				// profile affects least.
 				int tagA = s_setupAxisRedGreen ? 0 : 2;
 				int tagB = s_setupAxisRedGreen ? 3 : 5;
-				if (s_setupPendingMixed) { tagA = 0; tagB = 5; }
+				if (s_setupPendingMixed) { tagA = 0; tagB = 3; }
 
 				double oa[3], ob[3];
 				ColorMatrix::ApplyPixel(kGw2TagRefs[tagA].r, kGw2TagRefs[tagA].g, kGw2TagRefs[tagA].b, previewMat, oa[0], oa[1], oa[2]);
@@ -607,6 +622,7 @@ namespace cba
 
 				{
 					float w = ImGui::GetContentRegionAvail().x;
+					if (w < 60.0f) w = 60.0f; // same narrow-panel floor as pairOption
 					float h = 56.0f;
 					ImVec2 p = ImGui::GetCursorScreenPos();
 					ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -666,11 +682,30 @@ namespace cba
 			if (enhancerActive)
 				ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "Aktiv - %d von 9 Farben verschoben" : "Active - %d of 9 colors shifted", shiftedCount);
 			else
-				// Was "waehle oben ein Profil"/"pick a profile above" - "Profil"
-				// already means something else on this panel (the Save/[1][2][3]
-				// slots above), a naming collision found in the 2026-09-09 UI
-				// review. These buttons pick a CVD type, not a profile.
-				ImGui::TextDisabled("%s", isDe ? "Inaktiv - waehle oben einen Typ" : "Inactive - pick a type above");
+				ImGui::TextDisabled("%s", isDe ? "Inaktiv" : "Inactive");
+
+			// Re-enable path (2026-09-11). Turning the enhancer off used to be
+			// reversible via the three type buttons right above - those now
+			// live under Advanced, which left "Off" as a one-way door on the
+			// base panel for anyone who already has a profile. Reuses the
+			// stored type, so it re-enables exactly what was there before
+			// rather than asking the user to answer anything again.
+			if (!enhancerActive && (CurrentSettings.Severity01 > 0.01f))
+			{
+				ImGui::SameLine(0, 10.0f);
+				if (ImGui::SmallButton(isDe ? "Einschalten##cmdr_quick_on" : "Turn on##cmdr_quick_on"))
+				{
+					float keepSeverity = CurrentSettings.Severity01;
+					bool keepMixed = CurrentSettings.Mixed;
+					ActivateCommanderTagProfile(CurrentSettings.Type);
+					CurrentSettings.Mixed = keepMixed;
+					ParameterRegistry::Get().SetFloat(ParamId::Severity01, keepSeverity);
+					Recompute(/*aForce=*/true);
+					changed = true;
+					saveNeeded = true;
+				}
+			}
+
 			if (enhancerActive) {
 				ImGui::SameLine(0, 10.0f);
 				if (ImGui::SmallButton(isDe ? "Aus##cmdr_quick_off" : "Off##cmdr_quick_off")) {
@@ -757,6 +792,59 @@ namespace cba
 		// above already gives a returning user a live functioning-proof;
 		// the fuller before/after comparison is still one click away for
 		// anyone who wants to see it, just not fighting for space by default.
+
+		// ── Eye Comfort (2026-09-11, PRODUCT_CONCEPT.md section 2D) ────────
+		// Added here after the finding that the ENTIRE Eye-Sensitive UI lived
+		// in Main Window Section 2, i.e. inside Studio, i.e. unreachable
+		// without ticking Advanced Mode - the same structural mistake as
+		// Vision Lab's, applied to the feature Emi reports as the actual
+		// reason he keeps the tool running while playing. An acquisition
+		// feature may sit behind a gate; a retention feature must not.
+		//
+		// Safe as a second binding rather than a duplicated editor: all three
+		// values are ParameterRegistry-backed, so this shares storage AND the
+		// clamp with Section 2 - literally the registry's stated litmus test
+		// ("any control can be moved to another panel with zero behavior
+		// change"). Deliberately the compact set only; retention readout, HDR
+		// and Apply-Target stay in Section 2 as the full version, the same
+		// compact-vs-full split already documented for Profile Slots.
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Augenschonung" : "Eye Comfort");
+		if (ImGui::Checkbox(isDe ? "Aktivieren##emb_eye" : "Activate##emb_eye", &CurrentSettings.EyeComfortModeEnabled))
+		{
+			changed = true;
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe
+				? "Blaufilter, Warmton und Saettigungsreduktion - unabhaengig von der Farbkorrektur, wird zusaetzlich angewendet.\nWirkt sofort sichtbar und ist die eine Einstellung, die du direkt selbst beurteilen kannst."
+				: "Blue-light filter, warm tint and saturation reduction - independent of the colour correction, applied on top of it.\nVisible immediately, and the one setting you can judge for yourself directly.");
+		}
+		if (CurrentSettings.EyeComfortModeEnabled)
+		{
+			ImGui::Indent(12.0f);
+			auto embEyeSlider = [&](const char* aLabel, const char* aId, ParamId aParam) {
+				ImGui::TextDisabled("%s", aLabel);
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				// 0-100 display units converted at the boundary - ImGui's
+				// format string does not auto-scale a 0..1 range (same fix as
+				// Section 2, see its comment).
+				float v = ParameterRegistry::Get().GetFloat(aParam) * 100.0f;
+				if (ImGui::SliderFloat(aId, &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+				{
+					ParameterRegistry::Get().SetFloat(aParam, v / 100.0f);
+					changed = true;
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+			};
+			embEyeSlider(isDe ? "Blaufilter" : "Blue light filter", "##emb_blue", ParamId::BlueFilter01);
+			embEyeSlider(isDe ? "Warmton" : "Warm tint", "##emb_warm", ParamId::WarmTint01);
+			embEyeSlider(isDe ? "Saettigung reduzieren" : "Reduce saturation", "##emb_sat", ParamId::SaturationReduction01);
+			ImGui::Unindent(12.0f);
+		}
 
 		// ── Row 3: Reset & Recovery Actions ───
 		ImGui::Spacing();

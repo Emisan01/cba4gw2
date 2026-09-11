@@ -736,13 +736,20 @@ namespace cba
 					// the bind again. Same stuck-state class as the two
 					// effect/thread bugs already fixed here, so it gets the
 					// same treatment: the safety net clears it.
-					if (s_compareHoldActive.load() && !s_gw2Minimized.load())
+					if (s_compareHoldActive.load())
 					{
 						HWND fgw = GetForegroundWindow();
 						DWORD fgpid = 0;
 						if (fgw) GetWindowThreadProcessId(fgw, &fgpid);
-						if (!fgw || fgpid != GetCurrentProcessId())
+						bool lostInput = s_gw2Minimized.load() || !fgw || fgpid != GetCurrentProcessId();
+						if (lostInput)
 						{
+							// Minimizing is checked FIRST and treated the same as
+							// losing focus: it is the likeliest way to lose the
+							// release event in the first place (Win+D or alt-tab
+							// while the key is down), so skipping that case would
+							// leave the flag stuck in exactly the situation this
+							// net exists for.
 							s_compareHoldActive.store(false);
 						}
 					}

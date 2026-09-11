@@ -105,9 +105,24 @@ Drei Gründe, warum das mehr Gewicht verdient, als es bisher hatte:
    gedacht, das Tool breiter zu positionieren (siehe `CLAUDE.md`). Dieses
    Signal ist der erste empirische Beleg, dass die Entscheidung richtig war.
 
-**Konsequenz für die Basis-Ebene:** Eye Comfort bleibt sichtbar, auch wenn die
-Basis ansonsten auf *eine* Funktion reduziert wird. Es ist die zweite
-Funktion, die das verdient.
+**Konsequenz für die Basis-Ebene:** Eye Comfort gehört sichtbar in die Basis,
+auch wenn diese ansonsten auf *eine* Funktion reduziert wird. Es ist die
+zweite Funktion, die das verdient.
+
+> **Befund bei der Nachprüfung (2026-09-11):** Es war dort gar nicht.
+> Die vollständige Eye-Sensitive-UI lag ausschließlich in Main-Window-
+> Sektion 2 — also im Studio, also hinter dem Advanced-Gate. Damit war
+> ausgerechnet die Funktion mit der stärksten Bindungswirkung ohne
+> Advanced Mode überhaupt nicht erreichbar: derselbe Strukturfehler wie
+> bei Vision Lab (Abschnitt 3.1), nur an der teuersten Stelle.
+> **Regel daraus:** Eine Einstiegsfunktion darf hinter einem Gate liegen,
+> eine Bindungsfunktion niemals.
+> Behoben: kompakter Block (Aktivieren + die drei Regler) im Nexus-Panel.
+> Kein doppelter Editor, sondern eine zweite Bindung an dieselben
+> ParameterRegistry-Werte — exakt der Fall, für den die Registry ihren
+> eigenen Litmustest formuliert hat. Retention-Anzeige, HDR und
+> Apply-Target bleiben als Vollversion in Sektion 2 (kompakt-vs-voll,
+> wie bei den Profil-Slots bereits dokumentiert).
 
 **Ausbaurichtung (noch nicht entschieden):** Denkbar sind Voreinstellungen
 („Abend", „Lange Session"), ein Tagesverlauf, oder kontextabhängige Anpassung
