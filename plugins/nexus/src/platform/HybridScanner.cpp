@@ -232,6 +232,14 @@ namespace cba
 		std::vector<MatchResult> matches;
 		matches.reserve(1000); // Pre-allocate to avoid allocations in loop
 
+		// Hoisted out of the per-pixel loop (2026-09-11). This drives a
+		// frame-level "breathing" animation, so it is one value for the whole
+		// scan - it used to call GetTickCount64() and std::sin() once per
+		// HIGHLIGHTED PIXEL in the WCAG fallback path below, which on a busy
+		// frame is thousands of syscalls and transcendentals for a number that
+		// is identical every time.
+		const float scanPulse = 0.8f + 0.2f * std::sin((GetTickCount64() / 1000.0f) * 5.0f);
+
 		for (int y = startY; y < endY; ++y) {
 			for (int x = startX; x < endX; ++x) {
 				int srcY = y * 4;
@@ -271,14 +279,27 @@ namespace cba
 						float dr = static_cast<float>(r) - (target.r * 255.0f);
 						float dg = static_cast<float>(g) - (target.g * 255.0f);
 						float db = static_cast<float>(b) - (target.b * 255.0f);
-						float dist = std::sqrt(dr*dr + dg*dg + db*db);
-
 						float effTol = (target.tolerance > 0.001f) ? target.tolerance : tolerance;
 						float coreDist = 255.0f * effTol;
 						float maxDist = coreDist * (1.0f + std::max(0.0f, target.diffusion));
 
+						// Reject on the SQUARED distance before taking a square
+						// root (2026-09-11). Comparing squares is exactly
+						// equivalent for non-negative values, and the
+						// overwhelming majority of sampled pixels match no
+						// target at all - this is the innermost statement of
+						// the only real hot loop in the project (every sampled
+						// pixel x every target), so the sqrt is now paid only
+						// by pixels that actually land inside a tolerance
+						// radius. It is still needed there: the soft-edge alpha
+						// falloff below is defined on the true distance.
+						float distSq = dr*dr + dg*dg + db*db;
+						if (distSq >= maxDist * maxDist) continue;
+
+						float dist = std::sqrt(distSq);
+
 						bool isNewBestLayer = target.layerPriority < bestLayerPriority;
-						if (dist < maxDist && (isNewBestLayer || bestDist < 0.0f || dist < bestDist)) {
+						if (isNewBestLayer || bestDist < 0.0f || dist < bestDist) {
 							bestDist = dist;
 							bestLayerPriority = target.layerPriority;
 							highlight = true;
@@ -318,12 +339,10 @@ namespace cba
 						matches.push_back({x, y, repR, repG, repB});
 					} else {
 						int outIdx = (y * outWidth + x) * 4;
-						float timeSeconds = GetTickCount64() / 1000.0f;
-						float pulse = 0.8f + 0.2f * std::sin(timeSeconds * 5.0f);
 
-						tempBuffer[outIdx]   = static_cast<uint8_t>(repR * pulse);
-						tempBuffer[outIdx+1] = static_cast<uint8_t>(repG * pulse);
-						tempBuffer[outIdx+2] = static_cast<uint8_t>(repB * pulse);
+						tempBuffer[outIdx]   = static_cast<uint8_t>(repR * scanPulse);
+						tempBuffer[outIdx+1] = static_cast<uint8_t>(repG * scanPulse);
+						tempBuffer[outIdx+2] = static_cast<uint8_t>(repB * scanPulse);
 						tempBuffer[outIdx+3] = static_cast<uint8_t>(255 * mMotionFader);
 					}
 				}
@@ -380,8 +399,11 @@ namespace cba
 			}
 			
 			// Phase 3: Filter and Draw Valid Clusters
-			float timeSeconds = GetTickCount64() / 1000.0f;
-			float pulse = 0.8f + 0.2f * std::sin(timeSeconds * 5.0f);
+			// Reuses the scan-level pulse computed at the top rather than
+			// recomputing the identical formula here (2026-09-11) - two copies
+			// of the same animation constant are a drift risk, and both paths
+			// are meant to breathe in sync anyway.
+			const float pulse = scanPulse;
 			
 			for (const auto& c : clusters) {
 				int width = c.maxX - c.minX + 1;
