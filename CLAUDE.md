@@ -53,6 +53,38 @@ Corollary for the session logs: keep them dated and past-tense. They are the
 one part of this file that does not need maintenance, and that is precisely
 because they never claim to describe the present.
 
+### Where a fact belongs: three checking surfaces, one idea
+
+Two separate systems for "is this project still correct" had grown up unaware
+of each other, with near-identical data models (`category / name / passed /
+details`). They were never competitors - they are split by *what they can
+observe*, and were unified 2026-09-11 rather than left as two half-answers:
+
+| Surface | Sees | Runs | Use it for |
+|---|---|---|---|
+| `tools/audit_pro_review.py` | the source text | CI, every push | policy invariants, structural symmetry, anything countable in the code |
+| `plugins/nexus/tests/` | pure math, offline | every build | colour-science properties (white-point, identity, separation) |
+| `core/SelfTest.{h,cpp}` | live in-process state | on demand, Debug Mode | registry integrity, live values in range, "scanner needed but not running" |
+
+The audit gained SelfTest's third result state (`info=True`) in the same pass,
+because that gap was the actual cause of the rot: a fact that legitimately
+*varies* - how many call sites match some pattern today - could not be
+expressed as pass/fail, so it got hand-written into this file instead, where
+nothing could keep it honest.
+
+Two shapes worth knowing, both in Pillar 6 of the audit:
+
+- **`ratchet(...)`** - a measurement allowed to shrink but not grow. Use it for
+  known debt that must not spread. The count is printed every run (so it cannot
+  go stale) and only a *rise* fails the build; tightening the limit after a
+  cleanup is the intended workflow.
+- **`check(..., info=True)`** - a reported measurement that never fails
+  anything. Use it when the number is expected to change and only exists so
+  nobody writes it into prose again.
+
+**Before adding a new checking mechanism, put it on one of these three.** A
+fourth surface is how this problem started.
+
 ## Commit / release attribution (read this before your first commit)
 
 Do **not** add `Co-Authored-By` (or any equivalent AI-attribution trailer) to
@@ -178,17 +210,18 @@ things.
 - `cba_session.lock` / Safe-Start crash detection: understood and now fixed
   (see below), but still fundamentally a workaround, not addressed by the
   registry work.
-- **Ungoverned `CurrentSettings.Enabled = true` call sites.** Find them with
-  `grep -rn "CurrentSettings.Enabled = true" src/` — expect around four
-  violations plus one false positive: the hit inside
-  `ActivateCommanderTagProfile` is the *governing* function, not a violation,
-  so don't re-flag it. (Originally written as a fixed list of five with line
-  numbers, found 2026-09-10 by cross-checking an external AI tool's -
-  Devin/Windsurf - read-only analysis; by 2026-09-11 the count and every line
-  number had already drifted, which is what prompted the anti-rot rule at the
-  top of this file.) These flip `Enabled` directly instead of going through
-  `ToggleMasterEnabled()`/`ActivateCommanderTagProfile()`, the two functions
-  that already own this correctly elsewhere.
+- **Ungoverned `CurrentSettings.Enabled = true` call sites — now a ratchet in
+  the audit** ("Direct CurrentSettings.Enabled writes do not spread", Pillar 6).
+  Run `python tools/audit_pro_review.py` for the live count; CI fails if it
+  grows. One of the matches is legitimate (`ActivateCommanderTagProfile`'s own
+  body, the governing function), which is why the limit includes it. These flip
+  `Enabled` directly instead of going through `ToggleMasterEnabled()`/
+  `ActivateCommanderTagProfile()`, the two functions that already own this
+  correctly elsewhere. (Originally written here as a fixed list of five with
+  line numbers, found 2026-09-10 cross-checking an external AI tool's -
+  Devin/Windsurf - read-only analysis; by 2026-09-11 four of the five line
+  numbers had already drifted, which is what prompted both the anti-rot rule
+  and the ratchet.)
   Not a live bug today - verified these are cleanly
   mutually-exclusive branches (e.g. AutoStartSlot explicitly skips itself on
   crash recovery, so it doesn't race SafeStartGate), Devin's "Load sets
@@ -460,6 +493,10 @@ and the `de{}`/`en{}` aggregate initializers before/after — these are
 *positional*, not designated, initializers; removing a struct field without
 removing the matching string in both language blocks silently shifts every
 later field by one and the compiler won't catch it).
+*(Since 2026-09-11 you no longer have to run that count by hand: the audit
+checks the three-way alignment on every push — "L10n struct fields and de/en
+blocks stay positionally aligned", Pillar 6. The risk described here is
+unchanged, only the verification is now mechanical.)*
 
 **Safe-Start Gate crash-lock-file bug**: `SafeStartGate.cpp` was calling
 `Settings::MarkCleanExit()` (deletes `cba_session.lock`) from 5 places the

@@ -11,12 +11,45 @@ MAIN_FILE = os.path.join(NEXUS_SRC, "ModuleMain.cpp")
 
 tests = []
 
-def check(category, test_name, condition, details=""):
+def check(category, test_name, condition, details="", info=False):
+    """A pass/fail assertion, or - with info=True - a reported measurement.
+
+    The `info` state is borrowed from core/SelfTest.h, which already had a
+    third result kind for "expected condition, not a bug" while this script
+    only knew pass/fail. That gap is why facts which legitimately vary (how
+    many call sites of some pattern exist right now) had nowhere to live in
+    tooling and ended up hand-written into CLAUDE.md, where they rotted -
+    see that file's anti-rot section. An INFO line is printed and never
+    fails the build.
+    """
     tests.append({
         "category": category,
         "name": test_name,
         "passed": bool(condition),
-        "details": details
+        "details": details,
+        "info": bool(info)
+    })
+
+def ratchet(category, test_name, actual, limit, unit, note=""):
+    """A measurement that is allowed to shrink but not grow.
+
+    For known technical debt that should not silently accumulate: the count
+    is printed every run (so it can never be stale the way a number in a
+    markdown file can), and the build fails only if it goes UP. Lowering the
+    limit after cleaning something up is the intended workflow.
+    """
+    ok = actual <= limit
+    detail = f"{actual} {unit} (limit {limit})"
+    if note:
+        detail += f" - {note}"
+    if actual < limit:
+        detail += f" | limit can be tightened to {actual}"
+    tests.append({
+        "category": category,
+        "name": test_name,
+        "passed": ok,
+        "details": detail,
+        "info": False
     })
 
 # =============================================================================
@@ -173,6 +206,85 @@ has_crash_guard = "cba_session.lock" in settings_code and "SafeModeTriggered" in
 check("5. ImGui Resilience", "Safe-Start Gate & Crash-Breadcrumb Recovery", has_crash_guard, "Disarms filter if previous session crashed ungracefully")
 
 # =============================================================================
+# PILLAR 6: CODEBASE HEALTH (facts that used to rot inside CLAUDE.md)
+# =============================================================================
+# Everything in this pillar exists because the same fact was previously written
+# by hand into documentation, where it silently went out of date - counts,
+# file:line lists, "verified N/N/N" rituals. Derived here instead, so the
+# number is produced fresh on every run and CI notices drift instead of a
+# reader trusting a stale line. See CLAUDE.md, "How to write in this file so
+# it does not rot".
+
+# 6.1 L10n positional-initializer alignment.
+# L10n.h's de{} / en{} are POSITIONAL aggregate initializers, so adding or
+# removing a struct field without touching both language blocks shifts every
+# later string by one - silently, with no compiler error. CLAUDE.md documents
+# this as a manual "verify 68/68/68 before and after" ritual performed by hand
+# during past edits. A ritual nobody can be forced to run is exactly what this
+# check replaces.
+l10n_path = os.path.join(UI_DIR, "L10n.h")
+with open(l10n_path, "r", encoding="utf-8", errors="ignore") as f:
+    l10n_lines = f.read().split("\n")
+
+def _block_bounds(lines, start_pattern):
+    for i, line in enumerate(lines):
+        if re.search(start_pattern, line):
+            for j in range(i + 1, len(lines)):
+                if re.match(r"^\s*\};", lines[j]):
+                    return i, j
+            break
+    return None, None
+
+fs, fe = _block_bounds(l10n_lines, r"struct\s+L10n\b")
+field_count = sum(1 for l in l10n_lines[fs:fe] if re.search(r"const char\*\s+\w+;", l)) if fs is not None else -1
+
+lang_counts = {}
+for lang in ("de", "en"):
+    bs, be = _block_bounds(l10n_lines, r"static const L10n\s+" + lang + r"\s*\{")
+    if bs is None:
+        lang_counts[lang] = -1
+        continue
+    n = 0
+    for l in l10n_lines[bs + 1:be]:
+        s = l.strip()
+        if s and not s.startswith("//") and (s.startswith('"') or s.startswith('u8"')):
+            n += 1
+    lang_counts[lang] = n
+
+aligned = field_count > 0 and field_count == lang_counts["de"] == lang_counts["en"]
+check("6. Codebase Health", "L10n struct fields and de/en blocks stay positionally aligned",
+      aligned,
+      f"{field_count} fields / {lang_counts['de']} de / {lang_counts['en']} en"
+      + ("" if aligned else "  <-- MISALIGNED: every later string is shifted, silently"))
+
+# 6.2 Ungoverned master-enable writes, as a ratchet rather than a hand-counted
+# list. CLAUDE.md carried these as explicit file:line references; within a
+# single day four of five line numbers had drifted. The intent was never the
+# exact lines, it was "this must not grow", which is what a ratchet expresses.
+# One hit is legitimate - ActivateCommanderTagProfile's own body is the
+# governing function - so the limit includes it.
+enabled_writes = 0
+for root, _, files in os.walk(NEXUS_SRC):
+    for f in files:
+        if f.endswith((".cpp", ".h")):
+            with open(os.path.join(root, f), "r", encoding="utf-8", errors="ignore") as fh:
+                enabled_writes += len(re.findall(r"CurrentSettings\.Enabled\s*=\s*true", fh.read()))
+ratchet("6. Codebase Health", "Direct CurrentSettings.Enabled writes do not spread", enabled_writes, 5,
+        "write sites", "1 of these is ActivateCommanderTagProfile itself; the rest bypass the shared owners")
+
+# 6.3 ParameterRegistry registration count, reported not asserted. The exact
+# number is not an invariant (parameters get added on purpose), so this is
+# INFO: it exists so nobody writes the list into a doc again. The real
+# invariant - every declared ParamId is actually registered - is already
+# asserted at runtime by SelfTest, which can see the registry; this script
+# cannot, and deliberately does not duplicate it.
+with open(os.path.join(CORE_DIR, "ParameterRegistry.cpp"), "r", encoding="utf-8", errors="ignore") as f:
+    reg_count = len(re.findall(r"Register(?:Float|Bool|Int)\(ParamId::", f.read()))
+check("6. Codebase Health", "Parameters wired into the registry", True,
+      f"{reg_count} registered (informational - SelfTest asserts enum/registry agreement at runtime)",
+      info=True)
+
+# =============================================================================
 # SUMMARY REPORT
 # =============================================================================
 print("\n" + "="*80)
@@ -184,15 +296,21 @@ for t in tests:
     if t["category"] != curr_cat:
         curr_cat = t["category"]
         print(f"\n--- {curr_cat} ---")
-    status = "[PASS]" if t["passed"] else "[FAIL]"
+    status = "[INFO]" if t["info"] else ("[PASS]" if t["passed"] else "[FAIL]")
     print(f"  {status} {t['name']}")
     if t["details"]:
         print(f"         > {t['details']}")
 
-total = len(tests)
-passed = sum(1 for t in tests if t["passed"])
+# INFO lines are measurements, not assertions - they are reported but never
+# counted against the result, and never fail CI. Same distinction SelfTest
+# makes with isInfo: "OS currently blocking the DWM call" is a state, not a bug.
+asserts = [t for t in tests if not t["info"]]
+infos = [t for t in tests if t["info"]]
+total = len(asserts)
+passed = sum(1 for t in asserts if t["passed"])
 print("\n" + "="*80)
-print(f"FINAL AUDIT RESULT: {passed} / {total} Checks Passed ({(passed/total)*100:.1f}%)")
+print(f"FINAL AUDIT RESULT: {passed} / {total} Checks Passed ({(passed/total)*100:.1f}%)"
+      + (f"  ({len(infos)} informational)" if infos else ""))
 print("================================================================================\n")
 
 if passed < total:
