@@ -115,7 +115,7 @@ namespace cba
 		// serialization risk).
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
 
-		// Round 2 (Emi: "muss hübscher sein, sieht aus wie eine Creditcard") -
+		// Round 2 (Emi: "muss huebscher sein, sieht aus wie eine Creditcard") -
 		// a flat rectangle split down the middle was too card-like. Two
 		// large, generously overlapping circles (Venn-diagram style) read
 		// as a proper "compare these" UI, not a swatch chip, and the
