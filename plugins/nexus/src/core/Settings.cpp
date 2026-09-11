@@ -120,6 +120,7 @@ namespace cba
 			else if (key == "CommanderTagMode")  s.CommanderTagMode = safeStoi(value, 0);
 			else if (key == "SmartEnhancer")     s.SmartEnhancer = (value == "1");
 			else if (key == "EnhancerTol")       s.EnhancerTolerance = std::clamp(safeStof(value, 0.12f), 0.04f, 0.20f);
+			else if (key == "CmdrLayerPriority") s.CommanderTagLayerPriority = safeStoi(value, 0);
 			else if (key == "GammaGain")         s.GammaGain = std::clamp(safeStof(value, 1.0f), 0.70f, 1.30f);
 			else if (key == "UiOpacity")         s.UiOpacity = std::clamp(safeStof(value, 1.0f), 0.00f, 1.00f);
 			else if (key == "GraphMode")         s.GraphMode = std::clamp(safeStoi(value, 0), 0, 2);
@@ -162,6 +163,7 @@ namespace cba
 						else if (prop == "TolTones") s.LabFilters[fIdx].ToleranceTones = std::clamp(safeStoi(value, 3), 1, 32);
 						else if (prop == "Diffusion")s.LabFilters[fIdx].Diffusion = std::clamp(safeStof(value, 0.35f), 0.0f, 1.0f);
 						else if (prop == "Action")   s.LabFilters[fIdx].ActionType = std::clamp(safeStoi(value, 0), 0, 3);
+					else if (prop == "LayerPriority") s.LabFilters[fIdx].LayerPriority = safeStoi(value, (int)fIdx + 1);
 					}
 				}
 			}
@@ -200,6 +202,7 @@ namespace cba
 			f1.ToleranceTones = 3;
 			f1.Diffusion = 0.35f;
 			f1.ActionType = 0;
+			f1.LayerPriority = 1;
 			s.LabFilters.push_back(f1);
 
 			LabFilter f2;
@@ -210,6 +213,7 @@ namespace cba
 			f2.ToleranceTones = 3;
 			f2.Diffusion = 0.40f;
 			f2.ActionType = 1;
+			f2.LayerPriority = 2;
 			s.LabFilters.push_back(f2);
 		}
 
@@ -268,6 +272,7 @@ namespace cba
 		file << "CommanderTagMode=" << CommanderTagMode << "\n";
 		file << "SmartEnhancer=" << (SmartEnhancer ? "1" : "0") << "\n";
 		file << "EnhancerTol=" << EnhancerTolerance << "\n";
+		file << "CmdrLayerPriority=" << CommanderTagLayerPriority << "\n";
 		file << "GammaGain=" << GammaGain << "\n";
 		file << "UiOpacity=" << UiOpacity << "\n";
 		file << "GraphMode=" << GraphMode << "\n";
@@ -302,6 +307,7 @@ namespace cba
 			file << "LabFilter_" << i << "_TolTones=" << LabFilters[i].ToleranceTones << "\n";
 			file << "LabFilter_" << i << "_Diffusion=" << LabFilters[i].Diffusion << "\n";
 			file << "LabFilter_" << i << "_Action=" << LabFilters[i].ActionType << "\n";
+			file << "LabFilter_" << i << "_LayerPriority=" << LabFilters[i].LayerPriority << "\n";
 		}
 
 		file << "\n[ProfileSlots]\n";

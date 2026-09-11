@@ -1008,16 +1008,55 @@ a redundant duplicate, it's an intentional, already-documented compact-vs-
 full split (the embedded panel's own comment already explains why). Left
 untouched.
 
+**Filter Layer Matrix built (resolves the Filter-Layer-Precedence question)**:
+talked through with Emi first - confirmed the base filter (Type/Severity/
+Mixed) and Auto-Com-Tag are congruent by construction (Auto-Com-Tag reads
+the base filter directly), so there was never a real conflict to arbitrate
+there. What remained open - how Filter Lab should interact with Auto-Com-Tag
+- Emi resolved with a better idea than picking automatic-override rules:
+make the precedence **explicit and user-visible** instead of guessing at
+hidden automation logic.
+
+- `Settings.h`: `int CommanderTagLayerPriority` (new) and
+  `LabFilter::LayerPriority` (new) - lower value = higher priority = wins
+  first. Persisted keyed (`CmdrLayerPriority=`, `LabFilter_<i>_LayerPriority=`),
+  not positional, so this was safe to add without the L10n.h-style
+  field-shift risk. New Filter Lab instances default to lowest priority
+  (append at the end) so existing layers keep winning whatever they already
+  claim.
+- `core/FilterLayers.h/.cpp` (new file): `GetFilterLayerOrder()` returns
+  every currently-relevant layer (Commander Tag if `CommanderTagMode != 0`,
+  every `LabFilters` entry) sorted by priority - the single source of truth
+  both the UI and the matching logic read from. `MoveFilterLayer(id, dir)`
+  swaps a layer's stored priority with its neighbor.
+- `HybridScanner.h`: `TargetColor` gained `int layerPriority`.
+  `AnalyzeBuffer`'s per-pixel matching (`HybridScanner.cpp`) changed from
+  "closest match across every target regardless of source" to "closest
+  match within the best-priority layer that has any match" - a higher-
+  priority layer's match always wins over a lower one's, even if the lower
+  layer's color would be closer. `UpdateTagEnhancerConflicts()`
+  (`ModuleMain.cpp`) computes each target's rank once per call from
+  `GetFilterLayerOrder()`'s position, so every target from the same layer
+  shares one rank.
+- **Filter Layer Matrix UI** (`FilterLab.cpp`, top of the "2. Stack &
+  Automatics" tab - Emi's ask, a proper table not just a list): columns
+  Order (with ^/v reorder buttons - this vendored ImGui has no
+  `BeginDisabled`, so boundary rows show plain disabled-look text instead
+  of a greyed button, `MoveFilterLayer` itself is already a safe no-op
+  there regardless), Layer name (Lab Filter rows are selectable, jump the
+  detail editor in Tab 1 to that filter), Active checkbox, Target->Replace
+  color swatches, Tolerance. Commander Tag's row shows its 9-auto-target
+  count and `EnhancerTolerance` instead of a single swatch pair, since it
+  has no single target color of its own.
+- Deliberately did **not** add this to the Sensor Graph HUD's "Aktiv:" list
+  or the embedded panel's handshake status line - those already show
+  *which whole features* are on (`FeatureModuleRegistry`, coarser
+  granularity); the Filter Layer Matrix is one level deeper (individual
+  target layers within the targeting system, with real order), scoped
+  deliberately to Filter Lab only so it doesn't become a third "what's
+  active" list.
+
 **Still open / deliberately not touched this pass**:
-- **Filter-Layer-Precedence semantics** - talked through with Emi in detail.
-  Confirmed: base filter (Type/Severity/Mixed) and Auto-Com-Tag are
-  congruent by construction (Auto-Com-Tag reads the base filter directly),
-  so there's no real conflict to arbitrate there - nothing to build. What's
-  still unresolved: how Filter Lab edits should affect Auto-Com-Tag beyond
-  today's one-shot disable-on-touch, and whether Sensor Graph HUD's filter
-  (same value as the base filter) needs decoupling at all. Emi's own words:
-  "ich mag zu viel Automatik nicht aber zu wenig könnte den User auch
-  irritieren" - genuinely unresolved, not implementing until it is.
 - Two Curve-View/spectrum-graph widgets (Main Window's static transfer-curve
   view vs. Sensor Graph HUD's live filtered-spectrum view) share the same
   Polygonal/Harmonic/Rays selector look even though the underlying data

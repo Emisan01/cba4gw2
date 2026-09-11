@@ -246,24 +246,28 @@ namespace cba
 				uint8_t repR = 255, repG = 255, repB = 255;
 
 				if (highlighterEnabled && !targets.empty()) {
-					// Check all target colors, keep the CLOSEST match rather than
-					// the first one in list order. Previously this broke out of
-					// the loop on the first target whose tolerance the pixel fell
-					// within - meaning a pixel sitting between two overlapping
-					// targets (e.g. a Filter Lab target and an auto-derived
-					// Commander Tag target with similar hues) got assigned
-					// arbitrarily by list order, not by which target it's
-					// actually closer to. Still picks exactly one target's fixed
-					// rep color (not a blend) - the cluster-grouping logic below
-					// groups matches by exact repR/repG/repB equality, so a true
-					// multi-target blend would fragment every cluster into
-					// single-pixel noise and break Commander Tag detection
-					// entirely. A real weighted-composite (Roman-instrument-
-					// style, each target contributing proportionally) would need
-					// that clustering approach reworked too - out of scope for
-					// this pass, noted in CLAUDE.md as a follow-up.
+					// Filter Layer Matrix (2026-09-11): a match in a higher-
+					// priority layer (lower target.layerPriority, see
+					// core/FilterLayers.h) always wins over a lower-priority
+					// layer's match, even if the lower layer's color is
+					// closer - explicit, user-visible/reorderable precedence
+					// instead of guessing at "should automation override
+					// manual settings." Within the SAME layer (e.g.
+					// Commander Tag's up to 9 auto-derived targets all share
+					// one layerPriority), still picks the closest match, same
+					// as before - a target's own tolerance/diffusion/alpha
+					// computation is unchanged. Still picks exactly one
+					// target's fixed rep color (not a blend) - the cluster-
+					// grouping logic below groups matches by exact
+					// repR/repG/repB equality, so a true multi-target blend
+					// would fragment every cluster into single-pixel noise
+					// and break Commander Tag detection entirely (out of
+					// scope for this pass, noted in CLAUDE.md).
 					float bestDist = -1.0f;
+					int bestLayerPriority = INT_MAX;
 					for (const auto& target : targets) {
+						if (target.layerPriority > bestLayerPriority) continue; // a better layer already matched
+
 						float dr = static_cast<float>(r) - (target.r * 255.0f);
 						float dg = static_cast<float>(g) - (target.g * 255.0f);
 						float db = static_cast<float>(b) - (target.b * 255.0f);
@@ -273,8 +277,10 @@ namespace cba
 						float coreDist = 255.0f * effTol;
 						float maxDist = coreDist * (1.0f + std::max(0.0f, target.diffusion));
 
-						if (dist < maxDist && (bestDist < 0.0f || dist < bestDist)) {
+						bool isNewBestLayer = target.layerPriority < bestLayerPriority;
+						if (dist < maxDist && (isNewBestLayer || bestDist < 0.0f || dist < bestDist)) {
 							bestDist = dist;
+							bestLayerPriority = target.layerPriority;
 							highlight = true;
 							float alpha = 1.0f;
 							if (dist > coreDist && target.diffusion > 0.001f) {

@@ -22,6 +22,12 @@ namespace cba
 		float tolerance = 0.0f;             // Individual color tolerance (0 = use global, >0 = individual)
 		float diffusion = 0.0f;             // Soft diffusion falloff (0.0 = sharp cut, 1.0 = smooth fade)
 		int actionType = 0;                 // 0 = replace, 1 = complement, 2 = invert, 3 = luminance boost
+		// Filter Layer Matrix rank (2026-09-11, core/FilterLayers.h) - lower
+		// = higher priority. AnalyzeBuffer's matching now picks the closest
+		// match within the BEST-priority layer that has any match for a
+		// given pixel, instead of the single global closest match across
+		// every target regardless of source - see AnalyzeBuffer's comment.
+		int layerPriority = 0;
 	};
 
 	class HybridScanner

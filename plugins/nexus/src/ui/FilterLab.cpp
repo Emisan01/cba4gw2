@@ -7,6 +7,7 @@
 #include "L10n.h"
 #include "ColorMatrix.h"
 #include "ColorMath.h"
+#include "FilterLayers.h"
 
 #include <imgui.h>
 #include <algorithm>
@@ -310,6 +311,10 @@ namespace cba
 					newF.ReplaceRgb[0] = 0.95f; newF.ReplaceRgb[1] = 0.85f; newF.ReplaceRgb[2] = 0.20f;
 					newF.ToleranceTones = 3;
 					newF.Diffusion = 0.35f;
+					// New filters join the Filter Layer Matrix at the lowest
+					// priority (highest number) by default - existing
+					// layers keep winning any pixel they already claim.
+					newF.LayerPriority = (int)CurrentSettings.LabFilters.size() + 1;
 					CurrentSettings.LabFilters.push_back(newF);
 					CurrentSettings.SelectedLabFilterIndex = (int)CurrentSettings.LabFilters.size() - 1;
 					selIdx = CurrentSettings.SelectedLabFilterIndex;
@@ -533,6 +538,140 @@ namespace cba
 			{
 				ImGui::Spacing();
 				Settings::LabFilter& curF = CurrentSettings.LabFilters[selIdx];
+
+				// ── Filter Layer Matrix (2026-09-11, Emi's design) ──────────
+				// Replaces guessing at "should automation override manual
+				// settings" with an explicit, visible, reorderable priority
+				// list - list order IS the precedence now (see
+				// core/FilterLayers.h and HybridScanner::AnalyzeBuffer). Row
+				// 1 always wins any pixel it matches, regardless of whether
+				// a lower row's color would have been a closer match.
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Filter-Layer-Matrix" : "Filter Layer Matrix");
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe
+						? "Zeigt jeden aktiven Ziel-Layer in der Reihenfolge, in der er wirkt.\nEin frueherer Layer gewinnt immer gegen einen spaeteren - auch wenn dessen Farbe naeher waere.\nPfeile verschieben die Prioritaet."
+						: "Shows every active target layer in the order it applies.\nAn earlier layer always wins over a later one - even if its color would be a closer match.\nArrows move priority up/down.");
+				}
+				ImGui::Spacing();
+
+				std::vector<FilterLayerInfo> layerMatrix = GetFilterLayerOrder();
+				if (layerMatrix.empty())
+				{
+					ImGui::TextDisabled("%s", isDe ? "Keine aktiven Layer (Commander Tag aus, keine Filter vorhanden)."
+					                               : "No active layers (Commander Tag off, no filters exist).");
+				}
+				else if (ImGui::BeginTable("##filter_layer_matrix", 5,
+					ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+				{
+					ImGui::TableSetupColumn(isDe ? "Reihenfolge" : "Order", ImGuiTableColumnFlags_WidthFixed, 78.0f);
+					ImGui::TableSetupColumn(isDe ? "Layer" : "Layer", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+					ImGui::TableSetupColumn(isDe ? "Aktiv" : "Active", ImGuiTableColumnFlags_WidthFixed, 48.0f);
+					ImGui::TableSetupColumn(isDe ? "Ziel -> Ersatz" : "Target -> Replace", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+					ImGui::TableSetupColumn(isDe ? "Toleranz" : "Tolerance", ImGuiTableColumnFlags_WidthFixed, 64.0f);
+					ImGui::TableHeadersRow();
+
+					for (int row = 0; row < (int)layerMatrix.size(); ++row)
+					{
+						const FilterLayerInfo& layer = layerMatrix[row];
+						bool isCmdrTag = (layer.id == -1);
+						ImGui::PushID(layer.id);
+						ImGui::TableNextRow();
+
+						ImGui::TableSetColumnIndex(0);
+						ImGui::Text("%d.", row + 1);
+						ImGui::SameLine();
+						// No ImGui::BeginDisabled in this vendored ImGui
+						// version - MoveFilterLayer() is already a safe
+						// no-op at either end of the list, so an always-
+						// clickable button here just does nothing at the
+						// boundary instead of being greyed out.
+						if (row > 0 && ImGui::SmallButton("^##layer_up"))
+						{
+							MoveFilterLayer(layer.id, -1);
+							UpdateTagEnhancerConflicts();
+							changed = true;
+							saveNeeded = true;
+						}
+						else if (row == 0)
+						{
+							ImGui::TextDisabled("^");
+						}
+						ImGui::SameLine(0, 3.0f);
+						if (row < (int)layerMatrix.size() - 1 && ImGui::SmallButton("v##layer_down"))
+						{
+							MoveFilterLayer(layer.id, 1);
+							UpdateTagEnhancerConflicts();
+							changed = true;
+							saveNeeded = true;
+						}
+						else if (row == (int)layerMatrix.size() - 1)
+						{
+							ImGui::TextDisabled("v");
+						}
+
+						ImGui::TableSetColumnIndex(1);
+						if (isCmdrTag)
+						{
+							ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? layer.nameDe.c_str() : layer.nameEn.c_str());
+						}
+						else
+						{
+							bool isSelectedRow = (layer.id == selIdx);
+							if (ImGui::Selectable((isDe ? layer.nameDe : layer.nameEn).c_str(), isSelectedRow))
+							{
+								CurrentSettings.SelectedLabFilterIndex = layer.id;
+							}
+						}
+
+						ImGui::TableSetColumnIndex(2);
+						if (isCmdrTag)
+						{
+							ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "An" : "On");
+						}
+						else
+						{
+							bool layerEnabled = CurrentSettings.LabFilters[layer.id].Enabled;
+							if (ImGui::Checkbox("##layer_active", &layerEnabled))
+							{
+								CurrentSettings.LabFilters[layer.id].Enabled = layerEnabled;
+								UpdateTagEnhancerConflicts();
+								changed = true;
+								saveNeeded = true;
+							}
+						}
+
+						ImGui::TableSetColumnIndex(3);
+						if (isCmdrTag)
+						{
+							ImGui::TextDisabled("9x %s", isDe ? "Auto" : "Auto");
+						}
+						else
+						{
+							const auto& f = CurrentSettings.LabFilters[layer.id];
+							ImGui::ColorButton("##tgt_sw", ImVec4(f.TargetRgb[0], f.TargetRgb[1], f.TargetRgb[2], 1.0f),
+								ImGuiColorEditFlags_NoTooltip, ImVec2(16.0f, 16.0f));
+							ImGui::SameLine(0, 2.0f);
+							ImGui::TextUnformatted("->");
+							ImGui::SameLine(0, 2.0f);
+							ImGui::ColorButton("##rep_sw", ImVec4(f.ReplaceRgb[0], f.ReplaceRgb[1], f.ReplaceRgb[2], 1.0f),
+								ImGuiColorEditFlags_NoTooltip, ImVec2(16.0f, 16.0f));
+						}
+
+						ImGui::TableSetColumnIndex(4);
+						if (isCmdrTag)
+							ImGui::Text("%.2f", CurrentSettings.EnhancerTolerance);
+						else
+							ImGui::Text("+/-%d", CurrentSettings.LabFilters[layer.id].ToleranceTones);
+
+						ImGui::PopID();
+					}
+					ImGui::EndTable();
+				}
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
 
 				// Duplicate & Delete
 				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);

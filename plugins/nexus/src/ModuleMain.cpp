@@ -11,6 +11,7 @@
 #include "Settings.h"
 #include "ParameterRegistry.h"
 #include "FeatureModule.h"
+#include "FilterLayers.h"
 #include "CbaIcon.h"
 #include "HybridScanner.h"
 #include "ColorMath.h"
@@ -205,6 +206,19 @@ namespace cba
 		std::vector<TargetColor> targetColors;
 		targetColors.reserve(10);
 
+		// Filter Layer Matrix (2026-09-11, core/FilterLayers.h) - the
+		// sequential position in GetFilterLayerOrder()'s sorted list becomes
+		// each target's match-priority rank (0 = wins first). Computed once
+		// here rather than read live per-target so every target from the
+		// same layer gets the exact same rank even if GetFilterLayerOrder()
+		// re-sorts between calls.
+		std::vector<FilterLayerInfo> layerOrder = GetFilterLayerOrder();
+		auto layerRankOf = [&](int aLayerId) -> int {
+			for (size_t i = 0; i < layerOrder.size(); ++i)
+				if (layerOrder[i].id == aLayerId) return (int)i;
+			return (int)layerOrder.size(); // not in the list (e.g. layer disabled) - lowest priority
+		};
+
 		if (CurrentSettings.CommanderTagMode != 0)
 		{
 			BalanceType defType = CurrentSettings.Mixed 
@@ -335,6 +349,7 @@ namespace cba
 				tc.repR = (uint8_t)(std::clamp(bestR * 255.0f, 0.0f, 255.0f));
 				tc.repG = (uint8_t)(std::clamp(bestG * 255.0f, 0.0f, 255.0f));
 				tc.repB = (uint8_t)(std::clamp(bestB * 255.0f, 0.0f, 255.0f));
+				tc.layerPriority = layerRankOf(-1);
 				targetColors.push_back(tc);
 			}
 		}
@@ -345,8 +360,9 @@ namespace cba
 
 		if (CurrentSettings.LabModeEnabled)
 		{
-			for (const auto& filter : CurrentSettings.LabFilters)
+			for (size_t fi = 0; fi < CurrentSettings.LabFilters.size(); ++fi)
 			{
+				const auto& filter = CurrentSettings.LabFilters[fi];
 				if (!filter.Enabled) continue;
 				TargetColor labTc;
 				labTc.r = filter.TargetRgb[0];
@@ -358,6 +374,7 @@ namespace cba
 				labTc.tolerance = (filter.ToleranceTones / 255.0f) * 1.732f;
 				labTc.diffusion = filter.Diffusion;
 				labTc.actionType = filter.ActionType;
+				labTc.layerPriority = layerRankOf((int)fi);
 				targetColors.push_back(labTc);
 			}
 		}

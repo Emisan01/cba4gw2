@@ -35,6 +35,7 @@ add_library(cba SHARED
     src/core/ParameterRegistry.cpp
     src/core/SelfTest.cpp
     src/core/FeatureModule.cpp
+    src/core/FilterLayers.cpp
     src/platform/Magnification.cpp
     src/platform/WindowMode.cpp
     src/platform/HybridScanner.cpp

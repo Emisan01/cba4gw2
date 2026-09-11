@@ -64,6 +64,13 @@ namespace cba
 		int CommanderTagMode = 0; // 0=Off, 1=On
 		bool SmartEnhancer = true; // true = auto conflict resolution based on CVD profile
 		float EnhancerTolerance = 0.12f; // 0.04 - 0.20
+		// Filter Layer Matrix (2026-09-11) - explicit, user-visible priority
+		// instead of hidden "automation overrides manual" logic. Lower value
+		// = higher priority = wins first for a pixel that multiple layers'
+		// targets could match. Default 0 puts Commander Tag Auto-Contrast
+		// ahead of Filter Lab instances (which default to their own vector
+		// index, see LabFilter::LayerPriority below) unless reordered.
+		int CommanderTagLayerPriority = 0;
 		float GammaGain = 1.0f; // Eye comfort brightness scaling (0.70 - 1.30)
 
 		float UiOpacity = 1.0f;
@@ -95,6 +102,7 @@ namespace cba
 			int ToleranceTones = 3;                       // Begrenzungsradius (±1 bis ±32 Töne)
 			float Diffusion = 0.35f;                      // Leichte Diffusion / Feathering (0.0 bis 1.0)
 			int ActionType = 0;                           // 0=Signal-Farbe, 1=Auto-Komplementär, 2=Invertieren, 3=Luminanz-Boost
+			int LayerPriority = 1;                        // Filter Layer Matrix rank - see CommanderTagLayerPriority above
 		};
 
 		bool LabModeEnabled = false;
