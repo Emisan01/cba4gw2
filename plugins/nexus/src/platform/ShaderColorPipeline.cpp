@@ -1,4 +1,5 @@
 #include "ShaderColorPipeline.h"
+#include "FilterSensor.h"
 
 #include <d3dcompiler.h>
 #include <cstring>
@@ -429,6 +430,21 @@ float4 main(VSOut i) : SV_Target
 		_context->PSSetShaderResources(0, 1, &nullSrv);
 
 		Restore(_context, backup);
+
+		// Measure what just happened, while both halves of the frame still
+		// exist: _srcTex holds it before the correction, the backbuffer now
+		// holds it after. This is the only point in the process where that is
+		// true, which is why the sensor lives here rather than anywhere more
+		// convenient. No-op unless a readout is actually on screen.
+		if (GetFilterSensor().IsEnabled())
+		{
+			ID3D11Texture2D* after = nullptr;
+			if (SUCCEEDED(aSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&after)) && after)
+			{
+				GetFilterSensor().Sample(_device, _context, _srcTex, after);
+				after->Release();
+			}
+		}
 	}
 
 	void ShaderColorPipeline::Shutdown()

@@ -15,6 +15,7 @@
 #include "CbaIcon.h"
 #include "HybridScanner.h"
 #include "ShaderColorPipeline.h"
+#include "FilterSensor.h"
 #include "ColorMath.h"
 #include "Theme.h"
 #include "L10n.h"
@@ -1200,6 +1201,12 @@ namespace cba
 			}
 		}
 
+		// The sensor allocates two mip chains of a 4K frame and does real GPU
+		// work per sample, so it runs only while something is actually reading
+		// it. One place decides that, rather than every call site remembering.
+		GetFilterSensor().SetEnabled(CurrentSettings.ShowGraphWindow &&
+		                             CurrentSettings.RenderBackend == 1);
+
 		// ── Screen-effect gate, evaluated on the render thread ──────────────────
 		// This is where the colour effect switching off actually became
 		// reliable (2026-09-12). Throttled to the same 50ms the Watchdog uses,
@@ -1611,6 +1618,7 @@ namespace cba
 		{
 			// Order matters: give the GPU resources back before the
 			// Magnification teardown, which can sleep through retries.
+			GetFilterSensor().SetEnabled(false);
 			GetShaderColorPipeline().Shutdown();
 			ClearScreenEffectForShutdown();
 		}

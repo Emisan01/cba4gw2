@@ -11,6 +11,7 @@
 #include "ParameterRegistry.h"
 #include "FeatureModule.h"
 #include "FilterLayers.h"
+#include "FilterSensor.h"
 
 #include <imgui.h>
 #include <chrono>
@@ -563,6 +564,109 @@ namespace cba
 
 		auto t1 = std::chrono::high_resolution_clock::now();
 		g_perfCurvesMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+		// ── Measured, not predicted ──────────────────────────────────────────
+		// Everything else this tool says about its own effect is derived from
+		// the matrix: "Luminanz-Retention 102.8%" is computed from nine
+		// reference tag colours, never from the screen. It could not be
+		// otherwise while the correction happened inside DWM, where the result
+		// was never visible to us.
+		//
+		// The shader path holds both halves of the same frame - the copy taken
+		// before the correction and the backbuffer after it - so the difference
+		// between them is the effect, measured, on the actual image. The row
+		// that matters is predicted-vs-measured: if those two disagree, the
+		// prediction model is wrong, and nothing else in the UI would ever have
+		// said so.
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Sensor - gemessen am echten Bild" : "Sensor - measured on the real frame");
+
+		if (CurrentSettings.RenderBackend != 1)
+		{
+			ImGui::TextDisabled("%s", isDe
+				? "Nur im Modus \"Nur GW2 (Shader)\" messbar - im DWM-Modus faerbt Windows das Bild, nachdem wir es zuletzt sehen."
+				: "Only measurable in \"GW2 only (shader)\" mode - under DWM, Windows tints the image after the last point we can see it.");
+		}
+		else
+		{
+			FilterSensor::Reading reading = GetFilterSensor().Latest();
+			if (!reading.valid)
+			{
+				ImGui::TextDisabled("%s", isDe ? "Misst... (erste Messung nach ~0,2 s)" : "Measuring... (first sample after ~0.2 s)");
+			}
+			else
+			{
+				const float lumBefore = SensorLuma(reading.beforeR, reading.beforeG, reading.beforeB);
+				const float lumAfter  = SensorLuma(reading.afterR,  reading.afterG,  reading.afterB);
+				const float measuredRatio = (lumBefore > 1e-5f) ? (lumAfter / lumBefore) : 1.0f;
+
+				// Two swatches: the average colour of the frame as the game drew
+				// it, and as it reaches the screen. A single number cannot show
+				// a hue shift; two patches can.
+				ImDrawList* sdl = ImGui::GetWindowDrawList();
+				auto swatch = [&](const char* aLabel, float r, float g, float b)
+				{
+					ImVec2 p = ImGui::GetCursorScreenPos();
+					const float s = ImGui::GetTextLineHeight() + 4.0f;
+					sdl->AddRectFilled(p, ImVec2(p.x + s, p.y + s), IM_COL32((int)(r * 255), (int)(g * 255), (int)(b * 255), 255), 3.0f);
+					sdl->AddRect(p, ImVec2(p.x + s, p.y + s), IM_COL32(90, 110, 140, 180), 3.0f);
+					ImGui::Dummy(ImVec2(s, s));
+					ImGui::SameLine(0, 6.0f);
+					ImGui::TextDisabled("%s", aLabel);
+					ImGui::SameLine(0, 6.0f);
+					ImGui::Text("%.3f %.3f %.3f", r, g, b);
+				};
+				swatch(isDe ? "Vorher " : "Before", reading.beforeR, reading.beforeG, reading.beforeB);
+				swatch(isDe ? "Nachher" : "After ", reading.afterR, reading.afterG, reading.afterB);
+
+				ImGui::Spacing();
+				ImGui::TextUnformatted(isDe ? "Helligkeit (BT.709):" : "Luminance (BT.709):");
+				ImGui::SameLine(0, 6.0f);
+				ImGui::TextColored(Theme::kTextCyanLicht, "%.4f -> %.4f", lumBefore, lumAfter);
+				ImGui::SameLine(0, 10.0f);
+				ImGui::TextColored(Theme::kTextGoldLabel, "%+.2f%%", (measuredRatio - 1.0f) * 100.0f);
+
+				// The comparison this whole block exists for.
+				const BrightnessRetentionResult predicted = GetBrightnessRetention();
+				const float predictedRatio = predicted.retentionRatio;
+				const float disagreement = std::abs(measuredRatio - predictedRatio) * 100.0f;
+				ImGui::TextUnformatted(isDe ? "Vorhersage vs. Messung:" : "Predicted vs measured:");
+				ImGui::SameLine(0, 6.0f);
+				ImGui::Text("%.1f%% / %.1f%%", predictedRatio * 100.0f, measuredRatio * 100.0f);
+				ImGui::SameLine(0, 10.0f);
+				if (disagreement < 3.0f)
+					ImGui::TextColored(Theme::kTextCyanLicht, isDe ? "(deckt sich)" : "(agrees)");
+				else
+					ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "(weicht um %.1f Punkte ab)" : "(off by %.1f points)", disagreement);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("%s", isDe
+						? "Links: was die Matrix aus neun Referenz-Tagfarben vorhersagt.\nRechts: was tatsaechlich zwischen Vorher- und Nachher-Bild passiert ist.\nEine Abweichung ist kein Fehler - die Vorhersage kennt nur Tagfarben, die Messung sieht das ganze Bild."
+						: "Left: what the matrix predicts from nine reference tag colours.\nRight: what actually happened between the before and after frame.\nA gap is not a bug - the prediction only knows tag colours, the measurement sees the whole image.");
+				}
+
+				ImGui::Spacing();
+				ImGui::TextDisabled(isDe ? "Kanal-Delta:  R %+.3f   G %+.3f   B %+.3f" : "Channel delta:  R %+.3f   G %+.3f   B %+.3f",
+					reading.afterR - reading.beforeR,
+					reading.afterG - reading.beforeG,
+					reading.afterB - reading.beforeB);
+			}
+
+			// Stated, not implied. A sensor that let someone believe it knew
+			// more than it does would be worse than no sensor.
+			ImGui::Spacing();
+			ImGui::TextDisabled("%s", isDe
+				? "Gemessen wird der Bildmittelwert ueber den ganzen Frame, CBA-Oberflaeche eingeschlossen -"
+				: "Measured as the frame-wide mean, CBA's own interface included -");
+			ImGui::TextDisabled("%s", isDe
+				? "also dieses Fenster auch. Monitor-Helligkeit, Panel-Gamma und HDR-Tonemapping"
+				: "including this window. Monitor brightness, panel gamma and HDR tone mapping happen");
+			ImGui::TextDisabled("%s", isDe
+				? "liegen ausserhalb des Prozesses und sind von hier aus nicht messbar."
+				: "outside this process and cannot be measured from here.");
+		}
 
 		// ── Manual Filter Controls ────────────────────────────────────────────
 		ImGui::Spacing();
