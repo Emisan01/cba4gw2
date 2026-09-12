@@ -117,69 +117,25 @@ namespace cba
 		}
 	}
 
-	void RenderVisionLabWindow()
+	void RenderVisionLabContent(bool isDe)
 	{
 		if (!ImGui::GetCurrentContext()) return;
 		const L10n& t = Strings();
-		bool isDe = cba::IsGerman(); // was a fragile first-letter check - see CLAUDE.md 2026-09-09
+		
+		// Header Description
+		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Klinische Farbseh-Pruefung, Anomaloskop & GW2-Praxistest"
+															 : "Clinical Color Vision Testing, Anomaloscope & GW2 Usability Lab");
+		ImGui::TextDisabled("%s", isDe ? "Optische Verifikation und Abstimmung der CBA-Kompensation nach ophthalmologischen Standards."
+									   : "Optical verification and tuning of CBA color compensation according to clinical standards.");
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
 
-		ImGui::SetNextWindowBgAlpha(0.96f);
-		ImGui::PushStyleColor(ImGuiCol_WindowBg,             ImVec4(0.06f, 0.08f, 0.12f, 0.96f));
-		ImGui::PushStyleColor(ImGuiCol_ScrollbarBg,          ImVec4(0.04f, 0.06f, 0.09f, 0.65f));
-		ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab,        ImVec4(0.24f, 0.42f, 0.65f, 0.85f));
-		ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(0.34f, 0.56f, 0.85f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive,  ImVec4(0.42f, 0.72f, 1.00f, 1.00f));
-		ImGui::PushStyleColor(ImGuiCol_Border,               ImVec4(0.22f, 0.35f, 0.52f, 0.55f));
+		// Precompute main correction matrix for filter preview in all tabs
+		double corrMat[3][3];
+		ActiveCorrectionMatrix(corrMat);
 
-		ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize,     14.0f);
-		ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 6.0f);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,     ImVec2(12.0f, 10.0f));
-
-		ImVec2 disp = ImGui::GetIO().DisplaySize;
-		float screenH = (disp.y > 400.0f) ? disp.y : 1080.0f;
-		float defaultW = 600.0f;
-		float defaultH = std::clamp(screenH * 0.72f, 540.0f, 800.0f);
-
-		ImGui::SetNextWindowSizeConstraints(ImVec2(520.0f, 440.0f), ImVec2(1600.0f, screenH - 40.0f));
-
-		if (s_resetVisionLabWindowPos)
-		{
-			ImGui::SetNextWindowPos(ImVec2(60.0f, 70.0f), ImGuiCond_Always);
-			ImGui::SetNextWindowSize(ImVec2(defaultW, defaultH), ImGuiCond_Always);
-			s_resetVisionLabWindowPos = false;
-		}
-		else
-		{
-			ImGui::SetNextWindowSize(ImVec2(defaultW, defaultH), ImGuiCond_FirstUseEver);
-		}
-
-		if (s_focusVisionLabWindow)
-		{
-			ImGui::SetNextWindowFocus();
-			s_focusVisionLabWindow = false;
-		}
-
-		bool pOpen = CurrentSettings.ShowVisionLabWindow;
-		const char* winTitle = isDe ? "cba4gw2 - Vision Lab###CBA_VisionLabWindow" : "cba4gw2 - Vision Lab###CBA_VisionLabWindow";
-
-		if (ImGui::Begin(winTitle, &pOpen, ImGuiWindowFlags_NoCollapse))
-		{
-			CurrentSettings.ShowVisionLabWindow = pOpen;
-
-			// Header Description
-			ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Klinische Farbseh-Pruefung, Anomaloskop & GW2-Praxistest"
-			                                                     : "Clinical Color Vision Testing, Anomaloscope & GW2 Usability Lab");
-			ImGui::TextDisabled("%s", isDe ? "Optische Verifikation und Abstimmung der CBA-Kompensation nach ophthalmologischen Standards."
-			                               : "Optical verification and tuning of CBA color compensation according to clinical standards.");
-			ImGui::Spacing();
-			ImGui::Separator();
-			ImGui::Spacing();
-
-			// Precompute main correction matrix for filter preview in all tabs
-			double corrMat[3][3];
-			ActiveCorrectionMatrix(corrMat);
-
-			if (ImGui::BeginTabBar("##VisionLabTabs", ImGuiTabBarFlags_None))
+		if (ImGui::BeginTabBar("##VisionLabTabs", ImGuiTabBarFlags_None))
 			{
 				// ══════════════════════════════════════════════════════════════════
 				// TAB 1: NAGEL- & MORELAND-ANOMALOSKOP
@@ -914,11 +870,139 @@ namespace cba
 					ImGui::EndTabItem();
 				}
 
+				// TAB 5: FARB-VERSCHIEBUNG (COLOR SHIFT RINGS)
+				// ══════════════════════════════════════════════════════════════════
+				if (ImGui::BeginTabItem(isDe ? "5. Farb-Verschiebung##tab_rings" : "5. Color Shift##tab_rings"))
+				{
+					ImGui::Spacing();
+					ImGui::TextDisabled("%s", isDe ? "Hex-Farbcode (z.B. FF0000):" : "Hex Color Code (e.g. FF0000):");
+					
+					static char hexBuf[16] = "FF0000";
+					ImGui::SetNextItemWidth(120.0f);
+					ImGui::InputText("##hex_input", hexBuf, sizeof(hexBuf), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+					
+					// Parse Hex
+					unsigned int hexVal = 0xFF0000;
+					if (hexBuf[0] != '\0') {
+					    sscanf(hexBuf, "%x", &hexVal);
+					}
+					float o_r = ((hexVal >> 16) & 0xFF) / 255.0f;
+					float o_g = ((hexVal >> 8) & 0xFF) / 255.0f;
+					float o_b = (hexVal & 0xFF) / 255.0f;
+					
+					// Simulate CVD
+					double cvd_r = o_r, cvd_g = o_g, cvd_b = o_b;
+					ColorMatrix::SimulatePixel(o_r, o_g, o_b, CurrentSettings.Type, cvd_r, cvd_g, cvd_b);
+					
+					// CBA Corrected
+					float cba_r = (float)std::clamp(corrMat[0][0]*o_r + corrMat[0][1]*o_g + corrMat[0][2]*o_b, 0.0, 1.0);
+					float cba_g = (float)std::clamp(corrMat[1][0]*o_r + corrMat[1][1]*o_g + corrMat[1][2]*o_b, 0.0, 1.0);
+					float cba_b = (float)std::clamp(corrMat[2][0]*o_r + corrMat[2][1]*o_g + corrMat[2][2]*o_b, 0.0, 1.0);
+					
+					ImGui::Spacing();
+					
+					// Draw color boxes
+					auto drawColorBox = [&](const char* label, float r, float g, float b) {
+					    ImVec2 p = ImGui::GetCursorScreenPos();
+					    ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + 24, p.y + 24), IM_COL32((int)(r*255), (int)(g*255), (int)(b*255), 255), 4.0f);
+					    ImGui::SetCursorScreenPos(ImVec2(p.x + 32, p.y + 4));
+					    ImGui::Text("%s: #%02X%02X%02X", label, (int)(r*255), (int)(g*255), (int)(b*255));
+					    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + 28));
+					};
+					
+					drawColorBox(isDe ? "Original" : "Original", o_r, o_g, o_b);
+					drawColorBox(isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)", (float)cvd_r, (float)cvd_g, (float)cvd_b);
+					drawColorBox(isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)", cba_r, cba_g, cba_b);
+					
+					ImGui::Spacing();
+					ImGui::Separator();
+					ImGui::Spacing();
+					
+					// Draw 3 Concentric Rings
+					ImVec2 center = ImGui::GetCursorScreenPos();
+					float availW = ImGui::GetContentRegionAvail().x;
+					float availH = ImGui::GetContentRegionAvail().y;
+					float canvasSize = std::min(availW, availH) - 20.0f;
+					if (canvasSize < 200.0f) canvasSize = 200.0f;
+					
+					center.x += availW * 0.5f;
+					center.y += canvasSize * 0.5f + 10.0f;
+					
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					int numSegments = 90;
+					
+					float radiusOuter = canvasSize * 0.45f;
+					float thickness = canvasSize * 0.08f;
+					float radiusMid = radiusOuter - thickness - 4.0f;
+					float radiusInner = radiusMid - thickness - 4.0f;
+					
+					// Highlight angle
+					float targetH, targetS, targetV;
+					ImGui::ColorConvertRGBtoHSV(o_r, o_g, o_b, targetH, targetS, targetV);
+					float highlightAngle = targetH * 2.0f * 3.14159265f;
+					
+					auto drawRing = [&](float rOut, float rIn, int ringMode) {
+					    for (int i = 0; i < numSegments; ++i) {
+					        float a0 = ((float)i / numSegments) * 2.0f * 3.14159265f;
+					        float a1 = ((float)(i + 1) / numSegments) * 2.0f * 3.14159265f;
+					        
+					        float h0 = (float)i / numSegments;
+					        float h1 = (float)(i + 1) / numSegments;
+					        
+					        float r0, g0, b0, r1_, g1_, b1_;
+					        ImGui::ColorConvertHSVtoRGB(h0, 1.0f, 1.0f, r0, g0, b0);
+					        ImGui::ColorConvertHSVtoRGB(h1, 1.0f, 1.0f, r1_, g1_, b1_);
+					        
+					        if (ringMode == 1) {
+					            double cr0=r0, cg0=g0, cb0=b0, cr1=r1_, cg1=g1_, cb1=b1_;
+					            ColorMatrix::SimulatePixel(r0, g0, b0, CurrentSettings.Type, cr0, cg0, cb0);
+					            ColorMatrix::SimulatePixel(r1_, g1_, b1_, CurrentSettings.Type, cr1, cg1, cb1);
+					            r0=(float)cr0; g0=(float)cg0; b0=(float)cb0;
+					            r1_=(float)cr1; g1_=(float)cg1; b1_=(float)cb1;
+					        } else if (ringMode == 2) {
+					            float cr0 = (float)std::clamp(corrMat[0][0]*r0 + corrMat[0][1]*g0 + corrMat[0][2]*b0, 0.0, 1.0);
+					            float cg0 = (float)std::clamp(corrMat[1][0]*r0 + corrMat[1][1]*g0 + corrMat[1][2]*b0, 0.0, 1.0);
+					            float cb0 = (float)std::clamp(corrMat[2][0]*r0 + corrMat[2][1]*g0 + corrMat[2][2]*b0, 0.0, 1.0);
+					            float cr1 = (float)std::clamp(corrMat[0][0]*r1_ + corrMat[0][1]*g1_ + corrMat[0][2]*b1_, 0.0, 1.0);
+					            float cg1 = (float)std::clamp(corrMat[1][0]*r1_ + corrMat[1][1]*g1_ + corrMat[1][2]*b1_, 0.0, 1.0);
+					            float cb1 = (float)std::clamp(corrMat[2][0]*r1_ + corrMat[2][1]*g1_ + corrMat[2][2]*b1_, 0.0, 1.0);
+					            r0=cr0; g0=cg0; b0=cb0;
+					            r1_=cr1; g1_=cg1; b1_=cb1;
+					        }
+					        
+					        ImVec2 p0_out(center.x + cosf(a0) * rOut, center.y + sinf(a0) * rOut);
+					        ImVec2 p1_out(center.x + cosf(a1) * rOut, center.y + sinf(a1) * rOut);
+					        ImVec2 p0_in(center.x + cosf(a0) * rIn, center.y + sinf(a0) * rIn);
+					        ImVec2 p1_in(center.x + cosf(a1) * rIn, center.y + sinf(a1) * rIn);
+					        
+					        ImU32 col0 = IM_COL32((int)(r0*255), (int)(g0*255), (int)(b0*255), 255);
+					        ImU32 col1 = IM_COL32((int)(r1_*255), (int)(g1_*255), (int)(b1_*255), 255);
+					        
+					        dl->AddQuadFilled(p0_out, p1_out, p1_in, p0_in, col0); // Simplified shading
+					    }
+					    
+					    // Draw marker
+					    ImVec2 markerP(center.x + cosf(highlightAngle) * (rOut + rIn) * 0.5f, center.y + sinf(highlightAngle) * (rOut + rIn) * 0.5f);
+					    dl->AddCircleFilled(markerP, thickness * 0.3f, IM_COL32(255, 255, 255, 255));
+					    dl->AddCircle(markerP, thickness * 0.35f, IM_COL32(0, 0, 0, 255), 0, 2.0f);
+					};
+					
+					drawRing(radiusOuter, radiusOuter - thickness, 0); // Original
+					drawRing(radiusMid, radiusMid - thickness, 1);     // CVD
+					drawRing(radiusInner, radiusInner - thickness, 2); // CBA
+					
+					// Labels
+					dl->AddText(ImVec2(center.x - radiusOuter, center.y - radiusOuter - 20), IM_COL32(200, 200, 200, 255), isDe ? "Aussen: Original" : "Outer: Original");
+					dl->AddText(ImVec2(center.x - radiusOuter, center.y - radiusOuter - 5), IM_COL32(200, 200, 200, 255), isDe ? "Mitte: CVD Simulation" : "Mid: CVD Simulation");
+					dl->AddText(ImVec2(center.x - radiusOuter, center.y - radiusOuter + 10), IM_COL32(200, 200, 200, 255), isDe ? "Innen: CBA Korrektur" : "Inner: CBA Correction");
+					
+					ImGui::Dummy(ImVec2(canvasSize, canvasSize + 40.0f));
+					
+					ImGui::EndTabItem();
+				}
+
+				
 				ImGui::EndTabBar();
-			}
 		}
-		ImGui::End();
-		ImGui::PopStyleVar(3);
-		ImGui::PopStyleColor(6);
 	}
 }

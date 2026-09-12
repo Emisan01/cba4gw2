@@ -2,5 +2,5 @@
 
 namespace cba
 {
-	void RenderVisionLabWindow();
+	void RenderVisionLabContent(bool isDe);
 }

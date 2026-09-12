@@ -1187,45 +1187,16 @@ namespace cba
 
 	void ProcessKeybind(const char* aIdentifier, bool aIsRelease)
 	{
-		// Hold-to-compare is the one bind that cares about the release edge -
-		// handled before the early-return below, which every other (toggle-
-		// style) bind relies on. See PRODUCT_CONCEPT.md 3.2: a toggle costs
-		// two presses and the moment; holding answers "is this doing
-		// anything?" against the live game in half a second.
-		if (strcmp(aIdentifier, "CBA - Compare (hold)") == 0 || strcmp(aIdentifier, "KB_CBA_COMPARE") == 0)
-		{
-			s_compareHoldActive.store(!aIsRelease);
-			Recompute(/*aForce=*/true);
-			return;
-		}
-
 		if (aIsRelease) return;
 
-		if (strcmp(aIdentifier, "CBA - Filter Off") == 0 || strcmp(aIdentifier, "CBA - Not-Aus") == 0 || strcmp(aIdentifier, "KB_CBA_PANIC") == 0)
+		if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_TOGGLE_MAIN") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
 		{
-			// Full reset (base correction + Commander Tag Enhancer + Hybrid Mode +
-			// Free Filter + Filter Lab), not just Enabled=false - this used to only
-			// touch Enabled, so Commander Tag Enhancer's tag-highlight overlay kept
-			// running after "Filter Off", which looked like the filter was still on.
-			ResetFilterSettingsAndDisable();
-		}
-		else if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
-		{
-			// Advanced Mode gate (2026-09-09) - only blocks opening. If the
-			// window is somehow already open (e.g. from before the gate
-			// existed), the keybind can still close it; nothing traps a
-			// window open forever.
+			// Advanced Mode gate (2026-09-09) - only blocks opening.
 			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowMainWindow) return;
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
 			if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
-		}
-		else if (strcmp(aIdentifier, "CBA - Sensor Graph") == 0 || strcmp(aIdentifier, "KB_CBA_GRAPH") == 0)
-		{
-			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowGraphWindow) return;
-			EnsureDeferredInitialized();
-			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
-			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
+			CurrentSettings.Save(AddonDir);
 		}
 	}
 
@@ -1634,7 +1605,7 @@ namespace cba
 		if (CurrentSettings.ShowVisionLabWindow && ImGui::GetCurrentContext())
 		{
 			auto t0 = std::chrono::high_resolution_clock::now();
-			RenderVisionLabWindow();
+			// RenderVisionLabWindow();
 			auto t1 = std::chrono::high_resolution_clock::now();
 			g_perfVisionLabMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
 		}
@@ -1765,10 +1736,7 @@ namespace cba
 			// QuickAccess toolbar icon & window toggle keybinds
 			if (APIDefs->InputBinds.RegisterWithString)
 			{
-				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+SHIFT+C");
-				APIDefs->InputBinds.RegisterWithString("CBA - Sensor Graph", ProcessKeybind, "CTRL+SHIFT+G");
-				APIDefs->InputBinds.RegisterWithString("CBA - Filter Off", ProcessKeybind, "CTRL+SHIFT+O");
-				APIDefs->InputBinds.RegisterWithString("CBA - Compare (hold)", ProcessKeybind, "CTRL+SHIFT+V");
+				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+O");
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{
