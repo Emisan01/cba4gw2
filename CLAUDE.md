@@ -28,8 +28,8 @@ The matrix reaches the screen one of two ways, chosen by
 
 - **`1` — a pixel shader on GW2's own backbuffer** (`ShaderColorPipeline`,
   `ERenderType_PostRender`). The default. Touches nothing outside the game.
-- **`0` — the Windows Magnification API**, screen-wide via DWM. The old path.
-  Kept only so the two can be compared; expect it to be removed.
+- **`0` — the Windows Magnification API**, screen-wide via DWM. Kept as a
+  complementary path: screen-wide where the shader is game-only.
 
 `FilterSensor` measures the frame before and after the correction — the one
 thing this tool can honestly measure about its own effect.
@@ -119,8 +119,6 @@ thing this tool can honestly measure about its own effect.
   started, larger than it looks.
 - `EAddonFlags::DisableHotloading` on release builds — recorded, Emi's
   explicit "not now".
-- **Retire the DWM backend** once Emi has compared enough. ~104 references
-  across 9 files fall out with it.
 
 ## Where Filter Lab is going
 
