@@ -199,6 +199,108 @@ namespace cba
 		ImGui::PopStyleVar(1);
 	}
 
+	// ── Auto-Start profile: one value, one control, two homes ─────────────
+	//
+	// Settings.AutoStartSlot is a single int (-1 = off, 0..2 = the slot that
+	// loads and arms the filter at launch), so it is one choice, not three
+	// independent ones. It used to be edited two incompatible ways: a
+	// right-click on a slot chip in the Nexus panel (invisible - nothing on
+	// screen said it existed) and a per-slot "Auto-Start" checkbox in the
+	// Studio (three checkboxes standing in for one radio group). Emi asked for
+	// the logic to be understandable at a glance; this is that control, and
+	// both surfaces now draw the same one.
+	//
+	// Two steps on purpose: "do I want this at all" and "which profile" are
+	// genuinely different questions, and separating them is what makes the
+	// second one legible. They cannot desync - switching on always picks a
+	// real slot, and clearing the chosen slot switches it off.
+	void DrawAutoStartControl(bool& aSaveNeeded, bool aIsDe, bool aCompact)
+	{
+		int firstUsed = -1;
+		for (int i = 0; i < 3; ++i)
+		{
+			if (CurrentSettings.Slots[i].Used) { firstUsed = i; break; }
+		}
+
+		if (firstUsed < 0)
+		{
+			// No slot saved yet. This vendored ImGui has no BeginDisabled, and
+			// a checkbox that silently refuses the click is worse than a
+			// sentence explaining what is missing.
+			ImGui::TextDisabled("%s", aIsDe ? "Automatisch mit GW2 starten: erst ein Profil speichern."
+			                                : "Start automatically with GW2: save a profile first.");
+			return;
+		}
+
+		bool on = (CurrentSettings.AutoStartSlot >= 0);
+		if (ImGui::Checkbox(aIsDe ? "Automatisch mit GW2 starten##autostart_on" : "Start automatically with GW2##autostart_on", &on))
+		{
+			if (on)
+			{
+				// Never "on" without a target: prefer the slot the user is
+				// currently working in, fall back to the first saved one.
+				const int active = ParameterRegistry::Get().GetInt(ParamId::ActiveSlotIdx);
+				const bool activeUsable = (active >= 0 && active < 3 && CurrentSettings.Slots[active].Used);
+				CurrentSettings.AutoStartSlot = activeUsable ? active : firstUsed;
+			}
+			else
+			{
+				CurrentSettings.AutoStartSlot = -1;
+			}
+			aSaveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("%s", aIsDe
+				? "Laedt beim Start von GW2 ein gespeichertes Profil und schaltet den Filter ein.\nOhne das startet CBA immer neutral - Filter aus, alle Fenster zu."
+				: "Loads a saved profile and turns the filter on when GW2 starts.\nWithout it CBA always starts neutral - filter off, all windows closed.");
+		}
+
+		if (CurrentSettings.AutoStartSlot < 0) return;
+
+		ImGui::Indent(16.0f);
+		if (!aCompact)
+		{
+			ImGui::TextDisabled("%s", aIsDe ? "Profil beim Start:" : "Profile at launch:");
+		}
+		for (int i = 0; i < 3; ++i)
+		{
+			if (i > 0) ImGui::SameLine(0, 10.0f);
+			if (!CurrentSettings.Slots[i].Used)
+			{
+				// Drawn, not hidden: three positions that stay in the same
+				// place read faster than a list that changes length.
+				ImGui::TextDisabled("%d", i + 1);
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aIsDe ? "Slot ist leer" : "Slot is empty");
+				continue;
+			}
+			char radioId[48];
+			std::snprintf(radioId, sizeof(radioId), "%d##autostart_pick_%d", i + 1, i);
+			if (ImGui::RadioButton(radioId, CurrentSettings.AutoStartSlot == i))
+			{
+				CurrentSettings.AutoStartSlot = i;
+				aSaveNeeded = true;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				const std::string& n = CurrentSettings.Slots[i].Name;
+				ImGui::SetTooltip("%s", n.empty() ? (aIsDe ? "Gespeichertes Profil" : "Saved profile") : n.c_str());
+			}
+		}
+
+		const int pick = CurrentSettings.AutoStartSlot;
+		if (pick >= 0 && pick < 3)
+		{
+			ImGui::SameLine(0, 12.0f);
+			const std::string& pickName = CurrentSettings.Slots[pick].Name;
+			ImGui::TextColored(Theme::kTextGoldLabel, "%s", pickName.empty() ? (aIsDe ? "Gespeichertes Profil" : "Saved profile") : pickName.c_str());
+		}
+
+		ImGui::TextDisabled("%s", aIsDe ? "Nach einem Absturz wird das uebersprungen."
+		                                : "Skipped after a crash.");
+		ImGui::Unindent(16.0f);
+	}
+
 	void RenderEmbeddedOptions()
 	{
 		if (!ImGui::GetCurrentContext()) return;
@@ -550,11 +652,13 @@ namespace cba
 				char chip[16];
 				std::snprintf(chip, sizeof(chip), "[%d]", sIdx + 1);
 				bool chipClicked = ImGui::SmallButton(chip);
-				// Right-click toggles this slot as the Auto-Start profile -
-				// deliberately not a checkbox per slot (Emi: "ohne 3 Checkboxen"),
-				// this keeps the compact panel clutter-free while still reachable
-				// without opening the Studio.
-				bool autoStartToggled = used && ImGui::IsItemClicked(ImGuiMouseButton_Right);
+				// The right-click-to-set-Auto-Start shortcut that used to live
+				// here is gone (2026-09-12). Nothing on screen said it existed,
+				// and the only feedback was a one-character "*" next to the
+				// chip - a feature reachable exclusively by people who already
+				// knew about it. DrawAutoStartControl below now says the same
+				// thing out loud. The "*" stays: it is the at-a-glance marker,
+				// and it finally has a visible control behind it.
 				if (chipClicked && used) {
 					ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
 					CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
@@ -567,24 +671,21 @@ namespace cba
 					saveNeeded = true;
 				}
 				ImGui::PopStyleColor(4);
-				if (autoStartToggled) {
-					CurrentSettings.AutoStartSlot = (CurrentSettings.AutoStartSlot == sIdx) ? -1 : sIdx;
-					saveNeeded = true;
-				}
 				if (ImGui::IsItemHovered()) {
-					if (used) ImGui::SetTooltip("Slot %d: %s\n%s\n%s", sIdx + 1, CurrentSettings.Slots[sIdx].Name.c_str(),
-						isDe ? "Klicken zum Laden" : "Click to load",
-						isDe ? "Rechtsklick: Auto-Start an/aus" : "Right-click: toggle Auto-Start");
+					if (used) ImGui::SetTooltip("Slot %d: %s\n%s", sIdx + 1, CurrentSettings.Slots[sIdx].Name.c_str(),
+						isDe ? "Klicken zum Laden" : "Click to load");
 					else ImGui::SetTooltip("Slot %d: %s", sIdx + 1, isDe ? "Frei" : "Empty");
 				}
 				if (sIdx == CurrentSettings.AutoStartSlot) {
 					ImGui::SameLine(0, 2.0f);
 					ImGui::TextColored(Theme::kTextGoldLabel, "*");
-					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Auto-Start-Profil (Rechtsklick zum Entfernen)" : "Auto-Start profile (right-click to remove)");
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Startet automatisch mit GW2" : "Starts automatically with GW2");
 				}
 				ImGui::PopID();
 			}
 		}
+
+		DrawAutoStartControl(saveNeeded, isDe, /*aCompact=*/true);
 
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -2318,21 +2419,19 @@ namespace cba
 					ImGui::PopStyleColor(4);
 					if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Slot leeren" : "Clear slot");
 
-					ImGui::SameLine(0, 8.0f);
-					bool isAutoStart = (CurrentSettings.AutoStartSlot == sIdx);
-					if (ImGui::Checkbox(isDe ? "Auto-Start##autostart_slot" : "Auto-Start##autostart_slot", &isAutoStart)) {
-						CurrentSettings.AutoStartSlot = isAutoStart ? sIdx : -1;
-						saveNeeded = true;
-					}
-					if (ImGui::IsItemHovered()) {
-						ImGui::SetTooltip(isDe ? "Laedt dieses Profil automatisch und schaltet den Filter ein, sobald GW2 startet (nicht nach einem Absturz)."
-						                       : "Automatically loads this profile and turns the filter on whenever GW2 starts (skipped after a crash).");
-					}
+					// The per-slot "Auto-Start" checkbox that used to sit here
+					// was three checkboxes standing in for one radio group -
+					// AutoStartSlot holds a single value, so two of them were
+					// always the wrong shape for the data. Replaced by the
+					// shared control below the list (2026-09-12).
 				} else {
 					ImGui::TextDisabled("Slot %d: [%s]", sIdx + 1, isDe ? "Leer" : "Empty");
 				}
 				ImGui::PopID();
 			}
+
+			ImGui::Spacing();
+			DrawAutoStartControl(saveNeeded, isDe, /*aCompact=*/false);
 
 			ImGui::Spacing();
 			{

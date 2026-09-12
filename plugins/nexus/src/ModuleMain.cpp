@@ -72,6 +72,10 @@ namespace
 	std::chrono::steady_clock::time_point s_lastInitAttempt{};
 	bool s_everAttemptedInit = false;
 
+	// Has GW2 been the foreground window at least once since this addon
+	// loaded? Gates SystemWide - see ShouldScreenEffectBeActive.
+	std::atomic<bool> s_gw2EverForeground{false};
+
 	bool RoughlyEqual(const MAGCOLOREFFECT& a, const MAGCOLOREFFECT& b)
 	{
 		for (int i = 0; i < 5; i++)
@@ -797,7 +801,22 @@ namespace cba
 		// Emi's own framing, and the reason this is an && and not part of the
 		// || below.
 		if (isMinimized) return false;
-		return isGw2Foreground || CurrentSettings.SystemWide;
+		if (isGw2Foreground)
+		{
+			s_gw2EverForeground.store(true);
+			return true;
+		}
+
+		// SystemWide does not count until GW2 has actually been in front once
+		// this session (2026-09-12, answering Emi's "wie kollidiert das mit
+		// dem Startverhalten"). It is a persisted setting, so it is already on
+		// at the next launch - and at launch the player is usually in a
+		// browser or on Discord waiting through the loading screen and
+		// character select. Without this, an Auto-Start profile plus
+		// SystemWide would tint whatever they are actually looking at, minutes
+		// before they ever see the game. "Keep the correction while I alt-tab
+		// away" presupposes having been there in the first place.
+		return CurrentSettings.SystemWide && s_gw2EverForeground.load();
 	}
 
 	bool IsScreenEffectApplied()
@@ -1539,6 +1558,7 @@ namespace cba
 			s_lastAppliedEffect = MAGCOLOREFFECT{};
 		}
 		s_compareHoldActive.store(false);
+		s_gw2EverForeground.store(false);
 
 		try
 		{

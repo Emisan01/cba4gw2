@@ -1732,6 +1732,66 @@ means a neutral screen.
 
 Build 39, 26/26 unit tests, 24/24 audit + 1 informational.
 
+### Sixth pass: startup behaviour, and what "enable in background" collides with
+
+Emi asked for a general startup policy - everything off, all windows closed,
+positions remembered the way arcdps does it - plus a legible link between the
+three profile slots and "start automatically with GW2", and wanted the
+interaction with "keep the filter active in the background" thought through.
+
+**Most of the policy already existed. Verified live rather than assumed:**
+`Settings::Load` forces `Enabled = false` and all four `Show*Window` flags to
+false unconditionally, on every launch, with the reasoning already written
+there. Window *positions* are persisted by ImGui through Nexus's own
+`addons/Nexus/imgui.ini` (7 CBA entries with `Pos=`/`Size=` in Emi's, checked
+directly) - so "remember where it was, but do not open it" was already the
+behaviour. The Auto-Start profile is the single deliberate exception, and the
+Safe-Start Gate can veto it after a crash.
+
+**What was actually missing was legibility, not logic.** `AutoStartSlot` is one
+int with four states, and it was edited two incompatible ways: a **right-click
+on a slot chip** in the Nexus panel, with a one-character `*` as the only
+feedback and nothing on screen saying the feature existed at all, and **three
+per-slot checkboxes** in the Studio standing in for what is a single choice.
+Both are gone. `DrawAutoStartControl()` is now the one control, drawn in both
+places: a checkbox for "do I want this", then radio buttons over the three
+slots for "which one", with empty slots drawn in place but not selectable.
+They cannot desync - switching it on always picks a real slot (the active one
+if it is saved, otherwise the first), and clearing a slot switches it off. With
+no slot saved at all it says so in a sentence instead of offering a checkbox
+that refuses to stay checked (this vendored ImGui has no `BeginDisabled`).
+
+**The collision Emi asked about is real, and it was the startup case.**
+`SystemWide` is persisted, so it is already on at the next launch - and at
+launch the player is usually in a browser or on Discord waiting through the
+loading screen and character select. An Auto-Start profile plus SystemWide
+would therefore tint whatever they are actually looking at, minutes before they
+ever see the game. `SystemWide` now only counts once GW2 has been the
+foreground window at least once in this session (`s_gw2EverForeground`, reset
+on unload): "keep the correction while I alt-tab away" presupposes having been
+there first. Both language tooltips say so.
+
+**New audit check, and what probing it found.** "Settings::Load forces a
+neutral start" is now Pillar 6.4 - this exact guarantee has already been lost
+once by accident (removing the dead `LoadOnStartup` opt-in in 2026-09-09 also
+removed the only thing forcing `Enabled` back to false, and the symptom was the
+filter re-arming itself at character select). A policy that can vanish as a
+side effect of unrelated cleanup belongs in CI.
+
+Worth recording that the check was wrong twice before it was right, and only
+because it got probed instead of trusted:
+1. It matched the text inside a commented-out line, so disabling the guarantee
+   left it green. Now comment-stripped.
+2. It still passed with the unconditional `s.Enabled = false;` removed, because
+   the *same string* appears ~190 lines earlier inside the Safe-Start crash
+   branch - a conditional write, which is exactly what this guarantee is not.
+   It now anchors on the window-visibility group and requires the rest within
+   the same stretch of source, so it pins one block rather than five sightings.
+Both failure modes were silent passes. Same lesson as the ratchet: run the
+check against a deliberately broken tree before believing it.
+
+Build 40, 26/26 unit tests, 25/25 audit + 1 informational.
+
 ## Build feedback loop
 
 **This changed from earlier sessions**: Claude now has direct local access

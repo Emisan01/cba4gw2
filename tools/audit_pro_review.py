@@ -295,6 +295,57 @@ check("6. Codebase Health", "Parameters wired into the registry", True,
       f"{reg_count} registered (informational - SelfTest asserts enum/registry agreement at runtime)",
       info=True)
 
+# 6.4 The neutral-start guarantee.
+# Settings::Load() unconditionally forces Enabled=false and all four window
+# visibility flags to false, so every launch begins with the filter off and no
+# windows open - the one deliberate exception being an Auto-Start profile,
+# which AddonLoad applies afterwards and which the Safe-Start Gate can veto.
+#
+# This is checked rather than trusted because it has already been lost once by
+# accident: removing the dead "LoadOnStartup" opt-in in 2026-09-09 also removed
+# the only thing forcing Enabled back to false, and the symptom was the filter
+# silently re-arming itself at character select. A policy that can disappear as
+# a side effect of unrelated cleanup belongs in CI, not in a comment.
+with open(os.path.join(CORE_DIR, "Settings.cpp"), "r", encoding="utf-8", errors="ignore") as f:
+    settings_raw = f.read()
+
+# Comment-stripped, because the first version of this check passed on a
+# deliberately commented-out `// s.Enabled = false;` - the regex matched the
+# text inside the comment. A guard that cannot tell live code from a disabled
+# line is not a guard; found by probing the check itself rather than trusting
+# that it worked.
+settings_src = "\n".join(
+    l for l in settings_raw.split("\n") if not l.lstrip().startswith("//")
+)
+
+"""The five assignments have to be ONE block, not five sightings.
+
+Probing this check caught a second false positive: `s.Enabled = false;` also
+appears ~190 lines earlier inside the Safe-Start crash branch, so a plain
+"does this string exist anywhere" search stayed green even with the
+unconditional one removed. A conditional write is exactly what this guarantee
+is not. Anchoring on the window-visibility group and requiring the rest to sit
+inside the same stretch of source pins the unconditional block specifically,
+without depending on indentation or line numbers.
+"""
+neutral_start = [
+    ("main window closed", r"s\.ShowMainWindow\s*=\s*false\s*;"),
+    ("graph window closed", r"s\.ShowGraphWindow\s*=\s*false\s*;"),
+    ("lab window closed", r"s\.ShowLabWindow\s*=\s*false\s*;"),
+    ("vision lab closed", r"s\.ShowVisionLabWindow\s*=\s*false\s*;"),
+    ("filter disarmed", r"s\.Enabled\s*=\s*false\s*;"),
+]
+_anchor = re.search(neutral_start[0][1], settings_src)
+if _anchor is None:
+    missing = [n for n, _ in neutral_start]
+else:
+    _block = settings_src[_anchor.start():_anchor.start() + 1200]
+    missing = [name for name, pat in neutral_start if not re.search(pat, _block)]
+check("6. Codebase Health", "Settings::Load forces a neutral start (filter off, windows closed)",
+      not missing,
+      "every launch starts neutral; an Auto-Start profile is the one deliberate exception"
+      if not missing else "MISSING: " + ", ".join(missing))
+
 # =============================================================================
 # SUMMARY REPORT
 # =============================================================================
