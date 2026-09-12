@@ -785,46 +785,222 @@ namespace cba
 // ── Section 1: Farbprofil & Korrektur ────────────────────────────────
 		if (s_ActiveTab == 0)
 		
-		{
-			// Tile: Profil
-			ImGui::BeginChild("Tile_Profile", ImVec2(0, 100), true, ImGuiWindowFlags_MenuBar);
+				{
+			// Tile: Vision Assessment (Sehtest) & Profil
+			ImGui::BeginChild("Tile_Profile", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
 			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Farbprofil & Korrektur"); ImGui::EndMenuBar(); }
 
-			// Base profile (Type/Mixed/Severity/RG/BY) is now read-only here
-			// (2026-09-11, "ein Zuhause pro Einstellung" - see CLAUDE.md's
-			// UI-restructure entry). It used to be a full duplicate editor
-			// of the exact same radios+sliders the Nexus-embedded panel
-			// already owns (a third copy also lives in Sensor Graph HUD) -
-			// three different widgets for the same value, easy to lose
-			// track of which one you last touched. Studio is the diagnostic/
-			// power-user surface now; the embedded panel is the only editor.
-			const char* activeTypeLabel = CurrentSettings.Mixed
-				? (isDe ? "Gemischt" : "Mixed")
-				: (CurrentSettings.Type == BalanceType::Protan ? t.Protan
-					: CurrentSettings.Type == BalanceType::Deutan ? t.Deutan : t.Tritan);
-			if (CurrentSettings.Mixed) {
-				ImGui::Text("%s: %s  (%s %.0f%% / %s %.0f%%)",
-					isDe ? "Aktives Profil" : "Active Profile", activeTypeLabel,
-					t.RgStrength, CurrentSettings.MixedRgSeverity01 * 100.0f,
-					t.ByStrength, CurrentSettings.MixedBySeverity01 * 100.0f);
-			} else {
-				ImGui::Text("%s: %s  (%s %.0f%%)",
-					isDe ? "Aktives Profil" : "Active Profile", activeTypeLabel,
-					t.Strength, CurrentSettings.Severity01 * 100.0f);
+auto applyDerivedProfile = [&](BalanceType aType, bool aMixed, float aSeverity) {
+				// Routed through the shared activation function rather than
+				// setting the fields by hand (it owns EnsureDeferredInitialized,
+				// Enabled, CommanderTagMode and Recompute) - then severity is
+				// overridden, because that function deliberately forces 100%
+				// for its own one-click button semantics.
+				ActivateCommanderTagProfile(aType);
+				CurrentSettings.Mixed = aMixed;
+				ParameterRegistry::Get().SetFloat(ParamId::Severity01, aSeverity);
+				if (aMixed)
+				{
+					ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, aSeverity);
+					ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, aSeverity);
+				}
+				Recompute(/*aForce=*/true);
+				changed = true;
+				saveNeeded = true;
+			};
+
+
+
+auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel) -> bool {
+				ImGui::PushID(aId);
+				// Floor the width: this panel lives inside Nexus's own window,
+				// whose width the user controls, and GetContentRegionAvail can
+				// come back tiny or negative there. A non-positive InvisibleButton
+				// size is an ImGui assert, i.e. someone else's narrow panel would
+				// take the addon down.
+				float w = ImGui::GetContentRegionAvail().x;
+				if (w < 60.0f) w = 60.0f;
+				float h = 46.0f;
+				ImVec2 p = ImGui::GetCursorScreenPos();
+				bool clicked = ImGui::InvisibleButton("##opt", ImVec2(w, h));
+				bool hovered = ImGui::IsItemHovered();
+				ImDrawList* dl = ImGui::GetWindowDrawList();
+				dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h),
+					hovered ? IM_COL32(60, 78, 100, 130) : IM_COL32(40, 52, 68, 90), 5.0f);
+				if (hovered)
+					dl->AddRect(p, ImVec2(p.x + w, p.y + h), IM_COL32(120, 190, 230, 200), 5.0f, 0, 1.5f);
+				float r = 15.0f;
+				float cy = p.y + h * 0.5f;
+				float cx = p.x + 14.0f + r;
+				ImU32 cA = IM_COL32((int)(kGw2TagRefs[aTagA].r * 255), (int)(kGw2TagRefs[aTagA].g * 255), (int)(kGw2TagRefs[aTagA].b * 255), 255);
+				ImU32 cB = IM_COL32((int)(kGw2TagRefs[aTagB].r * 255), (int)(kGw2TagRefs[aTagB].g * 255), (int)(kGw2TagRefs[aTagB].b * 255), 255);
+				dl->AddCircleFilled(ImVec2(cx, cy), r, cA, 32);
+				dl->AddCircleFilled(ImVec2(cx + r * 0.9f, cy), r, cB, 32);
+				dl->AddText(ImVec2(cx + r * 2.4f, cy - ImGui::GetTextLineHeight() * 0.5f),
+					IM_COL32(226, 232, 240, 255), aLabel);
+				ImGui::PopID();
+				return clicked;
+			};
+
+// s_setupDismissed is what makes "I can tell them all apart" stick.
+			// Without it that button is a no-op: it leaves both CommanderTagMode
+			// and Severity01 at zero, so `configured` stays false and the next
+			// frame drops the user straight back into question 1 - an
+			// inescapable questionnaire. Session-only on purpose: someone who
+			// dismisses it today should still be met by the offer next launch,
+			// since a new player may simply not have realised yet that it helps.
+			bool configured = (CurrentSettings.CommanderTagMode != 0) || (CurrentSettings.Severity01 > 0.01f);
+			int step = s_setupStep;
+			if (!configured && !s_setupDismissed && step == 0) step = 1; // fresh install lands straight in the flow
+
+			if (step == 1)
+			{
+				ImGui::TextWrapped("%s", isDe
+					? "Welches Farbpaar faellt dir am schwersten zu unterscheiden?"
+					: "Which colour pair is hardest for you to tell apart?");
+				ImGui::Spacing();
+				// Indices into kGw2TagRefs: 0 Red, 2 Yellow, 3 Green, 5 Blue.
+				if (pairOption("rg", 0, 3, isDe ? "Rot und Gruen" : "Red and green"))
+				{
+					s_setupAxisRedGreen = true;
+					s_setupStep = 2;
+				}
+				if (pairOption("by", 2, 5, isDe ? "Gelb und Blau" : "Yellow and blue"))
+				{
+					s_setupAxisRedGreen = false;
+					s_setupPendingType = BalanceType::Tritan;
+					s_setupPendingMixed = false;
+					s_setupStep = 3;
+				}
+				if (pairOption("both", 0, 5, isDe ? "Beide etwa gleich schwer" : "Both about equally hard"))
+				{
+					s_setupAxisRedGreen = false;
+					s_setupPendingType = BalanceType::Deutan;
+					s_setupPendingMixed = true;
+					s_setupStep = 3;
+				}
+				ImGui::Spacing();
+				if (ImGui::SmallButton(isDe ? "Ich kann alle gut unterscheiden##skip" : "I can tell them all apart##skip"))
+				{
+					s_setupStep = 0;
+					s_setupDismissed = true;
+					CurrentSettings.CommanderTagMode = 0;
+					saveNeeded = true;
+				}
 			}
-			// Two editors, two jobs (2026-09-12): the Nexus panel asks what
-			// you can see and sets these for you, the Sensor Graph window
-			// gives you the raw sliders. Naming only one of them here sent
-			// anyone looking for a knob to the panel that deliberately has
-			// none.
-			ImGui::TextDisabled("%s", isDe ? "Gefuehrt: Nexus-Panel (Optionen -> cba4gw2)  |  Manuell: Sensor-Graph"
-			                               : "Guided: Nexus Panel (Options -> cba4gw2)  |  Manual: Sensor Graph");
+			else if (step == 2)
+			{
+				// The one discriminator between Protan and Deutan that a user
+				// can actually answer: protans have markedly reduced luminance
+				// response to long wavelengths, so saturated red reads as much
+				// darker to them than it does to a deutan. Asking about
+				// BRIGHTNESS is answerable; asking "protan or deutan?" is not.
+				ImGui::TextWrapped("%s", isDe
+					? "Wie wirkt das Rot im Vergleich zum Gruen?"
+					: "How does the red look compared to the green?");
+				ImGui::Spacing();
+				if (pairOption("dark", 0, 3, isDe ? "Das Rot wirkt deutlich dunkler" : "The red looks much darker"))
+				{
+					s_setupPendingType = BalanceType::Protan;
+					s_setupPendingMixed = false;
+					s_setupStep = 3;
+				}
+				if (pairOption("same", 0, 3, isDe ? "Beide etwa gleich hell" : "Both about equally bright"))
+				{
+					s_setupPendingType = BalanceType::Deutan;
+					s_setupPendingMixed = false;
+					s_setupStep = 3;
+				}
+				ImGui::Spacing();
+				if (ImGui::SmallButton(isDe ? "Zurueck##back2" : "Back##back2")) s_setupStep = 1;
+			}
+			else if (step == 3)
+			{
+				ImGui::TextWrapped("%s", isDe
+					? "Und jetzt - kannst du die beiden Farben unterscheiden?"
+					: "And now - can you tell the two colours apart?");
+				ImGui::Spacing();
 
-			ImGui::Spacing();
-			ImGui::Separator();
-			ImGui::Spacing();
+				// Preview the pair exactly as the correction will render it, at
+				// the strength currently being proposed. Built from explicit
+				// parameters rather than via ActiveCorrectionMatrix(), which
+				// reads CurrentSettings: briefly swapping those fields in and
+				// out to borrow it would race the Watchdog thread, which calls
+				// Recompute() on the same fields every 50ms and would then push
+				// a not-yet-chosen matrix to the whole screen.
+				double previewMat[3][3];
+				if (s_setupPendingMixed)
+					ColorMatrix::MixedCorrectionMatrix(s_setupStrength, s_setupStrength, previewMat);
+				else
+					ColorMatrix::CorrectionMatrix(s_setupPendingType, s_setupStrength, previewMat);
 
-			
+				// Mixed is built on a Deutan base, so the red/green pair is what
+				// actually demonstrates it - red/blue would show the axis this
+				// profile affects least.
+				int tagA = s_setupAxisRedGreen ? 0 : 2;
+				int tagB = s_setupAxisRedGreen ? 3 : 5;
+				if (s_setupPendingMixed) { tagA = 0; tagB = 3; }
+
+				double oa[3], ob[3];
+				ColorMatrix::ApplyPixel(kGw2TagRefs[tagA].r, kGw2TagRefs[tagA].g, kGw2TagRefs[tagA].b, previewMat, oa[0], oa[1], oa[2]);
+				ColorMatrix::ApplyPixel(kGw2TagRefs[tagB].r, kGw2TagRefs[tagB].g, kGw2TagRefs[tagB].b, previewMat, ob[0], ob[1], ob[2]);
+
+				{
+					float w = ImGui::GetContentRegionAvail().x;
+					if (w < 60.0f) w = 60.0f; // same narrow-panel floor as pairOption
+					float h = 56.0f;
+					ImVec2 p = ImGui::GetCursorScreenPos();
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					float r = 20.0f;
+					float cy = p.y + h * 0.5f;
+					float cx = p.x + w * 0.5f - r * 0.45f;
+					dl->AddCircleFilled(ImVec2(cx, cy), r, IM_COL32((int)(oa[0]*255), (int)(oa[1]*255), (int)(oa[2]*255), 255), 40);
+					dl->AddCircleFilled(ImVec2(cx + r * 0.9f, cy), r, IM_COL32((int)(ob[0]*255), (int)(ob[1]*255), (int)(ob[2]*255), 255), 40);
+					ImGui::Dummy(ImVec2(w, h));
+				}
+
+				ImGui::TextDisabled(isDe ? "Staerke: %.0f%%" : "Strength: %.0f%%", s_setupStrength * 100.0f);
+				ImGui::Spacing();
+
+				float availS = ImGui::GetContentRegionAvail().x;
+				float halfW = (availS - 6.0f) * 0.5f;
+				if (ImGui::Button(isDe ? "Nein, staerker##more" : "No, stronger##more", ImVec2(halfW, 30.0f)))
+				{
+					s_setupStrength = (s_setupStrength >= 1.0f) ? 1.0f : (s_setupStrength + 0.2f);
+				}
+				ImGui::SameLine(0, 6.0f);
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				if (ImGui::Button(isDe ? "Ja, passt##done" : "Yes, that works##done", ImVec2(halfW, 30.0f)))
+				{
+					applyDerivedProfile(s_setupPendingType, s_setupPendingMixed, s_setupStrength);
+					s_setupStep = 0;
+				}
+				ImGui::PopStyleColor(4);
+				ImGui::Spacing();
+				if (ImGui::SmallButton(isDe ? "Zurueck##back3" : "Back##back3"))
+					s_setupStep = s_setupAxisRedGreen ? 2 : 1;
+			}
+			else
+			{
+				// Configured: no questions, just the state and a way back in.
+				const char* typeName = CurrentSettings.Mixed
+					? (isDe ? "Gemischt" : "Mixed")
+					: (CurrentSettings.Type == BalanceType::Protan ? "Protan"
+					 : CurrentSettings.Type == BalanceType::Deutan ? "Deutan" : "Tritan");
+				ImGui::TextDisabled(isDe ? "Dein Profil: %s (%.0f%%)" : "Your profile: %s (%.0f%%)",
+					typeName, CurrentSettings.Severity01 * 100.0f);
+				if (ImGui::SmallButton(isDe ? "Sehtest wiederholen##retest" : "Redo the test##retest"))
+				{
+					s_setupStrength = 0.6f;
+					s_setupStep = 1;
+				}
+
+				}
+
+
 			ImGui::EndChild();
 			ImGui::Spacing();
 			
