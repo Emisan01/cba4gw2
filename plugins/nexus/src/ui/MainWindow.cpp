@@ -477,6 +477,28 @@ namespace cba
 			}
 			ImGui::PopStyleColor();
 			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
+
+			// The consequence, spelled out live (2026-09-12). This setting had
+			// no observable effect at all until the screen-effect gate was
+			// fixed earlier the same day - the filter stayed on in the
+			// background either way - so any value currently in a settings.ini
+			// was chosen while it did nothing. Now it decides whether the
+			// browser you alt-tab into gets tinted, which is worth one line
+			// instead of a tooltip nobody opens.
+			ImGui::Indent(22.0f);
+			if (CurrentSettings.SystemWide)
+			{
+				ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
+					? "Bleibt an - auch ueber Browser, Discord und allem anderen."
+					: "Stays on - over your browser, Discord and everything else.");
+			}
+			else
+			{
+				ImGui::TextDisabled("%s", isDe
+					? "Pausiert, sobald du GW2 verlaesst. Kommt von selbst zurueck."
+					: "Pauses as soon as you leave GW2. Comes back on its own.");
+			}
+			ImGui::Unindent(22.0f);
 		}
 
 		// Advanced Mode gate + Studio entry, moved onto its own row

@@ -329,6 +329,52 @@ things.
   warning and the README's headline requirement. Worth one deliberate test
   (start in native fullscreen, toggle the filter, read the Nexus log for an
   `Apply` rejection) rather than another round of guessing.
+- **"Can the filter apply to the GW2 window only?" - the answer is no with
+  the current architecture, and the two ways to change that** (asked by Emi
+  2026-09-12: "wir teilen den Screen in 2 Layer, GW2 und Rest"). Recorded in
+  full because it is the obvious question and it will be asked again.
+  - **The literal idea is not available.** `MagSetFullscreenColorEffect` takes
+    a matrix and nothing else - no region, no window, no monitor. DWM composes
+    every window into one surface and the effect applies to that composition.
+    There is no per-window colour matrix anywhere in the Windows API
+    (`DwmSetWindowAttribute` covers border/caption colours, not transforms).
+    So "two layers" cannot be expressed at this layer at all.
+  - **Option A - a magnifier overlay window.** The Magnification API also has
+    a *windowed* mode: a `WC_MAGNIFIER` control with `MagSetColorEffect`,
+    sized over the GW2 client area at 1:1, with `MagSetWindowFilterList`
+    excluding the overlay itself so it does not feed back. This is how Windows
+    Magnifier works. Genuinely window-scoped, and genuinely bad here: it is a
+    topmost window, so anything that legitimately appears over GW2 (Discord
+    popup, Nexus, a dialog) ends up underneath a tinted copy of the game; it
+    costs a full-screen copy per refresh (3840x2160 on Emi's machine) on top
+    of a game already presenting at 60-100fps; and it does not work over
+    exclusive fullscreen at all.
+  - **Option B - a post-process pass on GW2's own swapchain.** One fullscreen
+    quad with the colour matrix as a pixel shader, drawn in the Nexus render
+    callback. Window-scoped by construction: nothing outside the game's frame
+    is touched, ever. Cheap on the GPU. Works in every window mode.
+    It would also dissolve most of what this file spends its length on - the
+    rejected clears, the stuck effects, the foreground gate, the "OS blocked"
+    confusion, the Disable-leaves-it-on bug - because all of those exist only
+    because we drive a **system-wide accessibility feature** to do a
+    **per-game** job. And the pipeline-composition problem from 2026-09-11
+    (`Sim(M x colour)`, COLOR_MATH.md section 8) exists for the same reason:
+    with a shader the correction and the tag overlay would sit in the same
+    stage and compose naturally instead of one happening after the other.
+  - **What blocks Option B is a project rule, not a technical fact**:
+    AGENTS.md section 4 says no D3D11 hooking, by design. Worth noting that
+    Nexus *hands* addons the swapchain (`APIDefs->SwapChain`) and a render
+    callback, and `HybridScanner` already reads the backbuffer through it - so
+    the rule may be narrower in spirit ("do not inject/hook like ReShade")
+    than it reads ("never touch D3D"). Emi's call to interpret, and a real
+    decision rather than a refactor.
+  - **What is shipped instead**: the same separation expressed in *time*
+    rather than in *space*. `SystemWide` off (the default) means the effect is
+    installed only while GW2 is the foreground window, and the screen-effect
+    gate (2026-09-12) is what finally made that reliable. For a maximized or
+    borderless GW2 on a single monitor that is behaviourally identical to
+    window-scoped filtering. It differs only when another window is *visible
+    next to* a focused GW2 - a genuinely windowed setup.
 - **"Regional Hybrid Mode" (4-quadrant per-region filter) - a genuinely new
   proposal, not a variant of the Roman Space Telescope idea above.** Came
   from the same Devin brainstorm session 2026-09-10: split the screen into 4
@@ -1791,6 +1837,34 @@ Both failure modes were silent passes. Same lesson as the ratchet: run the
 check against a deliberately broken tree before believing it.
 
 Build 40, 26/26 unit tests, 25/25 audit + 1 informational.
+
+### Seventh pass: two questions about scope
+
+**"Does the closed-on-start rule cover all windows?"** Yes, and checked rather
+than restated: `Settings::Load` forces all four `Show*Window` flags false, the
+new audit check 6.4 pins that, and Emi's live
+`addons/cba/settings.ini` reads `ShowMainWindow=0 / ShowGraphWindow=0 /
+ShowLabWindow=0 / ShowVisionLab=0` with `Enabled=0`. Vision Lab has no second
+opening path - `RegisterCloseOnEscape` only ever writes false, and the render
+gate is a plain `if (ShowVisionLabWindow)`. If it opened on a launch recently,
+it was a build from before that policy, not a live hole.
+
+**"Filter off when I look at the browser, cleanly back on afterwards."** That
+is exactly what `SystemWide` **off** does, and it is the default - but Emi's
+settings.ini had `SystemWide=1`. Worth understanding why rather than just
+flipping it: until the screen-effect gate was fixed earlier the same day, this
+checkbox had **no observable effect** - the filter stayed on in the background
+either way. Any value sitting in a settings.ini today was therefore chosen
+while the setting did nothing. It now decides whether the browser you alt-tab
+into gets tinted, so the base panel spells the consequence out live underneath
+it, in one line, instead of hiding it in a tooltip nobody opens.
+
+The larger question it came with - "can we filter only the GW2 window" - is
+recorded as its own decision entry under "Known loose ends" rather than
+answered in a session log, because it is a standing architectural question and
+not a thing that happened on a Friday.
+
+Build 41, 26/26 unit tests, 25/25 audit + 1 informational.
 
 ## Build feedback loop
 
