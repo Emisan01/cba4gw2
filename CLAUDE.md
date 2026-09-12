@@ -444,6 +444,16 @@ Two genuinely separate systems, easy to conflate:
    source, "Free Filter," used to merge in here too — removed 2026-09-09, see
    "Known loose ends".)
 
+**Two platform facts established 2026-09-12, before you reason about this
+section:** (1) `MagUninitialize()` does **not** remove an installed fullscreen
+colour effect - only a successful `MagSetFullscreenColorEffect` does, so
+"uninitialize to clean up" is not a shortcut. (2) That call is refused far more
+often for a *clear* than for an *apply*: the Nexus log contains only
+`(Clear) REJECTED` lines. The working theory is thread affinity
+(`MagInitialize` runs on the render thread, the clears used to run from the
+WndProc, Watchdog and Nexus loader threads); `ClearScreenEffectForShutdown()`
+logs which escalation step succeeds so the next log settles it.
+
 **Stuck-effect bug (2026-09-09, Emi's fullscreen testing)**: `ApplyThrottled()`
 skips calling `Apply()` again whenever the requested matrix is unchanged from
 the last one (saves redundant DWM IPC calls) - but `s_hasApplied`/
@@ -1666,6 +1676,61 @@ kept Eye Comfort itself out of sight until 2026-09-11. Every value is
 ParameterRegistry-backed, so this is a second *binding*, not a second editor.
 
 Build 37, 26/26 unit tests, 24/24 audit + 1 informational.
+
+### Fifth pass: Nexus "Disable" left the filter on and the addon dead
+
+Emi, immediately after: clicked **Disable** in Nexus, the colour effect kept
+running, and clicking Enable again did nothing at all.
+
+Two separate defects, both in `AddonUnload()`, and the second one is the more
+embarrassing of the pair.
+
+**1. The clear at unload is the same rejected call as everywhere else.**
+`AddonUnload()` runs on Nexus's loader thread; `MagInitialize()` ran on the
+render thread. One plain `Clear()`, rejected, and there is no code left in the
+process to try again - the effect just stays on the display.
+
+Two facts came out of this that were previously assumptions:
+- **`MagUninitialize()` does not remove an installed fullscreen colour
+  effect.** `Shutdown()` called it and the screen stayed tinted. A successful
+  `MagSetFullscreenColorEffect` is the only way out. Worth knowing before
+  anyone reaches for it as a cleanup shortcut again.
+- The rejection is not specific to being in the background - Emi was looking at
+  the Nexus window inside GW2 when he clicked Disable.
+
+`ClearScreenEffectForShutdown()` now escalates: the plain call, then five
+20ms-spaced retries, then a rebind of the Magnification session to the
+unloading thread (`MagUninitialize` + `MagInitialize` there) and one more try.
+Whichever step works is written to the Nexus log, so the next report answers
+which reading was right instead of us arguing it again. If all of them fail it
+logs the recovery path (Windows Settings > Accessibility > Colour filters,
+toggle on then off) rather than leaving the user with a tinted screen and no
+idea why.
+
+**2. `s_deferredInitDone` never got reset, so re-enabling could not work.**
+This file already recorded that Nexus's disable/enable does not necessarily
+unload the DLL (see the `FeatureModuleRegistry` note from 2026-09-09) - and
+then the same trap caught us one static further along. `Shutdown()` sets the
+controller's own `_initialized` to false, but `s_deferredInitDone` stayed
+**true**, so `EnsureDeferredInitialized()` returned at its first line and
+`MagInitialize()` was never called again. Every `Apply()` and `Clear()` bailed
+out at their `if (!_initialized)` guard. The addon was alive, with a dead
+Magnification session and no path back to a live one.
+
+`AddonUnload()` now resets the whole session state - `s_deferredInitDone`, the
+init-retry cooldown (hoisted out of function-local statics for exactly this
+reason), the apply bookkeeping, and the compare-hold flag.
+
+**3. And the leftover effect from a *previous* session had nobody to clear it
+either.** On a fresh load with the filter off, `s_hasApplied` is false, so
+nothing thought there was anything to clear - while the display still carried
+whatever the last session left behind. `EnsureDeferredInitialized()` now clears
+explicitly when the filter is off, right after `MagInitialize()` succeeds:
+the first moment in the process where the call is known to work, on the thread
+where it is known to work, and therefore the right moment to insist that "off"
+means a neutral screen.
+
+Build 39, 26/26 unit tests, 24/24 audit + 1 informational.
 
 ## Build feedback loop
 

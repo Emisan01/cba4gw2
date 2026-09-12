@@ -64,6 +64,14 @@ namespace
 	std::atomic<bool> s_watchdogRunning{false};
 	std::thread s_watchdogThread;
 
+	// EnsureDeferredInitialized's retry cooldown. These were function-local
+	// statics until 2026-09-12; they live here so AddonUnload can reset them
+	// along with the rest of the session state. A stale cooldown would only
+	// have cost a second, but "state that survives an unload" is exactly the
+	// bug class this whole change is about, so it is not left half-done.
+	std::chrono::steady_clock::time_point s_lastInitAttempt{};
+	bool s_everAttemptedInit = false;
+
 	bool RoughlyEqual(const MAGCOLOREFFECT& a, const MAGCOLOREFFECT& b)
 	{
 		for (int i = 0; i < 5; i++)
@@ -91,6 +99,67 @@ namespace
 		// else: leave s_hasApplied = true - the next Recompute()/Watchdog
 		// tick (every frame or every 50ms) will see it's still "applied" and
 		// retry the clear instead of silently giving up.
+	}
+
+	// Last chance to get the screen back (2026-09-12). Plain Clear() at unload
+	// is not reliable: the Nexus log only ever shows `(Clear) REJECTED`, and
+	// AddonUnload runs on Nexus's loader thread while MagInitialize() ran on
+	// the render thread. Emi hit the consequence directly - clicked Disable in
+	// Nexus, and the colour effect kept running with no code left in the
+	// process to remove it.
+	//
+	// Also now known from that same report: MagUninitialize() does NOT remove
+	// an installed fullscreen colour effect. Shutdown() called it and the
+	// screen stayed tinted. So a successful MagSetFullscreenColorEffect is the
+	// only way out, and this escalates until it gets one:
+	//   1. the plain call, which is all that used to happen
+	//   2. a few retries, in case the rejection is transient
+	//   3. rebind the Magnification session to THIS thread (uninit + init here)
+	//      and try once more - directly targets the thread-affinity reading,
+	//      and costs nothing because we are tearing down anyway
+	// Whichever step works is logged, so the next Nexus log answers the
+	// question instead of us reasoning about it again.
+	void ClearScreenEffectForShutdown()
+	{
+		auto& controller = GetColorEffectController();
+
+		bool cleared = controller.Clear();
+		const char* how = "first try";
+
+		for (int attempt = 0; !cleared && attempt < 5; ++attempt)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(20));
+			cleared = controller.Clear();
+			how = "retry";
+		}
+
+		if (!cleared)
+		{
+			controller.Shutdown();
+			if (controller.Initialize())
+			{
+				cleared = controller.Clear();
+				how = "after rebinding the Magnification session to the unload thread";
+			}
+		}
+
+		controller.Shutdown();
+
+		if (APIDefs && APIDefs->Log)
+		{
+			if (cleared)
+			{
+				char msg[192];
+				std::snprintf(msg, sizeof(msg), "Screen effect cleared on shutdown (%s).", how);
+				APIDefs->Log(ELogLevel_INFO, "cba4gw2", msg);
+			}
+			else
+			{
+				APIDefs->Log(ELogLevel_WARNING, "cba4gw2",
+					"Could not clear the screen effect on shutdown - the OS refused every attempt. "
+					"Recover with Windows Settings > Accessibility > Colour filters (toggle on, then off), or restart GW2.");
+			}
+		}
 	}
 
 	void ApplyThrottled(const MAGCOLOREFFECT& aEffect, bool aForce = false)
@@ -136,13 +205,11 @@ namespace cba
 		// flight this early per AGENTS.md section 3). Retrying (throttled, so this can't
 		// spam MagInitialize()/the log every frame) is the correct fix - see
 		// CLAUDE.md for the fuller story.
-		static auto s_lastAttempt = std::chrono::steady_clock::time_point{};
-		static bool s_everAttempted = false;
 		auto now = std::chrono::steady_clock::now();
-		if (s_everAttempted && std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastAttempt).count() < 1000)
+		if (s_everAttemptedInit && std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastInitAttempt).count() < 1000)
 			return;
-		s_everAttempted = true;
-		s_lastAttempt = now;
+		s_everAttemptedInit = true;
+		s_lastInitAttempt = now;
 
 		if (GetColorEffectController().Initialize())
 		{
@@ -150,6 +217,20 @@ namespace cba
 			if (CurrentSettings.Enabled)
 			{
 				Recompute(/*aForce=*/true);
+			}
+			else
+			{
+				// Start from a known screen (2026-09-12). A colour effect
+				// installed by a previous session can still be on the display
+				// when we get here - a crash, a forced uninstall, or the
+				// rejected-clear-at-unload case Emi hit - and our own
+				// bookkeeping says nothing is applied, so nothing would ever
+				// clear it. This is the first moment in the process where a
+				// MagSetFullscreenColorEffect call is known to work (same
+				// thread that just succeeded at MagInitialize), so it is also
+				// the right moment to insist the screen is neutral when the
+				// filter is off.
+				GetColorEffectController().Clear();
 			}
 		}
 		else
@@ -1431,12 +1512,33 @@ namespace cba
 		// independent layers covering that class of bug now.
 		try
 		{
-			GetColorEffectController().Clear();
-			GetColorEffectController().Shutdown();
+			ClearScreenEffectForShutdown();
 		}
 		catch (...)
 		{
 		}
+
+		// Everything below this line is state that MUST NOT survive into the
+		// next AddonLoad (2026-09-12, Emi's report: "Disable geklickt, Filter
+		// lief weiter, und mit Enable reagiert er jetzt nicht mehr").
+		//
+		// Nexus's disable/enable does not necessarily unload the DLL - this
+		// file already said so in the FeatureModuleRegistry note - so these
+		// are not fresh on the way back in. `s_deferredInitDone` staying true
+		// while Shutdown() had already set the controller's own _initialized
+		// to false was the whole of the second half of that report: every
+		// Apply() and Clear() returned at their `if (!_initialized)` guard,
+		// and EnsureDeferredInitialized() returned at its own first line, so
+		// nothing ever called MagInitialize() again. The addon was alive with
+		// a dead Magnification session and no path back to a live one.
+		s_deferredInitDone.store(false);
+		s_everAttemptedInit = false;
+		{
+			std::lock_guard<std::mutex> lock(s_recomputeMutex);
+			s_hasApplied = false;
+			s_lastAppliedEffect = MAGCOLOREFFECT{};
+		}
+		s_compareHoldActive.store(false);
 
 		try
 		{
