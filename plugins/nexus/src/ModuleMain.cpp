@@ -1113,18 +1113,38 @@ namespace cba
 		RenderEmbeddedOptions();
 	}
 
-	// Runs before ImGui::NewFrame and before ImGui's draw data reaches the
-	// backbuffer (Nexus UiContext.cpp:428 vs 491), so the correction lands on
-	// the game's frame and CBA's own interface stays true colour. Under DWM
-	// the panel, the swatches and Vision Lab's anomaloscope were all corrected
-	// too - a clinical test viewed through the correction it measures.
-	void AddonPreRender()
+	// PostRender, not PreRender - corrected 2026-09-12 before it could ship.
+	//
+	// PreRender put the colour pass before ImGui, which had the pleasing side
+	// effect that CBA's own interface stayed true colour. It also quietly
+	// broke two things that the enhancer's whole derivation rests on
+	// (COLOR_MATH.md section 8): "everything on screen gets M".
+	//   - HybridScanner::ScanFrame runs in ERenderType_Render, i.e. AFTER
+	//     PreRender, so it would have matched an ALREADY CORRECTED frame
+	//     against raw reference tag colours.
+	//   - The tag overlay is an ImGui background-draw-list image, also drawn
+	//     in Render, so the replacement colours would never have received M -
+	//     while the enhancer picked them assuming they would. It would have
+	//     over-corrected every marker, and only while Commander Tag Contrast
+	//     was on, which is the worst possible way to find out.
+	//
+	// PostRender restores the invariant exactly: the pass sees game plus
+	// overlay plus UI, the same content DWM saw, still before Present. That
+	// makes this backend a true drop-in, so every existing property, unit test
+	// and derivation stays valid rather than needing to be re-argued.
+	//
+	// The true-colour UI is worth having and is NOT abandoned - it just needs
+	// the enhancer to carry two matrices (one for game pixels, one for overlay
+	// pixels) instead of one, which is a colour-science change that deserves
+	// its own step rather than riding along inside a backend swap.
+	void AddonPostRender()
 	{
 		if (!ShouldShaderPassRun())
 		{
 			g_perfShaderPassMs = 0.0;
 			return;
 		}
+
 
 		IDXGISwapChain* swapChain = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
 		if (!swapChain) return;
@@ -1530,7 +1550,7 @@ namespace cba
 			if (APIDefs->Renderer.Register)
 			{
 				APIDefs->Renderer.Register(ERenderType_OptionsRender, AddonOptions);
-				APIDefs->Renderer.Register(ERenderType_PreRender, AddonPreRender);
+				APIDefs->Renderer.Register(ERenderType_PostRender, AddonPostRender);
 				APIDefs->Renderer.Register(ERenderType_Render, AddonRenderWindow);
 			}
 
@@ -1667,7 +1687,7 @@ namespace cba
 					APIDefs->WndProc.Deregister(AddonWndProc);
 				if (APIDefs->Renderer.Deregister)
 				{
-					APIDefs->Renderer.Deregister(AddonPreRender);
+					APIDefs->Renderer.Deregister(AddonPostRender);
 					APIDefs->Renderer.Deregister(AddonRenderWindow);
 					APIDefs->Renderer.Deregister(AddonOptions);
 				}

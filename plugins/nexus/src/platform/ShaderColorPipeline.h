@@ -26,13 +26,24 @@ namespace cba
 	// module, no process or memory access of any kind. It is strictly less
 	// machinery than the readback path that has been shipping for weeks.
 	//
-	// It also runs in ERenderType_PreRender, which Nexus dispatches BEFORE
-	// ImGui::NewFrame and before ImGui's draw data reaches the backbuffer
-	// (UiContext.cpp:428 vs 491). Consequence worth stating out loud: the
-	// correction lands on the game and NOT on CBA's own interface. Under DWM
-	// everything was corrected including our own colour swatches and Vision
-	// Lab's anomaloscope - i.e. the clinical test was being viewed through the
-	// correction it exists to measure. That stops being true here.
+	// It runs in ERenderType_PostRender (UiContext.cpp:495), still inside the
+	// Present detour and so still before the frame is shown. That slot is
+	// deliberate: the pass sees game plus tag overlay plus UI - exactly the
+	// content the DWM effect saw - which keeps the enhancer's invariant
+	// "everything on screen gets M" true and makes this a drop-in replacement
+	// rather than a change of semantics.
+	//
+	// It sat in PreRender for one build. That corrected the game before ImGui,
+	// which left CBA's own interface true colour - genuinely desirable, since
+	// under DWM even Vision Lab's anomaloscope was viewed through the
+	// correction it exists to measure. It also silently broke two things:
+	// HybridScanner::ScanFrame (ERenderType_Render, i.e. later) would have
+	// matched an already-corrected frame against raw reference tag colours,
+	// and the tag overlay - also drawn in Render - would never have received
+	// M while the enhancer chose its colours assuming it would. Getting the
+	// true-colour UI back properly means giving the enhancer two matrices,
+	// one for game pixels and one for overlay pixels; that is a colour-science
+	// change and belongs in its own step, not inside a backend swap.
 	class ShaderColorPipeline
 	{
 	public:
