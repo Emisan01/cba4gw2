@@ -17,12 +17,17 @@ namespace cba
 {
 	static std::atomic<bool> s_c64SoundEnabled{true};
 	static std::atomic<bool> s_c64AudioRunning{false};
+	static std::thread s_c64AudioThread;
 
 	void StartC64Audio()
 	{
-		if (s_c64AudioRunning.load()) return;
-		s_c64AudioRunning.store(true);
-		std::thread th([]() {
+		if (s_c64AudioRunning.exchange(true)) return;
+
+		if (s_c64AudioThread.joinable()) {
+			s_c64AudioThread.join();
+		}
+
+		s_c64AudioThread = std::thread([]() {
 			// Classic 8-bit chiptune melody (C major / G / Am / F arpeggios)
 			const struct Note { DWORD freq; DWORD dur; } kTrack[] = {
 				{ 523, 85 }, { 659, 85 }, { 784, 85 }, { 1046, 110 }, { 784, 80 }, { 659, 80 },
@@ -48,12 +53,14 @@ namespace cba
 			}
 			s_c64AudioRunning.store(false);
 		});
-		th.detach();
 	}
 
 	void StopC64Audio()
 	{
 		s_c64AudioRunning.store(false);
+		if (s_c64AudioThread.joinable()) {
+			s_c64AudioThread.join();
+		}
 	}
 
 	void RenderC64CreditsOverlay()
