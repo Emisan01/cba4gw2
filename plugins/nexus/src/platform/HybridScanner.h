@@ -135,8 +135,9 @@ namespace cba
 		
 		// Motion Detection
 		float mMotionFader = 1.0f;
-		
 		bool mOverlayReady = false;
+		int mOverlayReadyW = 0;
+		int mOverlayReadyH = 0;
 		
 		int mTexWidth = 0;
 		int mTexHeight = 0;

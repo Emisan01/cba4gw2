@@ -17,7 +17,6 @@ namespace cba
 	std::atomic<bool> s_focusLabWindow{false};
 	std::atomic<bool> s_focusVisionLabWindow{false};
 
-	std::atomic<bool> s_safeStartPending{false};
 	std::atomic<bool> s_showC64Credits{false};
 	std::atomic<bool> s_deferredInitDone{false};
 	bool s_showGraphOpacityDrawer{false};

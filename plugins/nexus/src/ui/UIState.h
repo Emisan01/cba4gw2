@@ -24,7 +24,6 @@ namespace cba
 	extern std::atomic<bool> s_focusLabWindow;
 	extern std::atomic<bool> s_focusVisionLabWindow;
 
-	extern std::atomic<bool> s_safeStartPending;
 	extern std::atomic<bool> s_showC64Credits;
 	extern std::atomic<bool> s_deferredInitDone;
 	extern bool s_showGraphOpacityDrawer;
@@ -196,6 +195,7 @@ namespace cba
 	// the two aren't equivalent.
 	void ResetUiLayout();
 
+	void ResetMainWindowState();
 	void StartC64Audio();
 	void StopC64Audio();
 

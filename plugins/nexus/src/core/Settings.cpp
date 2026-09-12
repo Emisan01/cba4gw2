@@ -111,6 +111,7 @@ namespace cba
 			}
 			else if (key == "DiagnosisHint") s.DiagnosisHint = value;
 			else if (key == "EnableHybrid")  s.EnableHybridMode = (value == "1");
+			else if (key == "SyncArcDps")    s.SyncArcDpsTheme = (value == "1");
 			else if (key == "DebugMode")     s.DebugMode = (value == "1");
 			else if (key == "UiTheme")       s.UiTheme = std::clamp(safeStoi(value, 0), 0, 1);
 			else if (key == "AdvancedModeUnlocked") s.AdvancedModeUnlocked = (value == "1");
@@ -128,6 +129,10 @@ namespace cba
 			else if (key == "AutoBrightness")    s.AutoBrightness = (value == "1");
 			else if (key == "AlwaysDirectStart") s.AlwaysDirectStart = (value == "1");
 			else if (key == "ShowMainWindow")   s.ShowMainWindow = (value == "1");
+			else if (key == "ShowMiniHUD")      s.ShowMiniHUD = (value == "1");
+			else if (key == "MiniHudBgAlpha")   s.MiniHudBgAlpha = std::stof(value);
+			else if (key == "MiniHudTitleBar")  s.MiniHudTitleBar = (value == "1");
+			else if (key == "MiniHudBorders")   s.MiniHudBorders = (value == "1");
 			else if (key == "ShowGraphWindow")  s.ShowGraphWindow = (value == "1");
 			else if (key == "ShowLabWindow")    s.ShowLabWindow = (value == "1");
 			else if (key == "ShowVisionLab")    s.ShowVisionLabWindow = (value == "1");
@@ -241,6 +246,7 @@ namespace cba
 
 		// All windows start closed by default - user opens them via Nexus icon or hotkey
 		s.ShowMainWindow = false;
+		s.ShowMiniHUD = false;
 		s.ShowGraphWindow = false;
 		s.ShowLabWindow = false;
 		s.ShowVisionLabWindow = false;
@@ -284,6 +290,7 @@ namespace cba
 		file << "Language=" << Language << "\n";
 		file << "DiagnosisHint=" << DiagnosisHint << "\n";
 		file << "EnableHybrid=" << (EnableHybridMode ? "1" : "0") << "\n";
+		file << "SyncArcDps=" << (SyncArcDpsTheme ? "1" : "0") << "\n";
 		file << "DebugMode=" << (DebugMode ? "1" : "0") << "\n";
 		file << "UiTheme=" << UiTheme << "\n";
 		file << "AdvancedModeUnlocked=" << (AdvancedModeUnlocked ? "1" : "0") << "\n";
@@ -301,6 +308,10 @@ namespace cba
 		file << "AutoBrightness=" << (AutoBrightness ? "1" : "0") << "\n";
 		file << "AlwaysDirectStart=" << (AlwaysDirectStart ? "1" : "0") << "\n";
 		file << "ShowMainWindow=" << (ShowMainWindow ? "1" : "0") << "\n";
+		file << "ShowMiniHUD=" << (ShowMiniHUD ? "1" : "0") << "\n";
+		file << "MiniHudBgAlpha=" << MiniHudBgAlpha << "\n";
+		file << "MiniHudTitleBar=" << (MiniHudTitleBar ? "1" : "0") << "\n";
+		file << "MiniHudBorders=" << (MiniHudBorders ? "1" : "0") << "\n";
 		file << "ShowGraphWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";
 		file << "ShowLabWindow=" << (ShowLabWindow ? "1" : "0") << "\n";
 		file << "ShowVisionLab=" << (ShowVisionLabWindow ? "1" : "0") << "\n";

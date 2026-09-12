@@ -1,17 +1,21 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include "MainWindow.h"
-#include "VisionLab.h"
-#include "UIState.h"
-#include "Theme.h"
-#include "L10n.h"
+#include "ui/MainWindow.h"
+#include "ui/SensorGraphHUD.h"
+#include "ui/UIState.h"
+#include "ui/Theme.h"
+#include "ui/L10n.h"
+#include "ui/ImGuiSafe.h"
+
+#include "core/NexusEcosystem.h"
+#include <imgui.h>
 #include "ColorMatrix.h"
 #include "ColorMath.h"
-#include "SensorGraphHUD.h"
 #include "FilterLab.h"
 #include "CreditsDialog.h"
 #include "HybridScanner.h"
+#include "VisionLab.h"
 #include "WindowMode.h"
 #include "ColorEffectController.h"
 #include "ParameterRegistry.h"
@@ -46,6 +50,16 @@ namespace cba
 	static bool s_setupPendingMixed = false;
 	static float s_setupStrength = 0.6f;     // proposed severity, raised by the user in step 3
 	static bool s_setupDismissed = false;    // user said "I can tell them all apart" this session
+
+	void ResetMainWindowState()
+	{
+		s_setupStep = 0;
+		s_setupAxisRedGreen = true;
+		s_setupPendingType = BalanceType::Deutan;
+		s_setupPendingMixed = false;
+		s_setupStrength = 0.6f;
+		s_setupDismissed = false;
+	}
 
 	void DrawContrastTestSwatches(bool isDe, const double aCorrMat[3][3], bool& saveNeeded)
 	{
@@ -773,8 +787,7 @@ namespace cba
 		ImGui::Spacing();
 		
 		// ── Content Area ──────────────────────────────────────────
-		ImGui::BeginChild("##MainWindowScrollContent"
-, ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+		cba::ScopedChild scrollContent("##MainWindowScrollContent", ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
 
 		if (s_ActiveTab == 2)
@@ -784,10 +797,10 @@ namespace cba
 
 // ── Section 1: Farbprofil & Korrektur ────────────────────────────────
 		if (s_ActiveTab == 0)
-		
-				{
+		{
+			{
 			// Tile: Vision Assessment (Sehtest) & Profil
-			ImGui::BeginChild("Tile_Profile", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
+			cba::ScopedChild tileProfile("Tile_Profile", ImVec2(0, 100), true, ImGuiWindowFlags_MenuBar);
 			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Farbprofil & Korrektur"); ImGui::EndMenuBar(); }
 
 auto applyDerivedProfile = [&](BalanceType aType, bool aMixed, float aSeverity) {
@@ -997,15 +1010,15 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 					s_setupStrength = 0.6f;
 					s_setupStep = 1;
 				}
+			}
 
-				}
+			}
 
-
-			ImGui::EndChild();
 			ImGui::Spacing();
 			
 			// Tile: Commander Tag
-			ImGui::BeginChild("Tile_ComTag", ImVec2(0, 310), true, ImGuiWindowFlags_MenuBar);
+			{
+			cba::ScopedChild tileComTag("Tile_ComTag", ImVec2(0, 320), true, ImGuiWindowFlags_MenuBar);
 			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Commander-Tag Enhancer"); ImGui::EndMenuBar(); }
 // ── Commander-Tag & Contrast Enhancer Block ─────────────────────
 			// The on/off toggle + 3 profile-select buttons removed here
@@ -1129,11 +1142,13 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 			}
 
 			
-			ImGui::EndChild();
+			}
+			
 			ImGui::Spacing();
 			
 			// Tile: Curve View
-			ImGui::BeginChild("Tile_CurveView", ImVec2(0, 160), true, ImGuiWindowFlags_MenuBar);
+			{
+			cba::ScopedChild tileCurveView("Tile_CurveView", ImVec2(0, 200), true, ImGuiWindowFlags_MenuBar);
 			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Sensor Matrix Visualisierung"); ImGui::EndMenuBar(); }
 // Curve View is unconditional from here (see note above) - it shows
 			// the currently active Type/Severity/Mixed correction regardless of
@@ -1261,6 +1276,8 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 			ImGui::Spacing();
 			ImGui::Separator();
 			ImGui::Spacing();
+			
+			}
 
 			int usedCount = 0;
 			int firstEmptySlot = -1;
@@ -1623,14 +1640,13 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 			}
 			
 	
-			ImGui::EndChild();
 	}
 
 		// ── Section 2: Eye Comfort (Helligkeit) ──────────────────────────────
 		if (s_ActiveTab == 1)
 		
 		{
-			ImGui::BeginChild("Tile_Eye", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
+			cba::ScopedChild tileEye("Tile_Eye", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
 			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Eye Comfort Settings"); ImGui::EndMenuBar(); }
 
 			static int s_lastHdrCheckFrameDet = -1;
@@ -1811,7 +1827,7 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 		if (s_ActiveTab == 3)
 		
 		{
-			ImGui::BeginChild("Tile_System", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
+			cba::ScopedChild tileSystem("Tile_System", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
 			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "System & Backend"); ImGui::EndMenuBar(); }
 
 			// Reuses curWinMode from the fullscreen banner above rather than
@@ -1842,7 +1858,54 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 			} else {
 				ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.25f, 1.0f), "%s", t.FocusWatchdogBackground);
 			}
+
+
+			ImGui::Spacing();
+			PanelSection(isDe ? "Oekosystem & Integration" : "Ecosystem & Integration",
+				         isDe ? "Erkennung und Kompatibilitaet mit anderen Addons" : "Detection and compatibility with other addons");
+
+			bool hasArc = cba::NexusEcosystem::Get().IsArcDPSLoaded();
+			bool hasFastLoad = cba::NexusEcosystem::Get().IsFastLoadLoaded();
+
+			ImGui::TextColored(hasArc ? Theme::kTextCyanLicht : ImVec4(0.5f, 0.5f, 0.5f, 1.0f),
+				hasArc ? (isDe ? "[ArcDPS] Aktiv: Design-Sync verfuegbar" : "[ArcDPS] Active: Design-Sync available")
+				       : (isDe ? "[ArcDPS] Nicht erkannt" : "[ArcDPS] Not detected"));
+
+			if (hasArc) {
+				if (ImGui::Checkbox(isDe ? "ArcDPS Theme mit CBA synchronisieren" : "Synchronize ArcDPS Theme with CBA", &CurrentSettings.SyncArcDpsTheme)) {
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetTooltip(isDe ? "Passt die ArcDPS Fensterfarben (Hintergrund, Titel, Rahmen) automatisch an dein CBA-Profil an.\nWird beim Beenden des Spiels in die arcdps.ini geschrieben."
+					                       : "Automatically adjusts ArcDPS window colors (background, title, border) to match your CBA profile.\nWrites to arcdps.ini upon game exit.");
+				}
+			}
+
+			ImGui::TextColored(hasFastLoad ? Theme::kTextCyanLicht : ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
+				hasFastLoad ? (isDe ? "[FastLoad] Aktiv: Lade-Safe-Start aktiviert" : "[FastLoad] Active: Loading Safe-Start activated")
+				            : (isDe ? "[FastLoad] Nicht erkannt" : "[FastLoad] Not detected"));
+
+			ImGui::Spacing();
+			if (ImGui::Checkbox(isDe ? "Mini-HUD aktivieren (ArcDPS Style)" : "Enable Mini-HUD (ArcDPS Style)", &CurrentSettings.ShowMiniHUD))
+			{
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip(isDe ? "Zeigt ein minimalistisches schwebendes Info-HUD an, das sich am visuellen Stil von ArcDPS orientiert."
+				                       : "Shows a minimalist floating info HUD styled to match the ArcDPS design language.");
+			}
 			
+			if (CurrentSettings.ShowMiniHUD)
+			{
+				ImGui::Indent();
+				if (ImGui::SliderFloat(isDe ? "Hintergrund-Transparenz" : "Background Opacity", &CurrentSettings.MiniHudBgAlpha, 0.0f, 1.0f, "%.2f")) { changed = true; saveNeeded = true; }
+				if (ImGui::Checkbox(isDe ? "Titelleiste anzeigen" : "Show Title Bar", &CurrentSettings.MiniHudTitleBar)) { changed = true; saveNeeded = true; }
+				if (ImGui::Checkbox(isDe ? "Rahmen anzeigen" : "Show Borders", &CurrentSettings.MiniHudBorders)) { changed = true; saveNeeded = true; }
+				ImGui::Unindent();
+			}
+
 		}
 
 		// ── Section 4: Hybrid Modus (Beta) ────────────────────────────────────
@@ -2109,8 +2172,6 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.CreditsTooltip);
 			ImGui::Spacing();
 		}
-
-		ImGui::EndChild();
 
 		if (saveNeeded) {
 			CurrentSettings.Save(AddonDir);

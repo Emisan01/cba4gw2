@@ -24,8 +24,10 @@
 #include "SensorGraphHUD.h"
 #include "FilterLab.h"
 #include "VisionLab.h"
-#include "SafeStartGate.h"
 #include "CreditsDialog.h"
+#include "core/NexusGuard.h"
+#include "core/NexusEcosystem.h"
+#include "ui/MiniHUD.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -73,6 +75,7 @@ namespace
 	// bug class this whole change is about, so it is not left half-done.
 	std::chrono::steady_clock::time_point s_lastInitAttempt{};
 	bool s_everAttemptedInit = false;
+	static std::atomic<uint64_t> s_framesRendered = 0;
 
 	// Has GW2 been the foreground window at least once since this addon
 	// loaded? Gates SystemWide - see ShouldScreenEffectBeActive.
@@ -201,6 +204,7 @@ namespace cba
 {
 	void EnsureDeferredInitialized()
 	{
+		if (s_framesRendered.load() < 60) return;
 		if (s_deferredInitDone.load()) return;
 
 		// Retry-with-cooldown, not give-up-forever. Regression note: an earlier
@@ -1254,7 +1258,7 @@ namespace cba
 
 	void AddonOptions()
 	{
-		if (!ImGui::GetCurrentContext()) return;
+		CBA_GUARD_RENDER_CONTEXT();
 		EnsureDeferredInitialized();
 		RenderEmbeddedOptions();
 	}
@@ -1285,6 +1289,9 @@ namespace cba
 	// its own step rather than riding along inside a backend swap.
 	void AddonPostRender()
 	{
+		CBA_GUARD_RENDER_CONTEXT();
+		s_framesRendered++;
+
 		if (!ShouldShaderPassRun())
 		{
 			g_perfShaderPassMs = 0.0;
@@ -1314,20 +1321,10 @@ namespace cba
 
 	void AddonRenderWindow()
 	{
+		CBA_GUARD_RENDER_CONTEXT();
 		auto tStartTotal = std::chrono::high_resolution_clock::now();
 
-		// Safe Start Dialog Gate
-		if (s_safeStartPending.load() && ImGui::GetCurrentContext())
-		{
-			auto t0 = std::chrono::high_resolution_clock::now();
-			RenderSafeStartDialog();
-			auto t1 = std::chrono::high_resolution_clock::now();
-			g_perfSafeStartMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
-		}
-		else
-		{
-			g_perfSafeStartMs = 0.0;
-		}
+		g_perfSafeStartMs = 0.0;
 
 		// ── Deferred Warmup Gate ────────────────────────────────────────────────
 		// Wait 30 frames for stable GW2/D3D11/ArcDPS/NVIDIA initialization before DWM
@@ -1614,6 +1611,9 @@ namespace cba
 			g_perfVisionLabMs = 0.0;
 		}
 
+		cba::NexusEcosystem::Get().Update();
+		cba::MiniHUD::Get().Render();
+
 		auto tEndTotal = std::chrono::high_resolution_clock::now();
 		g_perfTotalImGuiMs = std::chrono::duration<double, std::milli>(tEndTotal - tStartTotal).count();
 	}
@@ -1695,18 +1695,6 @@ namespace cba
 			// Session Breadcrumb crash guard: mark session running
 			Settings::MarkRunning(AddonDir);
 
-			// Safe-Start Gate: Show warning dialog on crash or first run
-			if (CurrentSettings.SafeModeTriggered)
-			{
-				// Crash detected (lockfile exists): show warning, filter disabled by Settings::Load
-				s_safeStartPending.store(true);
-			}
-			else if (!CurrentSettings.AlwaysDirectStart)
-			{
-				// First run or user preference: show welcome dialog
-				s_safeStartPending.store(true);
-			}
-
 			// Escape closes windows
 			if (APIDefs->UI.RegisterCloseOnEscape)
 			{
@@ -1752,6 +1740,8 @@ namespace cba
 			// Start state watchdog thread (monitors focus transitions every 50ms)
 			s_watchdogRunning = true;
 			s_watchdogThread = std::thread(WatchdogLoop);
+
+			cba::NexusEcosystem::Get().Initialize();
 		}
 		catch (...)
 		{
@@ -1799,6 +1789,7 @@ namespace cba
 		// a dead Magnification session and no path back to a live one.
 		s_deferredInitDone.store(false);
 		s_everAttemptedInit = false;
+		s_framesRendered.store(0);
 		{
 			std::lock_guard<std::mutex> lock(s_recomputeMutex);
 			s_hasApplied = false;
@@ -1806,6 +1797,9 @@ namespace cba
 		}
 		s_compareHoldActive.store(false);
 		s_gw2EverForeground.store(false);
+
+		cba::ResetMainWindowState();
+		cba::StopC64Audio();
 
 		try
 		{
@@ -1864,6 +1858,7 @@ namespace cba
 				}
 			}
 
+			cba::NexusEcosystem::Get().Shutdown();
 			GetHybridScanner().Shutdown();
 		}
 		catch (...)

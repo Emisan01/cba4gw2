@@ -4,6 +4,18 @@
 
 namespace cba
 {
+	static void SafeTextureCopy(uint8_t* dest, const uint8_t* src, int lines, UINT destPitch, UINT srcPitch, UINT lineSize)
+	{
+		__try {
+			for (int y = 0; y < lines; ++y) {
+				memcpy(dest + y * destPitch, src + y * srcPitch, lineSize);
+			}
+		} __except (EXCEPTION_EXECUTE_HANDLER) {
+			// GPU mapping revoked by driver (e.g. during map load, resize, alt-tab).
+			// Safe to abandon this frame rather than crash GW2.
+		}
+	}
+
 	HybridScanner& GetHybridScanner()
 	{
 		static HybridScanner instance;
@@ -480,6 +492,8 @@ namespace cba
 		std::lock_guard<std::mutex> lock(mProblemsMutex);
 		mFinalOverlayBuffer = std::move(tempBuffer);
 		mOverlayReady = true;
+		mOverlayReadyW = outWidth;
+		mOverlayReadyH = outHeight;
 	}
 
 	void HybridScanner::ScanFrame(IDXGISwapChain* aSwapChain)
@@ -508,10 +522,8 @@ namespace cba
 						int outW = mTexWidth / 4;
 						int outH = mTexHeight / 4;
 
-						if (src && dest && mFinalOverlayBuffer.size() >= outW * outH * 4) {
-							for (int y = 0; y < outH; ++y) {
-								memcpy(dest + y * mapped.RowPitch, src + y * outW * 4, outW * 4);
-							}
+						if (src && dest && mOverlayReadyW == outW && mOverlayReadyH == outH && mFinalOverlayBuffer.size() >= outW * outH * 4) {
+							SafeTextureCopy(dest, src, outH, mapped.RowPitch, outW * 4, outW * 4);
 						}
 						context->Unmap(mOverlayTexture, 0);
 					}
@@ -614,9 +626,7 @@ namespace cba
 						}
 						
 						const uint8_t* src = static_cast<const uint8_t*>(mapped.pData);
-						for (int y = 0; y < mTexHeight; ++y) {
-							memcpy(&mPendingBuffer[y * mTexWidth * 4], src + y * mapped.RowPitch, mTexWidth * 4);
-						}
+						SafeTextureCopy(mPendingBuffer.data(), src, mTexHeight, mTexWidth * 4, mapped.RowPitch, mTexWidth * 4);
 						mPendingWidth = mTexWidth;
 						mPendingHeight = mTexHeight;
 						mHasNewData = true;

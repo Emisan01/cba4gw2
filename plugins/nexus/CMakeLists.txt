@@ -36,6 +36,7 @@ add_library(cba SHARED
     src/core/SelfTest.cpp
     src/core/FeatureModule.cpp
     src/core/FilterLayers.cpp
+    src/core/NexusEcosystem.cpp
     src/platform/Magnification.cpp
     src/platform/ShaderColorPipeline.cpp
     src/platform/FilterSensor.cpp
@@ -44,10 +45,10 @@ add_library(cba SHARED
     src/ui/UIState.cpp
     src/ui/Theme.cpp
     src/ui/MainWindow.cpp
+    src/ui/MiniHUD.cpp
     src/ui/SensorGraphHUD.cpp
     src/ui/FilterLab.cpp
     src/ui/VisionLab.cpp
-    src/ui/SafeStartGate.cpp
     src/ui/CreditsDialog.cpp
     thirdparty/imgui/imgui.cpp
     thirdparty/imgui/imgui_draw.cpp

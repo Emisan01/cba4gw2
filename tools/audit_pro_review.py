@@ -193,17 +193,13 @@ check("5. ImGui Resilience", "Dynamic ImGui Width Calculation (AGENTS.md rule)",
 
 # 5.3 Context Guards on all Entry Points
 ui_ctx_ok = True
-for f in ["MainWindow.cpp", "SensorGraphHUD.cpp", "FilterLab.cpp", "VisionLab.cpp", "SafeStartGate.cpp"]:
+for f in ["MainWindow.cpp", "SensorGraphHUD.cpp", "FilterLab.cpp", "VisionLab.cpp"]:
     with open(os.path.join(UI_DIR, f), "r", encoding="utf-8") as fh:
         if "ImGui::GetCurrentContext()" not in fh.read():
             ui_ctx_ok = False
 check("5. ImGui Resilience", "ImGui::GetCurrentContext Null-Checks across all Windows", ui_ctx_ok, "Prevents crash if called during context teardown")
 
-# 5.4 Safe-Start Crash Guard
-with open(os.path.join(CORE_DIR, "Settings.cpp"), "r", encoding="utf-8") as f:
-    settings_code = f.read()
-has_crash_guard = "cba_session.lock" in settings_code and "SafeModeTriggered" in settings_code
-check("5. ImGui Resilience", "Safe-Start Gate & Crash-Breadcrumb Recovery", has_crash_guard, "Disarms filter if previous session crashed ungracefully")
+# (Safe-Start Crash Guard check was removed because SafeStartGate was deliberately deleted)
 
 # =============================================================================
 # PILLAR 6: CODEBASE HEALTH (facts that used to rot inside CLAUDE.md)

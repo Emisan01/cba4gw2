@@ -25,6 +25,7 @@ namespace cba
 		std::string DiagnosisHint = ""; // freeform AQ/HRR diagnostic label for presets
 		bool EnableHybridMode = false; // toggles the experimental DXGI CPU readback layer
 		bool DebugMode = false; // toggles the developer metrics UI
+		bool SyncArcDpsTheme = false; // Sync CBA colors/styles to arcdps.ini
 
 		// Advanced/experimental visual theme - 0 = Classic (the only look
 		// this addon has ever had, stays the default so existing users see
@@ -88,6 +89,10 @@ namespace cba
 		bool CleanExit = true; // Set to 0 at runtime, set to 1 on graceful exit
 		bool SafeModeTriggered = false; // Runtime flag: true if previous run crashed
 		bool ShowMainWindow = false;
+		bool ShowMiniHUD = false;
+		float MiniHudBgAlpha = 0.5f;
+		bool MiniHudTitleBar = true;
+		bool MiniHudBorders = true;
 		bool ShowGraphWindow = false;
 		bool ShowLabWindow = false;
 		bool ShowVisionLabWindow = false;
