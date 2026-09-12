@@ -85,6 +85,26 @@ Two shapes worth knowing, both in Pillar 6 of the audit:
 **Before adding a new checking mechanism, put it on one of these three.** A
 fourth surface is how this problem started.
 
+**`platform/FilterSensor` (2026-09-12) is the one thing that is not on that
+list, and the exception is argued rather than assumed.** It observes something
+none of the three can reach: the rendered image, before and after the
+correction. The audit reads source text, the unit tests read pure maths,
+SelfTest reads in-process state — none of them can see a pixel.
+
+It is still not a fourth checking surface, because it does not check the
+*project*. It is a product feature that measures the *filter*, for the user,
+and its output is a number on screen rather than a pass/fail about the
+codebase. The distinction is load-bearing: when a sensor reading indicates a
+real defect, the assertion about it belongs in **SelfTest**, which already
+carries the shader-pipeline checks. Nothing about the repo's correctness is
+allowed to live only in the sensor.
+
+Worth knowing what it earned on its first real reading: at severity 0 with a
+1.25x gain it measured +16.2% where the matrix predicted +25%, because the
+shader clamps and a gain above 1.0 cannot brighten pixels already at maximum.
+No amount of source reading, unit testing or state inspection would have found
+that. That is the case for it existing at all.
+
 ## Commit / release attribution (read this before your first commit)
 
 Do **not** add `Co-Authored-By` (or any equivalent AI-attribution trailer) to
@@ -103,18 +123,35 @@ only governs going forward.)
 Windows/Nexus addon for Guild Wars 2 ("Color Balance Assist", not "Colorblind
 Assist" — deliberate rename, the color-vision-deficiency correction is the entry
 point but the tool is meant to be positioned broader). Ships as a native C++
-Nexus plugin (`plugins/nexus`, builds to `cba.dll`) using the Windows Magnification
-API for filtering — no D3D11 hooking, no overlay window, by design (see AGENTS.md
-§4). Originally a C#/WinForms prototype, then a TAC (Tyrian Art Companion) feature
-idea, now fully standalone.
+Nexus plugin (`plugins/nexus`, builds to `cba.dll`). Originally a C#/WinForms
+prototype, then a TAC (Tyrian Art Companion) feature idea, now fully standalone.
+
+**How the correction reaches the screen — check which branch you are on.**
+There are two delivery paths, selectable at runtime via
+`Settings.RenderBackend`:
+
+- **`0` — Windows Magnification API** (`MagSetFullscreenColorEffect`). A
+  screen-wide DWM colour transform. What shipped up to and including v1.11.0,
+  and the only path that exists on `main`.
+- **`1` — a pixel shader on GW2's own backbuffer**
+  (`platform/ShaderColorPipeline`). Added on the `v2-shader-core` branch
+  2026-09-12 and the default there. Nothing outside the game is touched.
+
+AGENTS.md §4's "no D3D11 hooking" rule is not violated by the second path, and
+that was checked rather than assumed — see the branch log at the bottom of this
+file for the line references in Emi's own Nexus checkout. The rule means "do
+not inject or hook like ReShade". Nexus installs the only hook involved and
+hands addons the swapchain; CBA had already been reading the rendered frame
+back through it for weeks.
 
 This local checkout is the current state of the project. Releases are cut as
-git tags (`v*`), which trigger `.github/workflows/release.yml` — latest is
-**v1.11.0** (2026-09-11). Release builds get their version from the tag via
-`-DCBA_RELEASE_TAG`; local dev builds instead carry a simple +1-per-build
-counter in `AddonDef.Version.Build` so Nexus's displayed version proves which
-compile is actually loaded. Semver applies to the tags: Major for breaks,
-Minor for features/larger rebuilds, Build/Patch for fixes.
+git tags (`v*`), which trigger `.github/workflows/release.yml` — latest tag is
+**v1.11.0** (2026-09-11); everything since is unreleased. Release builds get
+their version from the tag via `-DCBA_RELEASE_TAG`; local dev builds instead
+carry a simple +1-per-build counter in `AddonDef.Version.Build` so Nexus's
+displayed version proves which compile is actually loaded (find the current
+number in `plugins/nexus/tools/.build_counter`). Semver applies to the tags:
+Major for breaks, Minor for features/larger rebuilds, Build/Patch for fixes.
 
 ## The problem we're solving: UI "grip loss"
 
@@ -179,8 +216,17 @@ things.
      `ParameterRegistry.h`. Further migration here would be ceremony, not a
      fix - the registry rollout is functionally complete for what it was
      built to solve.
-2. **Then** the Core/Advanced UI split — not started. Worth doing once (1) is
-   further along, otherwise the split breaks again at the next feature.
+2. **Then** the Core/Advanced UI split — **arrived, by a different route than
+   planned** (2026-09-09 through 2026-09-12). It was never done as the single
+   mechanical pass described here. What happened instead: `AdvancedModeUnlocked`
+   gated the Studio behind a checkbox, the Nexus-embedded panel became the base
+   product with one job (PRODUCT_CONCEPT.md), and each pass moved individual
+   controls to the tier they belonged in. The litmus test from (1) is what made
+   that survivable — registry-backed controls could be moved between panels
+   without behaviour changes, which is exactly what the registry was built for.
+   Do not start a "real" Core/Advanced split now; the split exists, and the
+   remaining work is placement of individual controls, which Emi drives by
+   looking at the live panel.
 3. **Deferred until 1 and 2 are stable**: the slider-overscaling bug (now
    partially addressed — registry-backed sliders use `ImGuiSliderFlags_AlwaysClamp`
    plus a `ParamMeta`-level clamp on `Set`, which should be more robust than the
@@ -329,10 +375,11 @@ things.
   warning and the README's headline requirement. Worth one deliberate test
   (start in native fullscreen, toggle the filter, read the Nexus log for an
   `Apply` rejection) rather than another round of guessing.
-- **"Can the filter apply to the GW2 window only?" - the answer is no with
-  the current architecture, and the two ways to change that** (asked by Emi
-  2026-09-12: "wir teilen den Screen in 2 Layer, GW2 und Rest"). Recorded in
-  full because it is the obvious question and it will be asked again.
+- ~~**"Can the filter apply to the GW2 window only?"**~~ — **BUILT
+  2026-09-12** on `v2-shader-core`, option B below. The analysis is kept
+  because the reasoning is what made the decision defensible, and because the
+  discarded options explain why the shipped one looks the way it does. Asked by
+  Emi as "wir teilen den Screen in 2 Layer, GW2 und Rest".
   - **The literal idea is not available.** `MagSetFullscreenColorEffect` takes
     a matrix and nothing else - no region, no window, no monitor. DWM composes
     every window into one surface and the effect applies to that composition.
@@ -457,9 +504,15 @@ things.
   (`ActiveCorrectionMatrix`, `ColorStackMatrix`, `EffectiveDisplayMatrix`).
   Keeping those two in one place is deliberate — they drifted apart before
   (see the 2026-09-11 pipeline-composition entry below).
-- `platform/` — `Magnification.cpp`, `HybridScanner.{h,cpp}` (DXGI readback
-  worker + commander-tag/lab-filter highlight overlay — see "How filtering
-  actually composes" below), `WindowMode.{h,cpp}`.
+- `platform/` — `Magnification.cpp` (the DWM backend),
+  `ShaderColorPipeline.{h,cpp}` (the shader backend: fullscreen pass on GW2's
+  own backbuffer, plus the device-state discipline that goes with being a guest
+  in someone else's frame), `FilterSensor.{h,cpp}` (measures the frame before
+  and after the correction — the only honest measurement this tool can make of
+  its own effect; GPU mip chain down to 1x1, four bytes read back),
+  `HybridScanner.{h,cpp}` (DXGI readback worker + commander-tag/lab-filter
+  highlight overlay — see "How filtering actually composes" below),
+  `WindowMode.{h,cpp}`.
 - `ui/` — `MainWindow.cpp` (~90k, the bulk of the UI), `FilterLab.cpp`,
   `VisionLab.cpp`, `SensorGraphHUD.cpp`, `SafeStartGate.cpp`, `UIState.{h,cpp}`
   (the parallel atomics mentioned above), `CreditsDialog.cpp`, `Theme.h`, `L10n.h`.
@@ -469,6 +522,20 @@ things.
   raw-`WM_KEYDOWN` input path anymore, see below for why).
 
 ## How filtering actually composes (read this before touching Recompute/UpdateTagEnhancerConflicts)
+
+**Updated 2026-09-12**: everything below still describes what the two layers
+are and how they interact — that is unchanged. What changed is only *who
+paints layer 1*. Under `RenderBackend = 1` the same matrix is applied by a
+pixel shader in `ERenderType_PostRender` instead of by DWM, so wherever this
+section says "the DWM color transform", read "the screen-wide transform,
+delivered by whichever backend is selected".
+
+One invariant is load-bearing across both and must survive any future change
+here: **everything on screen gets M**. The shader pass runs in PostRender
+precisely so that the tag overlay and the UI receive the correction exactly as
+they did under DWM — the enhancer's whole derivation (COLOR_MATH.md section 8)
+assumes it, and a build that put the pass in PreRender silently broke it. See
+the branch log.
 
 Two genuinely separate systems, easy to conflate:
 
@@ -1346,10 +1413,17 @@ tags. Only shown while Auto-Com-Tag is on.
   duplicate (both are already read-only diagnostics), lower priority than
   the structural work above.
 - Commander Tag pre/post-DWM double-transform, slider-overscaling,
-  `DisableHotloading` CI split, and the D-tier items (5 ungoverned
+  `DisableHotloading` CI split, and the D-tier items (ungoverned
   `Enabled=true` sites, OS-banner sync, `cba_session.lock`,
   `FreeFilterEnabled`) are all still queued from the agreed A-D punch list,
   not started yet this pass.
+  *(Status as of 2026-09-12, so this dated entry is not read as current: the
+  double-transform was fixed the same evening; the ungoverned-`Enabled` list
+  became an audit ratchet; the OS banner was deleted rather than synced;
+  `FreeFilterEnabled` was already gone. Slider-overscaling, the
+  `DisableHotloading` split and `cba_session.lock` are genuinely still open.
+  This is the one place a dated log needed a pointer forward — everything else
+  in these logs stays true by being past tense.)*
 
 Built and unit-tested after every logical chunk (not after every single
 edit, per Emi's explicit ask to batch builds on large tasks) - 24/24 passing
@@ -1929,6 +2003,54 @@ Recorded because the lesson is not "check the frame order". It is that a
 pleasing side effect discovered during a refactor deserves more suspicion than
 a planned one, not less.
 
+**The sensor (2026-09-12).** Emi's ask: a way to measure what the filter
+really does, "im Rahmen unserer Moeglichkeiten". The shader path is what made
+it possible — inside the pass both halves of the same frame exist, the copy
+taken before the correction and the backbuffer after it, so their difference is
+the effect on the actual image. `platform/FilterSensor` takes the frame-wide
+mean through the GPU's own mip chain (copy mip 0, GenerateMips, read the 1x1
+top: three calls and four bytes back, versus the eight million pixels
+HybridScanner has to map), with `DO_NOT_WAIT` because a sensor that stalls the
+frame it measures is measuring something it caused, throttled to 5 Hz, and
+allocated only while something is reading it.
+
+It earned its keep immediately and then caught me out twice in one reading:
+- The comparison row compared `retentionRatio` (which deliberately excludes
+  GammaGain) against a measurement that includes it, and reported the unit
+  mismatch as a disagreement. Same false-evidence failure as the removed "OS
+  blocked" banner, in a block whose entire purpose is supplying evidence.
+  Fixed by comparing retention x gain against the measurement.
+- What survived that fix is a genuine finding: at severity 0 with a 1.25x gain
+  the screen got +16.2% brighter, not +25%. The shader clamps, so a gain above
+  1.0 cannot brighten pixels already at maximum. The matrix cannot know that.
+
+**Auto-Brightness can now be steered by measurement** rather than prediction,
+in two modes that are different jobs rather than variants:
+- *Filter neutral halten* — drive measured_after towards measured_before, i.e.
+  hold the correction to zero brightness cost. Scene-independent, because it
+  steers on a ratio. The gain is divided out of the measurement before use
+  (`g_new = g * before / after`), which is what makes it a one-step correction
+  instead of the feedback loop this file already warned about.
+- *Niveau halten* — drive measured brightness towards a captured target. This
+  is auto-exposure and it works AGAINST the game's own lighting; the tooltip
+  says so, because a cave and a desert are supposed to differ. It exists
+  because Emi asked the real question behind it: if the game's own output is
+  too bright, CBA should be able to pull it back.
+Guards on both: deadband, damping, and a freshness window — the pass stops
+sampling whenever it stops running, and a frozen reading would steer on an old
+frame.
+
+**The "only two positions" opacity slider** turned out not to be the slider.
+`UiOpacity` lives in 0.10..1.00 and the format string was `"%.0f%%"`, so
+everything below 0.5 printed "0%" and everything above printed "1%". The handle
+moved continuously the whole time; the number beside it had two states, which
+is what a person sees and therefore what the control is. Third instance of the
+identical defect (Eye-Sensitive 2026-09-09, the strength sliders 2026-09-12) —
+**ImGui does not scale a value to match its format string**, and the fix is
+always the same: run the widget in display units and convert at the boundary.
+The control is also named for its job again ("Durchsicht"), having drifted to
+"Mischpult", which names furniture rather than what it does.
+
 **Still open on this branch:**
 - The true-colour UI is not abandoned, it is deferred. Doing it properly means
   giving the enhancer two matrices - one for game pixels, one for overlay
@@ -1939,6 +2061,17 @@ a planned one, not less.
 - `Magnification session: initialized` still appears in shader mode - harmless
   dead weight that falls out with the DWM path, not before, because the
   comparison needs it.
+- Emi's framing for where this goes: every logic the tool already has becomes
+  *optionally verified against a measurement*. Auto-Brightness was the right
+  first one because it is the only one that already states a number the sensor
+  can contradict. The obvious next candidate is the Commander Tag enhancer,
+  which claims "N of 9 colours shifted" - with a before/after frame it could be
+  measured whether the perceived separation actually increased, instead of
+  asserted from the model that chose the colours.
+- The sensor measures the frame-wide mean, CBA's own UI and the sensor window
+  included. Stated on screen. A region of interest (game area only, or a
+  user-placed probe rectangle) would be the honest next refinement if the
+  numbers ever need to be precise rather than indicative.
 
 ## Build feedback loop
 
