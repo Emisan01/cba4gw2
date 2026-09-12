@@ -843,6 +843,11 @@ namespace cba
 		return s_hasApplied;
 	}
 
+	bool IsWatchdogRunning()
+	{
+		return s_watchdogRunning.load() && s_watchdogThread.joinable();
+	}
+
 	void SyncScreenEffectToGate()
 	{
 		if (!s_deferredInitDone.load()) return;

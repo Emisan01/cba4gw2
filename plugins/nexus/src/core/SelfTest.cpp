@@ -8,7 +8,14 @@
 #include "../platform/HybridScanner.h"
 #include "../platform/ShaderColorPipeline.h"
 #include "../ui/UIState.h"
+#include "../ui/L10n.h"
+#include "FeatureModule.h"
 #include <cmath>
+#include <cstdio>
+#include <filesystem>
+#include <set>
+#include <string>
+#include <fstream>
 
 namespace cba
 {
@@ -227,6 +234,173 @@ namespace cba
 				                  : "Index is outside the vector."));
 		}
 
+		// ══ L10n: the failure mode the source audit cannot see ═══════════════
+		//
+		// tools/audit_pro_review.py checks that every L10n field is written in
+		// both language blocks, because an OMITTED field is still legal C++:
+		// it compiles and leaves a null const char*, which reaches ImGui as a
+		// crash rather than a wrong label. That check reads source text. This
+		// one reads the struct that is actually live in this build, which is
+		// the only place the crash could happen.
+		//
+		// Walking the struct as an array is safe here specifically: L10n is
+		// standard-layout and EVERY member is a const char*, so there is no
+		// padding to step into and no member of another type to misread. If
+		// that ever stops being true this loop must go - hence the static
+		// assert next to it rather than a comment hoping someone remembers.
+		{
+			const L10n& t = Strings();
+			static_assert(sizeof(L10n) % sizeof(const char*) == 0,
+				"L10n must stay an unbroken run of const char* for the null scan below");
+			const size_t fieldCount = sizeof(L10n) / sizeof(const char*);
+			const char* const* fields = reinterpret_cast<const char* const*>(&t);
+			size_t nulls = 0;
+			size_t firstNull = 0;
+			for (size_t i = 0; i < fieldCount; ++i)
+			{
+				if (fields[i] == nullptr)
+				{
+					if (nulls == 0) firstNull = i;
+					++nulls;
+				}
+			}
+			char detail[160];
+			if (nulls == 0)
+				std::snprintf(detail, sizeof(detail), "%zu strings, none null", fieldCount);
+			else
+				std::snprintf(detail, sizeof(detail), "%zu of %zu are null (first at field index %zu) - ImGui will crash on these",
+					nulls, fieldCount, firstNull);
+			Add(r, "L10n", "No translation string is null in the active language", nulls == 0, detail);
+		}
+
+		// ══ Live state ranges that nothing else guards ═══════════════════════
+		Add(r, "State", "UiTheme within [0, 1]",
+			CurrentSettings.UiTheme >= 0 && CurrentSettings.UiTheme <= 1);
+		Add(r, "State", "UiOpacity within [0.10, 1.00]",
+			CurrentSettings.UiOpacity >= 0.10f && CurrentSettings.UiOpacity <= 1.00f);
+		Add(r, "State", "RenderBackend within [0, 1]",
+			CurrentSettings.RenderBackend >= 0 && CurrentSettings.RenderBackend <= 1);
+		Add(r, "State", "EnhancerTolerance within [0.04, 0.20]",
+			CurrentSettings.EnhancerTolerance >= 0.04f && CurrentSettings.EnhancerTolerance <= 0.20f);
+
+		{
+			// A saved slot carries the same values the live profile does, and
+			// nothing clamps them on the way back in from a hand-edited ini -
+			// so a bad slot would apply a bad profile the moment it is loaded
+			// or auto-started.
+			int bad = -1;
+			for (int i = 0; i < 3 && bad < 0; ++i)
+			{
+				const auto& s = CurrentSettings.Slots[i];
+				if (!s.Used) continue;
+				if (s.Severity01 < 0.0f || s.Severity01 > 1.25f ||
+					s.MixedRg01 < 0.0f || s.MixedRg01 > 1.25f ||
+					s.MixedBy01 < 0.0f || s.MixedBy01 > 1.25f ||
+					s.GammaGain < 0.70f || s.GammaGain > 1.30f)
+					bad = i;
+			}
+			char d[96];
+			if (bad >= 0) std::snprintf(d, sizeof(d), "Slot %d holds an out-of-range value", bad + 1);
+			Add(r, "State", "Every saved profile slot holds in-range values", bad < 0, bad >= 0 ? d : "");
+		}
+
+		// ══ Filter Lab: invariants real call sites depend on ═════════════════
+		{
+			// FilterLab.cpp does std::clamp(index, 0, count - 1), which is
+			// undefined behaviour (lo > hi) on an empty vector. Two independent
+			// sites seed a default to prevent that; this is the check that
+			// notices if both ever stop.
+			const bool nonEmpty = !CurrentSettings.LabFilters.empty();
+			Add(r, "Filter Lab", "LabFilters is never empty", nonEmpty,
+				nonEmpty ? "" : "Empty - FilterLab.cpp's clamp(0, count-1) is undefined behaviour in this state.");
+
+			int badIdx = -1;
+			for (size_t i = 0; i < CurrentSettings.LabFilters.size() && badIdx < 0; ++i)
+			{
+				const auto& f = CurrentSettings.LabFilters[i];
+				if (f.ToleranceTones < 1 || f.ToleranceTones > 32) { badIdx = (int)i; break; }
+				if (f.Diffusion < 0.0f || f.Diffusion > 1.0f)      { badIdx = (int)i; break; }
+				if (f.ActionType < 0 || f.ActionType > 3)          { badIdx = (int)i; break; }
+				for (int c = 0; c < 3; ++c)
+				{
+					if (f.TargetRgb[c] < 0.0f || f.TargetRgb[c] > 1.0f ||
+						f.ReplaceRgb[c] < 0.0f || f.ReplaceRgb[c] > 1.0f) { badIdx = (int)i; break; }
+				}
+			}
+			char d[96];
+			if (badIdx >= 0) std::snprintf(d, sizeof(d), "Filter %d has an out-of-range field", badIdx + 1);
+			Add(r, "Filter Lab", "Every lab filter's values are in range", badIdx < 0, badIdx >= 0 ? d : "");
+
+			AddInfo(r, "Filter Lab", "Lab filters defined",
+				true, std::to_string(CurrentSettings.LabFilters.size()) + " (informational)");
+		}
+
+		// ══ Feature modules ══════════════════════════════════════════════════
+		{
+			// RegisterAllFeatureModules() clears before registering precisely
+			// because AddonLoad runs again on a Nexus enable without a DLL
+			// reload. If that Clear() ever goes, every module would appear
+			// twice in the HUD and reset loop - visible, but only if someone
+			// is looking. This notices instead.
+			const auto& modules = FeatureModuleRegistry::Get().GetAll();
+			std::set<std::string> seen;
+			bool duplicate = false;
+			bool missingPredicate = false;
+			for (const auto& m : modules)
+			{
+				if (!seen.insert(m.labelEn ? m.labelEn : "").second) duplicate = true;
+				if (!m.isActive) missingPredicate = true;
+			}
+			Add(r, "Registry", "Feature modules are registered exactly once", !duplicate,
+				duplicate ? "A module is registered twice - AddonLoad ran again without Clear()." : "");
+			Add(r, "Registry", "Every feature module can report whether it is active", !missingPredicate,
+				missingPredicate ? "A module has no isActive predicate - it would be invisible to Reset and the HUD." : "");
+			AddInfo(r, "Registry", "Feature modules registered", true,
+				std::to_string(modules.size()) + " (informational)");
+		}
+
+		// ══ Pipeline: what the live matrix does to white ═════════════════════
+		{
+			// A correction that shifts white tints everything, including UI and
+			// text, and reads as "my screen looks wrong" rather than as a
+			// colour-vision setting. The CVD correction must keep white neutral;
+			// Eye-Sensitive deliberately does not (blue filter and warm tint are
+			// white-point shifts by definition), so the check only claims what
+			// it can defend.
+			double m[3][3];
+			ColorStackMatrix(m);
+			const double wr = m[0][0] + m[0][1] + m[0][2];
+			const double wg = m[1][0] + m[1][1] + m[1][2];
+			const double wb = m[2][0] + m[2][1] + m[2][2];
+			const bool eyeOff = !CurrentSettings.EyeComfortModeEnabled;
+			const double spread = std::fmax(std::fmax(wr, wg), wb) - std::fmin(std::fmin(wr, wg), wb);
+			const bool ok = !eyeOff || spread <= 1e-3;
+			char d[128];
+			std::snprintf(d, sizeof(d), eyeOff
+				? "white maps to (%.4f, %.4f, %.4f)"
+				: "Eye-Sensitive is on - a white-point shift is intended here, so this is not asserted",
+				wr, wg, wb);
+			Add(r, "Pipeline", "The colour stack keeps white neutral (Eye-Sensitive off)", ok, d);
+		}
+
+		{
+			// The enhancer writes replacement colours straight into the
+			// scanner's target list; out-of-gamut values there would be clamped
+			// somewhere downstream and silently produce a different colour than
+			// the one it chose.
+			int bad = -1;
+			for (int i = 0; i < 9 && bad < 0; ++i)
+			{
+				const auto& c = s_tagConflictStates[i];
+				if (c.repR < 0.0f || c.repR > 1.0f ||
+					c.repG < 0.0f || c.repG > 1.0f ||
+					c.repB < 0.0f || c.repB > 1.0f) bad = i;
+			}
+			char d[96];
+			if (bad >= 0) std::snprintf(d, sizeof(d), "Tag %d has a replacement colour outside [0,1]", bad + 1);
+			Add(r, "Pipeline", "Every commander-tag replacement colour is inside [0,1]", bad < 0, bad >= 0 ? d : "");
+		}
+
 		// ── Runtime/platform status - informational, not pass/fail. "OS
 		// blocked the DWM call" is a legitimate, expected state under real
 		// exclusive fullscreen, not a bug by itself - shown here so it's
@@ -293,6 +467,53 @@ namespace cba
 			bool ok = !needsScanner || GetHybridScanner().IsRunning();
 			Add(r, "Platform", "HybridScanner worker thread is running when a feature needs it", ok,
 				ok ? "" : "Thread is not running - Watchdog will restart it within ~50ms, or click Reset Filter now.");
+		}
+		{
+			// The 50ms safety-net thread carries stuck-effect recovery, focus
+			// and minimize tracking, and the HybridScanner self-heal. Its death
+			// is the most expensive silent failure in the addon: everything
+			// keeps looking fine until the one moment something needed
+			// recovering. Two other threads in this codebase died exactly that
+			// way before they were guarded, which is why this is a hard FAIL.
+			const bool alive = IsWatchdogRunning();
+			Add(r, "Platform", "Watchdog thread is alive", alive,
+				alive ? "" : "The 50ms safety net is not running - stuck-effect recovery and scanner self-heal are both dead. Restart GW2.");
+		}
+		{
+			// Exactly one path may be painting. Both at once would apply the
+			// correction twice - once screen-wide and once in the frame - which
+			// looks like "the filter is far too strong" rather than like a bug.
+			const bool dwmPainting = (CurrentSettings.RenderBackend == 0) && IsScreenEffectApplied();
+			const bool shaderPainting = (CurrentSettings.RenderBackend == 1) && ShouldShaderPassRun()
+				&& GetShaderColorPipeline().IsReady();
+			const bool both = dwmPainting && shaderPainting;
+			Add(r, "Platform", "Only one colour path is painting", !both,
+				both ? "Both DWM and the shader are applying the correction - the result is squared, not doubled." : "");
+		}
+		{
+			// Every setting change ends in Settings::Save. If the directory is
+			// not writable, nothing persists and nothing says so - the next
+			// launch simply comes back to old values, which reads as "the tool
+			// forgot my profile" rather than as a permissions problem.
+			bool writable = false;
+			std::string detail = "AddonDir is empty";
+			if (!AddonDir.empty())
+			{
+				std::error_code ec;
+				const bool exists = std::filesystem::exists(AddonDir, ec);
+				detail = AddonDir;
+				if (exists && !ec)
+				{
+					const std::filesystem::path probe = std::filesystem::path(AddonDir) / "cba_write_probe.tmp";
+					{
+						std::ofstream f(probe);
+						writable = f.good();
+					}
+					std::filesystem::remove(probe, ec);
+				}
+			}
+			Add(r, "Platform", "Settings directory is writable", writable,
+				writable ? detail : (detail + " - settings cannot be saved, changes will be lost on restart"));
 		}
 		{
 			// Hold-to-compare suppresses BOTH filter stages while its key is

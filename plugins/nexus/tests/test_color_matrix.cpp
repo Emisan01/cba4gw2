@@ -19,6 +19,7 @@
 #include "ColorMatrix.h"
 #include <cstdio>
 #include <cmath>
+#include <algorithm>
 #include <cstdlib>
 #include <initializer_list>
 
@@ -258,8 +259,56 @@ static void TestOmittingTheDisplayMatrixChangesTheAnswer()
 	Check(differs, "Sim(M x colour) and Sim(colour) are genuinely different results");
 }
 
+// The correction must leave white alone at every severity. It is not an
+// aesthetic preference: a matrix whose rows do not sum to 1 tints the entire
+// screen, UI and text included, and reads to a user as "my monitor is broken"
+// rather than as a colour-vision setting. SelfTest asserts the same property
+// on the LIVE matrix; this pins the maths itself so the runtime check can
+// never be the first place anyone finds out.
+//
+// It should hold by construction - daltonization redistributes the error
+// between a colour and its simulation, and for white that error is zero
+// (TestSimulatePixelPreservesWhite above) - but "should hold by construction"
+// is exactly the kind of claim this file exists to stop people from trusting.
+void TestCorrectionKeepsWhiteNeutral()
+{
+	const BalanceType types[3] = { BalanceType::Protan, BalanceType::Deutan, BalanceType::Tritan };
+	const double severities[5] = { 0.0, 0.25, 0.5, 1.0, 1.25 };
+	bool allNeutral = true;
+	double worst = 0.0;
+
+	for (int t = 0; t < 3; ++t)
+	{
+		for (int s = 0; s < 5; ++s)
+		{
+			double m[3][3];
+			ColorMatrix::CorrectionMatrix(types[t], severities[s], m);
+			double out[3];
+			for (int row = 0; row < 3; ++row)
+				out[row] = m[row][0] + m[row][1] + m[row][2];
+
+			// Written out rather than std::max/std::min: this translation unit
+			// pulls in windows.h, whose max/min macros turn those into a parse
+			// error. NOMINMAX would be the other fix, but a two-line comparison
+			// does not justify reaching for a global define in a test file.
+			double hi = out[0], lo = out[0];
+			for (int row = 1; row < 3; ++row)
+			{
+				if (out[row] > hi) hi = out[row];
+				if (out[row] < lo) lo = out[row];
+			}
+			const double spread = hi - lo;
+			if (spread > worst) worst = spread;
+			if (spread > 1e-3) allNeutral = false;
+		}
+	}
+	std::printf("   (worst white spread across 15 type/severity combinations: %.6f)\n", worst);
+	Check(allNeutral, "CorrectionMatrix keeps white neutral at every severity");
+}
+
 int main()
 {
+	TestCorrectionKeepsWhiteNeutral();
 	TestIdentityAtZeroSeverity();
 	TestSeverityIsClamped();
 	TestSimulatePixelPreservesWhite();

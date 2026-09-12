@@ -105,6 +105,11 @@ namespace cba
 	// Whether the shader backend should be painting this frame. Short by
 	// design - see its definition.
 	bool ShouldShaderPassRun();
+	// Is the 50ms safety-net thread alive? It carries the stuck-effect
+	// recovery, focus tracking and the HybridScanner self-heal, so its
+	// death is silent and expensive - exactly the shape of bug it was
+	// built to catch in other threads.
+	bool IsWatchdogRunning();
 
 	// Which Slots[] index the UI currently treats as "active" (highlighted,
 	// and where "Save" writes to). Physical storage for
