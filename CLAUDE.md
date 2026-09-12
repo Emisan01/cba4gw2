@@ -6,10 +6,12 @@ loaded into every session, so every line here costs attention on every task.
 Companions: `AGENTS.md` (coding/UI conventions), `COLOR_MATH.md` (the colour
 science and its references), `PRODUCT_CONCEPT.md` (who this is for and why the
 UI is shaped the way it is — **read before proposing UI or feature work**).
-Anything older lives in `docs/PROJECT_HISTORY.md`, which is not required
-reading; go there only when you need the reasoning behind a past decision.
-Code comments that cite "CLAUDE.md" for a dated finding mean that file — they
-were written before the split and are not worth a mass edit.
+Anything older lives in `docs/PROJECT_HISTORY.md.old` — archived, not
+maintained, and deliberately not a `.md` so nothing treats it as live docs.
+Go there only when you need the reasoning behind a past decision. Code comments
+citing "CLAUDE.md" for a dated finding mean that file; they predate the split
+and are not worth a mass edit. It is also in git history
+(`git show 29f790c:CLAUDE.md`) if the file ever goes.
 
 ---
 
