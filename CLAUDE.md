@@ -276,6 +276,15 @@ things.
   remove them (an input that implies function and has none is worse than no
   input). Relevant because this tab carries the clinical framing - it is the
   part that has to be genuinely grounded.
+  **Half-answered 2026-09-12**: Emi confirmed the *placement* is deliberate -
+  the numeric entry sits in Vision Lab rather than on the base panel because
+  most players do not know their values that precisely, and it was included
+  as forethought. That settles "should it be there" (yes) and leaves "should
+  anything read it" open. Related but not the same field: the free-text
+  `DiagnosisHint` note ("Reference Values / Calibration (AQ / HRR)") moved to
+  the Sensor Graph window the same day and its tooltip now points at Vision
+  Lab -> Clinical Report for translating a real diagnosis into filter values,
+  so the two are at least verbally connected now.
 - **Stale "OS blocked" banner possible across an exclusive-fullscreen
   transition** (found 2026-09-10, same cross-check): `g_DwmLastCallSuccessful`
   (Magnification.cpp) and `DetectWindowMode()` (WindowMode.cpp) never
@@ -1453,6 +1462,54 @@ run Moreland first, then measure normal on Rayleigh, and Apply switched on a
 (reaches no users), but a tag triggers the GitHub release that Nexus serves to
 players, and the entire day's UI had still never rendered on a screen. Cutting
 that unattended was the one action that would have been hard to walk back.
+
+## Session log (2026-09-12) - the manual path gets a home
+
+Emi's first live look at build 30 with all five windows open. Verdict: the
+guided entry works, but **the manual filter settings were simply gone** - and
+the leftover "Advanced" fold in Main Window Section 1 (Tolerance + the AQ/HRR
+reference field) read as fragmented from the contrast logic it actually
+drives.
+
+**What that exposed about the 2026-09-11 restructure.** "One editable home per
+setting" was right, and removing the third duplicate editor was right - but
+the setting whose home was removed had two *different kinds* of user, and only
+one of them got a home. The Nexus panel asks what you can see and sets the
+values for you; that is the correct entry point and the wrong tool for someone
+who wants to dial a number in by hand. The rule was never wrong, the count was:
+there are two paths, so there are two homes.
+
+**Sensor Graph window is now the manual home.** Directly under the real-time
+spectrum, as one module rather than scattered controls:
+Protan/Deutan/Tritan/Mixed, the strength sliders back at their 125% ceiling,
+the contrast tolerance and reference values moved in from Main Window
+Section 1, and the brightness block that already lived there as the last
+slider - Emi's own ordering. Main Window Section 1 keeps its read-only status
+line and now names both homes ("Guided: Nexus Panel | Manual: Sensor Graph")
+instead of only the one that deliberately has no sliders.
+
+Not a straight revert of the deleted block: the three near-identical ~25-line
+slider+Reset copies it used to carry (Strength, RG, BY) are one lambda, and
+the sliders read/write through `ParameterRegistry` so the 1.25 ceiling comes
+from `ParamMeta` rather than from three hand-written widget arguments.
+Percent stays display-only in 0-125 units - ImGui does not scale a value to
+match its format string, which is the Eye-Sensitive "0%/1%" bug already on
+record here.
+
+**Two defects fixed while moving the code rather than after:**
+- A manual slider in an OFF filter stores a value and changes nothing on
+  screen - the panel supplying false evidence, which is the one thing
+  PRODUCT_CONCEPT.md exists to prevent. The module now says so and offers the
+  single click that fixes it, via `ToggleMasterEnabled()` (no new direct
+  `Enabled` write - see the ratchet).
+- The reference-values text field set `saveNeeded` per keystroke, i.e. a
+  `Settings::Save` plus a forced `Recompute(true)` for every letter typed -
+  the same defect the Filter Lab colour pickers had. Now deferred to
+  `IsItemDeactivatedAfterEdit()`. The per-keystroke *assignment* has to stay:
+  the buffer is refilled from `DiagnosisHint` each frame, so skipping it would
+  undo each character as it is typed.
+
+Build 32, 26/26 unit tests, 24/24 audit + 1 informational.
 
 ## Build feedback loop
 

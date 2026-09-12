@@ -1614,8 +1614,13 @@ namespace cba
 					isDe ? "Aktives Profil" : "Active Profile", activeTypeLabel,
 					t.Strength, CurrentSettings.Severity01 * 100.0f);
 			}
-			ImGui::TextDisabled("%s", isDe ? "Bearbeiten: Nexus-Panel (Optionen -> cba4gw2)"
-			                               : "Edit in: Nexus Panel (Options -> cba4gw2)");
+			// Two editors, two jobs (2026-09-12): the Nexus panel asks what
+			// you can see and sets these for you, the Sensor Graph window
+			// gives you the raw sliders. Naming only one of them here sent
+			// anyone looking for a knob to the panel that deliberately has
+			// none.
+			ImGui::TextDisabled("%s", isDe ? "Gefuehrt: Nexus-Panel (Optionen -> cba4gw2)  |  Manuell: Sensor-Graph"
+			                               : "Guided: Nexus Panel (Options -> cba4gw2)  |  Manual: Sensor Graph");
 
 			ImGui::Spacing();
 			ImGui::Separator();
@@ -1696,7 +1701,6 @@ namespace cba
 			// inside `if (enhancerActive)` too - a coupling bug from an
 			// earlier reorg, not intentional (Emi flagged this).
 			ImGui::Spacing();
-			float availSliders = ImGui::GetContentRegionAvail().x;
 
 			// Brightness/Eye Comfort Gamma used to be duplicated here AND in
 			// Section 2 - two sliders bound to the same value, in two
@@ -1704,56 +1708,14 @@ namespace cba
 			// UI walkthrough); Section 2 "Eye Comfort" is its one home now,
 			// it has the fuller picture anyway (Retention/HDR/Apply-Target).
 			//
-			// Tolerance and the AQ/HRR reference field also moved, into the
-			// collapsed "Advanced" group below - Section 1 was doing too much
-			// for a first impression (everything at the same visual weight,
-			// no core/advanced distinction). Not the full Core/Advanced UI
-			// split from CLAUDE.md step 2 (that's a bigger, separate pass) -
-			// just decluttering this one section's obvious overflow.
-			if (ImGui::TreeNodeEx(isDe ? "Erweitert##sec1_advanced" : "Advanced##sec1_advanced", ImGuiTreeNodeFlags_None))
-			{
-				ImGui::TextUnformatted(isDe ? "Toleranz (Erkennungsradius):" : "Tolerance (Detection Radius):");
-				ImGui::SetNextItemWidth(availSliders);
-				// Registry-backed pilot (CLAUDE.md, Registry/Control Layer step 1).
-				// The clamp now lives in ParamMeta (ParameterRegistry::SetFloat),
-				// not just in this widget's min/max args - fixes the slider being
-				// overridable via ImGui's CTRL-click-to-type text entry, which the
-				// previous rescale attempts did not address.
-				{
-					float tol = ParameterRegistry::Get().GetFloat(ParamId::EnhancerTolerance);
-					if (ImGui::SliderFloat("##enhancer_tol_det", &tol, 0.04f, 0.20f, "%.3f", ImGuiSliderFlags_AlwaysClamp)) {
-						ParameterRegistry::Get().SetFloat(ParamId::EnhancerTolerance, tol);
-						UpdateTagEnhancerConflicts();
-						changed = true;
-					}
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-
-				ImGui::Spacing();
-				const char* defaultHintSec1 = CurrentSettings.Mixed ? "RG: 50% | BY: 50%" :
-					(CurrentSettings.Type == BalanceType::Protan ? "AQ: 0.35 | HRR: 8/10" :
-					(CurrentSettings.Type == BalanceType::Deutan ? "AQ: 3.20 | HRR: 8/10" : "Moreland: 1.15 | HRR: 6/10"));
-
-				ImGui::TextDisabled("%s:", isDe ? "Referenzwerte / Kalibrierung (AQ / HRR)" : "Reference Values / Calibration (AQ / HRR)");
-				char diagBufSec1[128]{};
-				std::snprintf(diagBufSec1, sizeof(diagBufSec1), "%s", CurrentSettings.DiagnosisHint.c_str());
-
-				ImGui::SetNextItemWidth(-FLT_MIN);
-				if (ImGui::InputTextWithHint("##ref_values_input", defaultHintSec1, diagBufSec1, sizeof(diagBufSec1)))
-				{
-					CurrentSettings.DiagnosisHint = diagBufSec1;
-					changed = true;
-					saveNeeded = true;
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip(isDe
-						? "Optionales Eingabefeld fuer persoenliche Kalibrier- oder Benchmarkwerte (z.B. Nagel-AQ, HRR-Plates).\nTypische Standardwerte fuer dieses Profil: %s"
-						: "Optional input field for personal calibration or test benchmark scores (e.g. Nagel AQ, HRR plates).\nTypical default values for this profile: %s",
-						defaultHintSec1);
-				}
-				ImGui::TreePop();
-			}
+			// The "Advanced" group that held Tolerance and the AQ/HRR
+			// reference field moved to the Sensor Graph window 2026-09-12,
+			// into the manual-control module. Decluttering this section in
+			// 2026-09-09 had collapsed those two into a fold nobody opens;
+			// the real problem was that they had been separated from the
+			// contrast logic they drive in the first place. They are editable
+			// in exactly one place now, next to the sliders they interact
+			// with - see SensorGraphHUD.cpp's "Manual Filter Controls".
 
 			// "Intensity Scale (Compensation)" used to live here as a second
 			// slider bound to the exact same CurrentSettings.Severity01 as the
