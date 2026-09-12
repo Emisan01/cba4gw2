@@ -844,6 +844,73 @@ namespace cba
 		return s_hasApplied;
 	}
 
+	// ── Auto-Brightness, closed on a measurement instead of a guess ────────
+	//
+	// The prediction path asks nine reference tag colours what the matrix does
+	// to luminance. This one asks the frame. Both answer the same question;
+	// only one of them has seen the screen.
+	//
+	// The maths is a single step, not a search, because luminance is linear in
+	// the matrix and the gain is a scalar factor of it:
+	//     lum(g * (E*C) * x) = g * lum((E*C) * x)
+	// so the gain-free luminance is measured_after / g_current, and the gain
+	// that would restore the original is
+	//     g_new = g_current * (measured_before / measured_after)
+	// One evaluation lands on the answer. That matters because CLAUDE.md
+	// already records the trap here: Auto-Brightness solves FOR the gain, so
+	// feeding a gain-containing measurement back in naively is a feedback
+	// loop. Dividing it out is what makes this a correction rather than a
+	// chase.
+	//
+	// Three guards on top, because the model is exact and the measurement is
+	// not (the shader's saturate() clips, and the frame mean includes CBA's
+	// own UI):
+	//   - a deadband, so it stops instead of hunting around the target
+	//   - damping, so a scene change moves it smoothly rather than snapping
+	//   - a freshness window, because the pass stops sampling whenever it
+	//     stops running and a frozen reading would steer on an old frame
+	bool ApplySensorBrightnessCorrection()
+	{
+		if (CurrentSettings.RenderBackend != 1) return false;
+		if (!CurrentSettings.AutoBrightness) return false;
+		if (CurrentSettings.AutoBrightnessSource != 1) return false;
+		if (!ShouldShaderPassRun()) return false;
+
+		FilterSensor& sensor = GetFilterSensor();
+		const FilterSensor::Reading reading = sensor.Latest();
+		if (!reading.valid) return false;
+
+		const unsigned long long now = GetTickCount64();
+		if (now - sensor.LastReadingTick() > 1000) return false; // stale
+
+		static unsigned long long s_lastCorrectionTick = 0;
+		if (now - s_lastCorrectionTick < 500) return false;
+
+		const float lumBefore = SensorLuma(reading.beforeR, reading.beforeG, reading.beforeB);
+		const float lumAfter  = SensorLuma(reading.afterR,  reading.afterG,  reading.afterB);
+		// A nearly black frame carries no usable signal and would divide a
+		// small number by a smaller one. Loading screens and fades land here.
+		if (lumBefore < 0.02f || lumAfter < 0.02f) return false;
+
+		s_lastCorrectionTick = now;
+
+		const float gCurrent = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
+		const float gWanted = gCurrent * (lumBefore / lumAfter);
+		const float delta = gWanted - gCurrent;
+
+		if (std::fabs(delta) < 0.005f) return false;          // deadband
+		const float gStep = gCurrent + delta * 0.25f;          // damping
+
+		SetGammaGainManual(gStep);
+		// SetGammaGainManual clears the Auto flag, because a manual drag must
+		// win over the automatic. This is not a manual drag - it IS the
+		// automatic - so put it straight back. Reusing the shared setter and
+		// correcting one side effect beats a fourth hand-written copy of the
+		// same write; see the 2026-09-09 gamma dedup for why that matters.
+		CurrentSettings.AutoBrightness = true;
+		return true;
+	}
+
 	bool IsWatchdogRunning()
 	{
 		return s_watchdogRunning.load() && s_watchdogThread.joinable();
@@ -1204,8 +1271,14 @@ namespace cba
 		// The sensor allocates two mip chains of a 4K frame and does real GPU
 		// work per sample, so it runs only while something is actually reading
 		// it. One place decides that, rather than every call site remembering.
-		GetFilterSensor().SetEnabled(CurrentSettings.ShowGraphWindow &&
-		                             CurrentSettings.RenderBackend == 1);
+		const bool sensorSteersBrightness = CurrentSettings.AutoBrightness &&
+		                                    CurrentSettings.AutoBrightnessSource == 1;
+		GetFilterSensor().SetEnabled(CurrentSettings.RenderBackend == 1 &&
+		                             (CurrentSettings.ShowGraphWindow || sensorSteersBrightness));
+		if (sensorSteersBrightness)
+		{
+			ApplySensorBrightnessCorrection();
+		}
 
 		// ── Screen-effect gate, evaluated on the render thread ──────────────────
 		// This is where the colour effect switching off actually became

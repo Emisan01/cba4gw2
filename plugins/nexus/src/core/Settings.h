@@ -101,6 +101,13 @@ namespace cba
 		// nothing outside the game. Both are built; this picks one, so the
 		// two can be compared live instead of argued about.
 		int RenderBackend = 1;
+		// Where Auto-Brightness gets its answer from (2026-09-12).
+		// 0 = the matrix prediction from nine reference tag colours, which
+		// is all that was ever possible under DWM. 1 = the sensor, i.e. the
+		// luminance actually measured before and after the correction on the
+		// real frame. Default stays 0: the prediction works everywhere, the
+		// measurement needs the shader backend and a valid reading.
+		int AutoBrightnessSource = 0;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
 		int ContrastPairIndex = 0; // 0=Blau/Grün, 1=Rot/Grün, 2=Gelb/Blau, 3=Cyan/Blau, 4=Orange/Rot

@@ -558,59 +558,6 @@ namespace cba
 		}
 
 		ImGui::Spacing();
-		// How the correction reaches the screen. Moved out of the Advanced
-		// fold and up here 2026-09-12 - it decides what the master switch
-		// above actually does to the machine, so hiding it one fold deeper
-		// than the switch it qualifies had it backwards. Emi found it, in
-		// his words, "muehsam".
-		ImGui::TextDisabled("%s:", isDe ? "Wie der Filter gemalt wird" : "How the filter is painted");
-		{
-			int backend = CurrentSettings.RenderBackend;
-			if (ImGui::RadioButton(isDe ? "Bildschirm (DWM)##backend0" : "Screen (DWM)##backend0", backend == 0))
-			{
-				CurrentSettings.RenderBackend = 0;
-				changed = true;
-				saveNeeded = true;
-			}
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip("%s", isDe
-					? "Windows faerbt den gesamten Bildschirm. Bisheriger Weg.\nPausiert deshalb, sobald du GW2 verlaesst - sonst waere auch dein Browser eingefaerbt."
-					: "Windows tints the whole screen. The path shipped so far.\nPauses when you leave GW2, otherwise your browser would be tinted too.");
-			}
-			ImGui::SameLine(0, 12.0f);
-			if (ImGui::RadioButton(isDe ? "Nur GW2 (Shader)##backend1" : "GW2 only (shader)##backend1", backend == 1))
-			{
-				CurrentSettings.RenderBackend = 1;
-				changed = true;
-				saveNeeded = true;
-			}
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip("%s", isDe
-					? "Die Korrektur wird direkt in das Bild von GW2 gerechnet.\nAusserhalb des Spiels passiert nichts - kein Pausieren noetig, und die CBA-Oberflaeche bleibt unverfaelscht."
-					: "The correction is computed straight into GW2's own frame.\nNothing outside the game is touched - no pausing needed, and CBA's own interface stays true colour.");
-			}
-
-			if (CurrentSettings.RenderBackend == 1)
-			{
-				ImGui::Indent(16.0f);
-				if (GetShaderColorPipeline().IsReady())
-				{
-					ImGui::TextDisabled("%s", isDe ? "Aktiv. \"Im Hintergrund aktiv lassen\" ist hier ohne Wirkung."
-					                              : "Active. \"Keep active in background\" has no effect here.");
-				}
-				else
-				{
-					const char* err = GetShaderColorPipeline().LastError();
-					ImGui::TextColored(Theme::kTextGoldLabel, "%s%s", isDe ? "Noch nicht bereit: " : "Not ready yet: ",
-						(err && *err) ? err : (isDe ? "wird beim naechsten Frame aufgebaut" : "builds on the next frame"));
-				}
-				ImGui::Unindent(16.0f);
-			}
-		}
-
-
 		// Directly under the master switch because it answers the very next
 		// question that switch raises: not "is the filter on" but "on when?"
 		// (moved up from the Advanced fold 2026-09-12). Before the
@@ -1447,6 +1394,62 @@ namespace cba
 			// should not have to sit through a questionnaire to say so.
 			// Same shared ActivateCommanderTagProfile() the guided flow uses.
 			ImGui::Spacing();
+			// How the correction reaches the screen. It spent one day directly
+			// under the master switch, because while both paths were live
+			// candidates the choice qualified what that switch does. That is
+			// over: the shader is the default and, in Emi's words, the DWM path
+			// "ergibt quasi keinen Sinn mehr" - it stays only so a comparison
+			// remains possible. A vestigial choice does not earn the panel's
+			// best real estate, and he asked specifically not to overload it.
+			ImGui::TextDisabled("%s:", isDe ? "Wie der Filter gemalt wird" : "How the filter is painted");
+			{
+				int backend = CurrentSettings.RenderBackend;
+				if (ImGui::RadioButton(isDe ? "Bildschirm (DWM)##backend0" : "Screen (DWM)##backend0", backend == 0))
+				{
+					CurrentSettings.RenderBackend = 0;
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("%s", isDe
+						? "Windows faerbt den gesamten Bildschirm. Bisheriger Weg.\nPausiert deshalb, sobald du GW2 verlaesst - sonst waere auch dein Browser eingefaerbt."
+						: "Windows tints the whole screen. The path shipped so far.\nPauses when you leave GW2, otherwise your browser would be tinted too.");
+				}
+				ImGui::SameLine(0, 12.0f);
+				if (ImGui::RadioButton(isDe ? "Nur GW2 (Shader)##backend1" : "GW2 only (shader)##backend1", backend == 1))
+				{
+					CurrentSettings.RenderBackend = 1;
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("%s", isDe
+						? "Die Korrektur wird direkt in das Bild von GW2 gerechnet.\nAusserhalb des Spiels passiert nichts - kein Pausieren noetig, und die CBA-Oberflaeche bleibt unverfaelscht."
+						: "The correction is computed straight into GW2's own frame.\nNothing outside the game is touched - no pausing needed, and CBA's own interface stays true colour.");
+				}
+
+				if (CurrentSettings.RenderBackend == 1)
+				{
+					ImGui::Indent(16.0f);
+					if (GetShaderColorPipeline().IsReady())
+					{
+						ImGui::TextDisabled("%s", isDe ? "Aktiv. \"Im Hintergrund aktiv lassen\" ist hier ohne Wirkung."
+						                              : "Active. \"Keep active in background\" has no effect here.");
+					}
+					else
+					{
+						const char* err = GetShaderColorPipeline().LastError();
+						ImGui::TextColored(Theme::kTextGoldLabel, "%s%s", isDe ? "Noch nicht bereit: " : "Not ready yet: ",
+							(err && *err) ? err : (isDe ? "wird beim naechsten Frame aufgebaut" : "builds on the next frame"));
+					}
+					ImGui::Unindent(16.0f);
+				}
+			}
+
+
+
 			ImGui::TextDisabled("%s:", isDe ? "Ich kenne meinen Typ" : "I know my type");
 			{
 				float knownAvail = ImGui::GetContentRegionAvail().x;

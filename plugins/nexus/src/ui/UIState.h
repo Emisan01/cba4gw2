@@ -158,6 +158,11 @@ namespace cba
 	//   behavior added anywhere it wasn't already.
 	void SetGammaGainManual(float aGain);
 	void ApplyAutoBrightnessGain();
+	// Auto-Brightness steered by the sensor instead of the matrix
+	// prediction. No-op unless the shader backend is painting,
+	// Auto-Brightness is on, its source is set to the sensor, and a fresh
+	// reading exists. Returns true if it moved the gain.
+	bool ApplySensorBrightnessCorrection();
 	void SyncAutoBrightnessGain(bool& aChanged, bool& aSaveNeeded);
 
 	// Resets every CBA window's position/size to its default top-left layout

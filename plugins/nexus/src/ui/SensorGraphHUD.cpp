@@ -436,14 +436,19 @@ namespace cba
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 		}
-		if (ImGui::Button(isDe ? "Mischpult" : "Deck", ImVec2(0.0f, 22.0f)))
+		// Named after the job again (2026-09-12). Emi built this to fade the
+		// panels down so they stop covering the game WHILE he adjusts the
+		// filter by hand - it drifted to "Mischpult"/"Deck" at some point,
+		// which names a piece of furniture rather than the thing it does.
+		if (ImGui::Button(isDe ? "Durchsicht" : "See-through", ImVec2(0.0f, 22.0f)))
 		{
 			s_showGraphOpacityDrawer = !s_showGraphOpacityDrawer;
 		}
 		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered())
 		{
-			ImGui::SetTooltip(isDe ? "HUD-Transparenz und Glas-Effekt anpassen" : "Adjust HUD opacity and glass effect");
+			ImGui::SetTooltip(isDe ? "Blendet die CBA-Fenster herunter, damit sie beim manuellen Einstellen nicht im Weg sind.\nDer Filter laeuft dabei normal weiter."
+			                       : "Fades the CBA windows down so they stop covering the game while you adjust by hand.\nThe filter keeps running normally.");
 		}
 
 		if (s_showGraphOpacityDrawer)
@@ -451,9 +456,24 @@ namespace cba
 			ImGui::Spacing();
 			float availW = ImGui::GetContentRegionAvail().x;
 			ImGui::SetNextItemWidth(availW);
-			if (ImGui::SliderFloat("##hud_opacity", &CurrentSettings.UiOpacity, 0.10f, 1.0f, isDe ? "HUD Glas-Deckkraft: %.0f%%" : "HUD Glass Opacity: %.0f%%"))
+			// Emi: "verbuggterweise nur 2 Stellungen, was nicht immer so war."
+			// It was never the slider - it is the readout. UiOpacity lives in
+			// 0.10..1.00 and the format string was "%.0f%%", so every value
+			// below 0.5 printed "0%" and everything above printed "1%". The
+			// handle moved continuously the whole time; the number beside it
+			// had two states, which is what a person sees and therefore what
+			// the control IS. Exactly the same defect as the Eye-Sensitive
+			// sliders (CLAUDE.md, 2026-09-09): ImGui does not scale a value to
+			// match its format string. Widget runs in 0-100 display units,
+			// converted at the boundary.
 			{
-				changed = true;
+				float opacityPct = CurrentSettings.UiOpacity * 100.0f;
+				if (ImGui::SliderFloat("##hud_opacity", &opacityPct, 10.0f, 100.0f,
+					isDe ? "Fenster-Deckkraft: %.0f%%" : "Window opacity: %.0f%%", ImGuiSliderFlags_AlwaysClamp))
+				{
+					CurrentSettings.UiOpacity = std::clamp(opacityPct * 0.01f, 0.10f, 1.00f);
+					changed = true;
+				}
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
 		}
@@ -645,6 +665,35 @@ namespace cba
 					ImGui::SetTooltip("%s", isDe
 						? "Links: was die Matrix aus neun Referenz-Tagfarben vorhersagt.\nRechts: was tatsaechlich zwischen Vorher- und Nachher-Bild passiert ist.\nEine Abweichung ist kein Fehler - die Vorhersage kennt nur Tagfarben, die Messung sieht das ganze Bild."
 						: "Left: what the matrix predicts from nine reference tag colours.\nRight: what actually happened between the before and after frame.\nA gap is not a bug - the prediction only knows tag colours, the measurement sees the whole image.");
+				}
+
+				// Close the loop, optionally. Emi's framing: every logic we
+				// already have becomes verifiable, and then adjustable, against
+				// a measurement instead of a model. Auto-Brightness is the
+				// first one because it is the only one that already states a
+				// number the sensor can contradict.
+				ImGui::Spacing();
+				{
+					bool useSensor = (CurrentSettings.AutoBrightnessSource == 1);
+					if (ImGui::Checkbox(isDe ? "Auto-Helligkeit nach Messung regeln##ab_sensor"
+					                         : "Steer Auto-Brightness by measurement##ab_sensor", &useSensor))
+					{
+						CurrentSettings.AutoBrightnessSource = useSensor ? 1 : 0;
+						changed = true;
+						saveNeeded = true;
+					}
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip("%s", isDe
+							? "Aus: die Empfehlung kommt aus der Matrix, gerechnet auf neun Referenz-Tagfarben.\nAn: sie kommt aus dem gemessenen Helligkeitsunterschied im echten Bild.\nGeregelt wird gedaempft und mit Totband, damit ein Szenenwechsel nichts aufschaukelt."
+							: "Off: the target comes from the matrix, computed on nine reference tag colours.\nOn: it comes from the measured luminance difference in the real frame.\nDamped, with a deadband, so a scene change cannot make it hunt.");
+					}
+					if (useSensor && !CurrentSettings.AutoBrightness)
+					{
+						ImGui::SameLine(0, 8.0f);
+						ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
+							? "(Auto-Helligkeit ist aus)" : "(Auto-Brightness is off)");
+					}
 				}
 
 				ImGui::Spacing();

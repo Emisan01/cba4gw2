@@ -50,6 +50,11 @@ namespace cba
 		            ID3D11Texture2D* aBefore, ID3D11Texture2D* aAfter);
 
 		Reading Latest() const { return _latest; }
+		// When the last valid reading landed. Anything that STEERS on this
+		// data has to check it: the pass stops sampling whenever it stops
+		// running (compare-hold, filter off, window closed), and a control
+		// loop acting on a frozen number would chase a frame from minutes ago.
+		unsigned long long LastReadingTick() const { return _lastReadingTick; }
 		void Shutdown();
 		const char* LastError() const { return _lastError; }
 
@@ -73,6 +78,7 @@ namespace cba
 		DXGI_FORMAT _format = DXGI_FORMAT_UNKNOWN;
 		bool _enabled = false;
 		unsigned long long _lastSampleTick = 0;
+		unsigned long long _lastReadingTick = 0;
 		Reading _latest{};
 		const char* _lastError = "";
 	};

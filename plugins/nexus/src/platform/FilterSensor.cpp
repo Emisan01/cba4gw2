@@ -176,6 +176,7 @@ namespace cba
 			_latest.beforeR = br; _latest.beforeG = bg; _latest.beforeB = bb;
 			_latest.afterR = ar;  _latest.afterG = ag;  _latest.afterB = ab;
 			_latest.valid = true;
+			_lastReadingTick = now;
 			_lastError = "";
 		}
 
