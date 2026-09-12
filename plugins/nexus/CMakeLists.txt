@@ -37,6 +37,7 @@ add_library(cba SHARED
     src/core/FeatureModule.cpp
     src/core/FilterLayers.cpp
     src/platform/Magnification.cpp
+    src/platform/ShaderColorPipeline.cpp
     src/platform/WindowMode.cpp
     src/platform/HybridScanner.cpp
     src/ui/UIState.cpp

@@ -95,6 +95,12 @@ namespace cba
 		bool MovableToolbarIcon = true;
 		float ToolbarIconPosX = 405.0f;
 		float ToolbarIconPosY = 8.0f;
+		// Which delivery path paints the correction (v2-shader-core branch,
+		// 2026-09-12). 0 = DWM/Magnification, screen-wide, what has shipped
+		// so far. 1 = a pixel shader on GW2's own backbuffer, which touches
+		// nothing outside the game. Both are built; this picks one, so the
+		// two can be compared live instead of argued about.
+		int RenderBackend = 0;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
 		int ContrastPairIndex = 0; // 0=Blau/Grün, 1=Rot/Grün, 2=Gelb/Blau, 3=Cyan/Blau, 4=Orange/Rot

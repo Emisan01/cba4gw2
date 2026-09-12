@@ -14,6 +14,7 @@
 #include "FilterLayers.h"
 #include "CbaIcon.h"
 #include "HybridScanner.h"
+#include "ShaderColorPipeline.h"
 #include "ColorMath.h"
 #include "Theme.h"
 #include "L10n.h"
@@ -786,6 +787,11 @@ namespace cba
 	// See UIState.h for why this exists and why the render thread drives it.
 	bool ShouldScreenEffectBeActive()
 	{
+		// One painter at a time. Selecting the shader backend makes this
+		// return false, which drives the existing clear-and-retry machinery -
+		// so switching backends puts the desktop back by itself instead of
+		// needing a second teardown path.
+		if (CurrentSettings.RenderBackend != 0) return false;
 		if (!CurrentSettings.Enabled) return false;
 		if (s_compareHoldActive.load()) return false;
 
@@ -817,6 +823,19 @@ namespace cba
 		// before they ever see the game. "Keep the correction while I alt-tab
 		// away" presupposes having been there in the first place.
 		return CurrentSettings.SystemWide && s_gw2EverForeground.load();
+	}
+
+	// Everything the screen-wide path needs a gate for - foreground,
+	// minimized, SystemWide, the arming flag - is absent here, and not by
+	// omission. A pass that only ever touches GW2's own backbuffer cannot
+	// tint a browser, so there is nothing to gate against. That deletion is
+	// the whole argument for this backend in one function.
+	bool ShouldShaderPassRun()
+	{
+		if (CurrentSettings.RenderBackend != 1) return false;
+		if (!CurrentSettings.Enabled) return false;
+		if (s_compareHoldActive.load()) return false;
+		return true;
 	}
 
 	bool IsScreenEffectApplied()
@@ -1092,6 +1111,26 @@ namespace cba
 		if (!ImGui::GetCurrentContext()) return;
 		EnsureDeferredInitialized();
 		RenderEmbeddedOptions();
+	}
+
+	// Runs before ImGui::NewFrame and before ImGui's draw data reaches the
+	// backbuffer (Nexus UiContext.cpp:428 vs 491), so the correction lands on
+	// the game's frame and CBA's own interface stays true colour. Under DWM
+	// the panel, the swatches and Vision Lab's anomaloscope were all corrected
+	// too - a clinical test viewed through the correction it measures.
+	void AddonPreRender()
+	{
+		if (!ShouldShaderPassRun()) return;
+
+		IDXGISwapChain* swapChain = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
+		if (!swapChain) return;
+
+		ShaderColorPipeline& pipeline = GetShaderColorPipeline();
+		if (!pipeline.IsReady() && !pipeline.Initialize(swapChain)) return;
+
+		double m3x3[3][3];
+		EffectiveDisplayMatrix(m3x3);
+		pipeline.Apply(swapChain, m3x3);
 	}
 
 	void AddonRenderWindow()
@@ -1478,6 +1517,7 @@ namespace cba
 			if (APIDefs->Renderer.Register)
 			{
 				APIDefs->Renderer.Register(ERenderType_OptionsRender, AddonOptions);
+				APIDefs->Renderer.Register(ERenderType_PreRender, AddonPreRender);
 				APIDefs->Renderer.Register(ERenderType_Render, AddonRenderWindow);
 			}
 
@@ -1531,6 +1571,9 @@ namespace cba
 		// independent layers covering that class of bug now.
 		try
 		{
+			// Order matters: give the GPU resources back before the
+			// Magnification teardown, which can sleep through retries.
+			GetShaderColorPipeline().Shutdown();
 			ClearScreenEffectForShutdown();
 		}
 		catch (...)
@@ -1611,6 +1654,7 @@ namespace cba
 					APIDefs->WndProc.Deregister(AddonWndProc);
 				if (APIDefs->Renderer.Deregister)
 				{
+					APIDefs->Renderer.Deregister(AddonPreRender);
 					APIDefs->Renderer.Deregister(AddonRenderWindow);
 					APIDefs->Renderer.Deregister(AddonOptions);
 				}

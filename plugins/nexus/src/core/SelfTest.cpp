@@ -6,6 +6,7 @@
 #include "FilterLayers.h"
 #include "Shared.h"
 #include "../platform/HybridScanner.h"
+#include "../platform/ShaderColorPipeline.h"
 #include "../ui/UIState.h"
 #include <cmath>
 
@@ -247,6 +248,20 @@ namespace cba
 			Add(r, "Platform", "Screen effect matches the gate", wantActive || !isApplied,
 				(wantActive || !isApplied) ? ""
 					: "Effect is still installed although the gate says it should be off - it is tinting the whole desktop right now.");
+
+			// Which path is painting, and whether it is actually able to.
+			// A backend selected but not ready is the one state that looks
+			// exactly like "the filter is broken" from inside the game.
+			const bool shaderBackend = (CurrentSettings.RenderBackend == 1);
+			AddInfo(r, "Platform", "Render backend", true,
+				shaderBackend ? "Shader - GW2's own frame only" : "DWM - screen-wide");
+			if (shaderBackend)
+			{
+				const bool ready = GetShaderColorPipeline().IsReady();
+				const char* err = GetShaderColorPipeline().LastError();
+				Add(r, "Platform", "Shader pipeline is ready", ready,
+					ready ? "" : ((err && *err) ? err : "Not initialized yet - builds on the next rendered frame."));
+			}
 
 			const unsigned int rejects = g_DwmClearRejectCount.load();
 			AddInfo(r, "Platform", "Clears the OS refused since load", rejects == 0,

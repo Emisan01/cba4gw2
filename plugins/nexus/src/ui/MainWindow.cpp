@@ -16,6 +16,7 @@
 #include "ParameterRegistry.h"
 #include "FeatureModule.h"
 #include "FilterLayers.h"
+#include "ShaderColorPipeline.h"
 #include "SelfTest.h"
 #include "Shared.h"
 
@@ -1335,6 +1336,58 @@ namespace cba
 			// players have never been measured - but someone who HAS been
 			// should not have to sit through a questionnaire to say so.
 			// Same shared ActivateCommanderTagProfile() the guided flow uses.
+			// Backend switch (v2-shader-core, 2026-09-12). Experimental, so it
+			// lives here - but reachable without a rebuild, because the whole
+			// point is comparing the two on a real screen rather than
+			// reasoning about which one looks right.
+			ImGui::TextDisabled("%s:", isDe ? "Wie der Filter gemalt wird" : "How the filter is painted");
+			{
+				int backend = CurrentSettings.RenderBackend;
+				if (ImGui::RadioButton(isDe ? "Bildschirm (DWM)##backend0" : "Screen (DWM)##backend0", backend == 0))
+				{
+					CurrentSettings.RenderBackend = 0;
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("%s", isDe
+						? "Windows faerbt den gesamten Bildschirm. Bisheriger Weg.\nPausiert deshalb, sobald du GW2 verlaesst - sonst waere auch dein Browser eingefaerbt."
+						: "Windows tints the whole screen. The path shipped so far.\nPauses when you leave GW2, otherwise your browser would be tinted too.");
+				}
+				ImGui::SameLine(0, 12.0f);
+				if (ImGui::RadioButton(isDe ? "Nur GW2 (Shader)##backend1" : "GW2 only (shader)##backend1", backend == 1))
+				{
+					CurrentSettings.RenderBackend = 1;
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("%s", isDe
+						? "Die Korrektur wird direkt in das Bild von GW2 gerechnet.\nAusserhalb des Spiels passiert nichts - kein Pausieren noetig, und die CBA-Oberflaeche bleibt unverfaelscht."
+						: "The correction is computed straight into GW2's own frame.\nNothing outside the game is touched - no pausing needed, and CBA's own interface stays true colour.");
+				}
+
+				if (CurrentSettings.RenderBackend == 1)
+				{
+					ImGui::Indent(16.0f);
+					if (GetShaderColorPipeline().IsReady())
+					{
+						ImGui::TextDisabled("%s", isDe ? "Aktiv. \"Im Hintergrund aktiv lassen\" ist hier ohne Wirkung."
+						                              : "Active. \"Keep active in background\" has no effect here.");
+					}
+					else
+					{
+						const char* err = GetShaderColorPipeline().LastError();
+						ImGui::TextColored(Theme::kTextGoldLabel, "%s%s", isDe ? "Noch nicht bereit: " : "Not ready yet: ",
+							(err && *err) ? err : (isDe ? "wird beim naechsten Frame aufgebaut" : "builds on the next frame"));
+					}
+					ImGui::Unindent(16.0f);
+				}
+			}
+
+			ImGui::Spacing();
 			ImGui::TextDisabled("%s:", isDe ? "Ich kenne meinen Typ" : "I know my type");
 			{
 				float knownAvail = ImGui::GetContentRegionAvail().x;
