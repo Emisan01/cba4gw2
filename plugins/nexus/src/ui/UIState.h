@@ -102,6 +102,9 @@ namespace cba
 	// while the gate says it should be off" is the stuck-on-the-desktop bug,
 	// and it is the one state nobody can see from inside the game.
 	bool IsScreenEffectApplied();
+	// Whether the shader backend should be painting this frame. Short by
+	// design - see its definition.
+	bool ShouldShaderPassRun();
 
 	// Which Slots[] index the UI currently treats as "active" (highlighted,
 	// and where "Save" writes to). Physical storage for
@@ -168,6 +171,10 @@ namespace cba
 	extern double g_perfMainWindowMs;
 	extern double g_perfSensorGraphMs;
 	extern double g_perfCurvesMs;
+	// CPU time spent submitting the colour pass (copy + one draw). GPU
+	// time is not visible from here, so read this as "what the pass costs
+	// the game's render thread", not as the full cost.
+	extern double g_perfShaderPassMs;
 	extern double g_perfFilterLabMs;
 	extern double g_perfVisionLabMs;
 	extern double g_perfSafeStartMs;

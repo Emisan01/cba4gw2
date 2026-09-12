@@ -2992,6 +2992,16 @@ namespace cba
 					ImGui::Text(isDe ? "  Filter-Labor (Lab):   %.2f ms" : "  Filter Lab (Lab):     %.2f ms", g_perfFilterLabMs);
 					ImGui::SameLine(0, 16.0f);
 					ImGui::Text(isDe ? "  Total ImGui CBA:      %.2f ms" : "  Total ImGui CBA:      %.2f ms", g_perfTotalImGuiMs);
+					if (CurrentSettings.RenderBackend == 1)
+					{
+						ImGui::Text(isDe ? "  Farb-Pass (CPU):      %.3f ms" : "  Colour pass (CPU):    %.3f ms", g_perfShaderPassMs);
+						if (ImGui::IsItemHovered())
+						{
+							ImGui::SetTooltip("%s", isDe
+								? "Zeit auf dem Render-Thread fuer Kopie und Draw des Farb-Passes.\nDie GPU-Zeit ist von hier aus nicht messbar - das hier ist, was der Pass das Spiel an CPU kostet."
+								: "Render-thread time for the colour pass's copy and draw.\nGPU time is not visible from here - this is what the pass costs the game on the CPU.");
+						}
+					}
 				}
 				ImGui::EndChild();
 				ImGui::PopStyleVar(2);
@@ -3084,23 +3094,35 @@ namespace cba
 						"============================================================\n"
 						"- Addon Version: %d.%d.%d.%d | Nexus API: %d\n"
 						"- Profile: %s | Severity: %.1f%% | Enabled: %s\n"
-						"- Magnification API: Initialized: %s | Filter Applied: %s\n"
+						"- Colour path: %s | Painting now: %s | Magnification session: %s\n"
 						"- Window Mode: %s | HDR Detected: %s\n"
 						"- MumbleLink: Map ID %u (%s) | In Combat: %s\n"
-						"- Performance Timings: Main: %.2f ms | HUD: %.2f ms | Curves: %.2f ms | Lab: %.2f ms | Total: %.2f ms\n"
+						"- Performance Timings: Main: %.2f ms | HUD: %.2f ms | Curves: %.2f ms | Lab: %.2f ms | Total ImGui: %.2f ms | Colour pass: %.3f ms\n"
 						"============================================================",
 						ver.Major, ver.Minor, ver.Build, ver.Revision,
 						NEXUS_API_VERSION,
 						(CurrentSettings.Mixed ? "Mixed" : (CurrentSettings.Type == BalanceType::Protan ? "Protan" : (CurrentSettings.Type == BalanceType::Deutan ? "Deutan" : "Tritan"))),
 						CurrentSettings.Severity01 * 100.0,
 						CurrentSettings.Enabled ? "YES" : "NO",
-						s_deferredInitDone.load() ? "YES" : "NO",
-						CurrentSettings.Enabled ? "ACTIVE" : "INACTIVE",
+						// This line used to read "Filter Applied: ACTIVE" straight
+						// off CurrentSettings.Enabled, on a line about the
+						// Magnification API - so a shader-backend report claimed
+						// the DWM effect was applied while SelfTest, a few lines
+						// down, correctly reported it was not. Two lines in one
+						// report disagreeing about the same fact is the
+						// false-evidence problem in its purest form. Each half
+						// now states what it actually is.
+						(CurrentSettings.RenderBackend == 1) ? "Shader (GW2 frame only)" : "DWM (screen-wide)",
+						((CurrentSettings.RenderBackend == 1)
+							? (ShouldShaderPassRun() && GetShaderColorPipeline().IsReady())
+							: IsScreenEffectApplied()) ? "YES" : "NO",
+						s_deferredInitDone.load() ? "initialized" : "not initialized",
 						ToDisplayString(wMode, false),
 						hdr ? "YES" : "NO",
 						gctx.mapId, gctx.modeNameEn,
 						gctx.isInCombat ? "YES" : "NO",
-						g_perfMainWindowMs, g_perfSensorGraphMs, g_perfCurvesMs, g_perfFilterLabMs, g_perfTotalImGuiMs);
+						g_perfMainWindowMs, g_perfSensorGraphMs, g_perfCurvesMs, g_perfFilterLabMs, g_perfTotalImGuiMs,
+						g_perfShaderPassMs);
 
 					std::string fullReport = report;
 					if (s_selfTestRan)

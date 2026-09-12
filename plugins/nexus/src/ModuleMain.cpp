@@ -1120,7 +1120,11 @@ namespace cba
 	// too - a clinical test viewed through the correction it measures.
 	void AddonPreRender()
 	{
-		if (!ShouldShaderPassRun()) return;
+		if (!ShouldShaderPassRun())
+		{
+			g_perfShaderPassMs = 0.0;
+			return;
+		}
 
 		IDXGISwapChain* swapChain = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
 		if (!swapChain) return;
@@ -1128,9 +1132,18 @@ namespace cba
 		ShaderColorPipeline& pipeline = GetShaderColorPipeline();
 		if (!pipeline.IsReady() && !pipeline.Initialize(swapChain)) return;
 
+		// Measured rather than estimated (2026-09-12). I had told Emi "well
+		// under 0.5 ms at 4K" from arithmetic; a number he can read off the
+		// panel is worth more than my arithmetic. Caveat in the declaration:
+		// this is CPU submit time, not GPU execution time.
+		auto t0 = std::chrono::high_resolution_clock::now();
+
 		double m3x3[3][3];
 		EffectiveDisplayMatrix(m3x3);
 		pipeline.Apply(swapChain, m3x3);
+
+		auto t1 = std::chrono::high_resolution_clock::now();
+		g_perfShaderPassMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
 	}
 
 	void AddonRenderWindow()

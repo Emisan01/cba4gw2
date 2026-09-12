@@ -34,6 +34,7 @@ namespace cba
 	double g_perfMainWindowMs = 0.0;
 	double g_perfSensorGraphMs = 0.0;
 	double g_perfCurvesMs = 0.0;
+	double g_perfShaderPassMs = 0.0;
 	double g_perfFilterLabMs = 0.0;
 	double g_perfVisionLabMs = 0.0;
 	double g_perfSafeStartMs = 0.0;
