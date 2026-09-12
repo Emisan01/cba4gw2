@@ -70,6 +70,28 @@ namespace cba
 	// state-changing logic is shared.
 	void ToggleMasterEnabled();
 
+	// ── Profile slots: one writer, one reader ───────────────────────────────
+	//
+	// Replaces three hand-rolled slot writers that had each drifted to a
+	// different subset of the filter state. The worst of them wrote
+	// Mixed = false and never wrote the mixed severities, so a mixed-profile
+	// user silently lost them on save.
+	//
+	// SaveSettingsToSlot captures the complete current filter state (see
+	// Settings::ProfileSlot) and marks the slot used. It auto-names an empty
+	// slot and never overwrites a name the user chose. It does NOT save the
+	// settings file - the caller decides when that happens, because a slot
+	// write is usually one of several changes in the same frame.
+	//
+	// LoadSettingsFromSlot applies a slot to the live settings. It writes
+	// through ParameterRegistry wherever a parameter is registered, so every
+	// value is clamped by the same ParamMeta a slider obeys. It deliberately
+	// does NOT touch Enabled: a slot stores what the filter looks like, not
+	// whether it is running. Returns false for an unused or out-of-range
+	// slot, in which case nothing is written at all.
+	void SaveSettingsToSlot(int aSlotIndex);
+	bool LoadSettingsFromSlot(int aSlotIndex);
+
 	// ── The screen-effect gate (one rule, one place, 2026-09-12) ───────────
 	//
 	// ShouldScreenEffectBeActive() is the single answer to "should the

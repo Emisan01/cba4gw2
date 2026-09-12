@@ -1,5 +1,6 @@
 #include "Settings.h"
 #include "ParameterRegistry.h"
+#include "FilterStateBounds.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -197,11 +198,18 @@ namespace cba
 					if (prop == "Used") s.Slots[idx].Used = (value == "1");
 					else if (prop == "Name") s.Slots[idx].Name = value;
 					else if (prop == "Type") s.Slots[idx].Type = ParseType(value);
-					else if (prop == "Sev")  s.Slots[idx].Severity01 = safeStod(value, 0.0);
+					else if (prop == "Sev")  s.Slots[idx].Severity01 = safeStof(value, 0.0f);
 					else if (prop == "Mixed") s.Slots[idx].Mixed = (value == "1");
-					else if (prop == "MixedRg") s.Slots[idx].MixedRg01 = safeStod(value, 0.0);
-					else if (prop == "MixedBy") s.Slots[idx].MixedBy01 = safeStod(value, 0.0);
-					else if (prop == "Gamma") s.Slots[idx].GammaGain = std::clamp(safeStof(value, 1.0f), 0.70f, 1.30f);
+					else if (prop == "MixedRg") s.Slots[idx].MixedRg01 = safeStof(value, 0.0f);
+					else if (prop == "MixedBy") s.Slots[idx].MixedBy01 = safeStof(value, 0.0f);
+					else if (prop == "Gamma") s.Slots[idx].GammaGain = std::clamp(safeStof(value, 1.0f), FilterBounds::kGammaGainMin, FilterBounds::kGammaGainMax);
+					else if (prop == "EyeComfort") s.Slots[idx].EyeComfortModeEnabled = (value == "1");
+					else if (prop == "BlueFilter") s.Slots[idx].BlueFilter01 = std::clamp(safeStof(value, 0.0f), FilterBounds::kEyeAxisMin, FilterBounds::kEyeAxisMax);
+					else if (prop == "WarmTint") s.Slots[idx].WarmTint01 = std::clamp(safeStof(value, 0.0f), FilterBounds::kEyeAxisMin, FilterBounds::kEyeAxisMax);
+					else if (prop == "SatRed") s.Slots[idx].SaturationReduction01 = std::clamp(safeStof(value, 0.0f), FilterBounds::kEyeAxisMin, FilterBounds::kEyeAxisMax);
+					else if (prop == "CmdrMode") s.Slots[idx].CommanderTagMode = std::clamp(safeStoi(value, 0), FilterBounds::kCommanderTagModeMin, FilterBounds::kCommanderTagModeMax);
+					else if (prop == "EnhTol") s.Slots[idx].EnhancerTolerance = std::clamp(safeStof(value, 0.12f), FilterBounds::kToleranceMin, FilterBounds::kToleranceMax);
+					else if (prop == "Hybrid") s.Slots[idx].EnableHybridMode = (value == "1");
 				}
 			}
 		}
@@ -337,6 +345,13 @@ namespace cba
 			file << "Slot" << i << "_MixedRg=" << Slots[i].MixedRg01 << "\n";
 			file << "Slot" << i << "_MixedBy=" << Slots[i].MixedBy01 << "\n";
 			file << "Slot" << i << "_Gamma=" << Slots[i].GammaGain << "\n";
+			file << "Slot" << i << "_EyeComfort=" << (Slots[i].EyeComfortModeEnabled ? "1" : "0") << "\n";
+			file << "Slot" << i << "_BlueFilter=" << Slots[i].BlueFilter01 << "\n";
+			file << "Slot" << i << "_WarmTint=" << Slots[i].WarmTint01 << "\n";
+			file << "Slot" << i << "_SatRed=" << Slots[i].SaturationReduction01 << "\n";
+			file << "Slot" << i << "_CmdrMode=" << Slots[i].CommanderTagMode << "\n";
+			file << "Slot" << i << "_EnhTol=" << Slots[i].EnhancerTolerance << "\n";
+			file << "Slot" << i << "_Hybrid=" << (Slots[i].EnableHybridMode ? "1" : "0") << "\n";
 		}
 
 		file.flush();

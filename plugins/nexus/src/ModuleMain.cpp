@@ -935,6 +935,84 @@ namespace cba
 		return true;
 	}
 
+	void SaveSettingsToSlot(int aSlotIndex)
+	{
+		if (aSlotIndex < 0 || aSlotIndex >= 3) return;
+		Settings::ProfileSlot& slot = CurrentSettings.Slots[aSlotIndex];
+
+		// Only auto-generate a name for a slot that has none. A user who
+		// renamed a slot "WvW Abend" keeps that name through every later save.
+		if (slot.Name.empty())
+		{
+			const char* typeName = CurrentSettings.Mixed ? "Mixed"
+				: (CurrentSettings.Type == BalanceType::Protan) ? "Protan"
+				: (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
+			char buf[64];
+			std::snprintf(buf, sizeof(buf), "%s %d", typeName, aSlotIndex + 1);
+			slot.Name = buf;
+		}
+
+		slot.Used                  = true;
+		slot.Type                  = CurrentSettings.Type;
+		slot.Severity01            = CurrentSettings.Severity01;
+		slot.Mixed                 = CurrentSettings.Mixed;
+		slot.MixedRg01             = CurrentSettings.MixedRgSeverity01;
+		slot.MixedBy01             = CurrentSettings.MixedBySeverity01;
+		slot.GammaGain             = CurrentSettings.GammaGain;
+		slot.EyeComfortModeEnabled = CurrentSettings.EyeComfortModeEnabled;
+		slot.BlueFilter01          = CurrentSettings.BlueFilter01;
+		slot.WarmTint01            = CurrentSettings.WarmTint01;
+		slot.SaturationReduction01 = CurrentSettings.SaturationReduction01;
+		slot.CommanderTagMode      = CurrentSettings.CommanderTagMode;
+		slot.EnhancerTolerance     = CurrentSettings.EnhancerTolerance;
+		slot.EnableHybridMode      = CurrentSettings.EnableHybridMode;
+	}
+
+	bool LoadSettingsFromSlot(int aSlotIndex)
+	{
+		if (aSlotIndex < 0 || aSlotIndex >= 3) return false;
+		const Settings::ProfileSlot& slot = CurrentSettings.Slots[aSlotIndex];
+		if (!slot.Used) return false;
+
+		ParameterRegistry& reg = ParameterRegistry::Get();
+
+		// Type and Mixed are deliberately un-registered (a selection, not a
+		// clamped scalar - see ParameterRegistry.h), so they are written
+		// directly. Everything else goes through the registry so a value
+		// arriving from a hand-edited ini is bounded by the same ParamMeta a
+		// slider obeys, instead of by a second set of retyped literals.
+		CurrentSettings.Type  = slot.Type;
+		CurrentSettings.Mixed = slot.Mixed;
+		reg.SetFloat(ParamId::Severity01,            slot.Severity01);
+		reg.SetFloat(ParamId::MixedRgSeverity01,     slot.MixedRg01);
+		reg.SetFloat(ParamId::MixedBySeverity01,     slot.MixedBy01);
+		reg.SetFloat(ParamId::BlueFilter01,          slot.BlueFilter01);
+		reg.SetFloat(ParamId::WarmTint01,            slot.WarmTint01);
+		reg.SetFloat(ParamId::SaturationReduction01, slot.SaturationReduction01);
+		reg.SetFloat(ParamId::EnhancerTolerance,     slot.EnhancerTolerance);
+		reg.SetInt  (ParamId::CommanderTagMode,      slot.CommanderTagMode);
+
+		CurrentSettings.EyeComfortModeEnabled = slot.EyeComfortModeEnabled;
+		CurrentSettings.EnableHybridMode      = slot.EnableHybridMode;
+		// The field alone never reaches the worker - the scanner keeps its own
+		// enabled flag, and setting one without the other is how the overlay
+		// used to end up half-on.
+		GetHybridScanner().SetEnabled(slot.EnableHybridMode);
+
+		// SetGammaGainManual, not a bare write: it also turns Auto-Brightness
+		// off, which is required rather than incidental. Auto overwrites the
+		// gain from the live recommendation within a frame, so restoring a
+		// stored gain while leaving Auto on would show the slot's value for
+		// exactly one frame and then discard it.
+		SetGammaGainManual(slot.GammaGain);
+
+		// Keep the slot picker's highlight on what is actually loaded.
+		reg.SetInt(ParamId::ActiveSlotIdx, aSlotIndex);
+
+		UpdateTagEnhancerConflicts();
+		return true;
+	}
+
 	bool IsWatchdogRunning()
 	{
 		return s_watchdogRunning.load() && s_watchdogThread.joinable();
@@ -1295,8 +1373,23 @@ namespace cba
 		// The sensor allocates two mip chains of a 4K frame and does real GPU
 		// work per sample, so it runs only while something is actually reading
 		// it. One place decides that, rather than every call site remembering.
+		// != 0, not == 1 (fixed 2026-09-12, found by an adversarial audit of
+		// what a profile slot should store).
+		//
+		// This guard duplicated ApplySensorBrightnessCorrection's own
+		// precondition and then drifted from it: the function accepts source 1
+		// AND 2, but the only call site demanded exactly 1. So "Niveau halten"
+		// - mode 2, with its own radio button, its own tooltip and its own
+		// capture button - could be selected and then never ran. The panel
+		// offered a control that did nothing, which is rule 15 violated by the
+		// code that was supposed to enforce it.
+		//
+		// The shape is rule 10: one condition, two places, one of them wrong.
+		// The function owns the "is this mode live" question; this guard now
+		// asks only the part the function cannot - whether to keep the sensor
+		// allocated at all.
 		const bool sensorSteersBrightness = CurrentSettings.AutoBrightness &&
-		                                    CurrentSettings.AutoBrightnessSource == 1;
+		                                    CurrentSettings.AutoBrightnessSource != 0;
 		GetFilterSensor().SetEnabled(CurrentSettings.RenderBackend == 1 &&
 		                             (CurrentSettings.ShowGraphWindow || sensorSteersBrightness));
 		if (sensorSteersBrightness)

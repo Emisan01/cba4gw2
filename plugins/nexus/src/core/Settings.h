@@ -140,22 +140,70 @@ namespace cba
 		std::vector<LabFilter> LabFilters;
 
 		// 3 User-Saved Color Correction Profiles
+		// ── A saved filter state, complete ──────────────────────────────
+		//
+		// Emi's definition (2026-09-12): "alle Filterzustaende wie sie eben
+		// gerade sind, reiner IST-Zustand, unabhaengig von aller anderer
+		// Logik" - everything that changes the picture, nothing that
+		// describes the window it is shown in.
+		//
+		// It held six fields until then, while the shareable preset code
+		// carried thirteen. Saving a profile locally silently dropped Eye
+		// Comfort and Commander Tag settings that sharing the same profile
+		// as a code preserved. Three different writers each wrote the subset
+		// they happened to care about; one of them (the Com-Tag quick-save)
+		// wrote Mixed = false and never wrote the mixed severities at all,
+		// because in ITS worldview a Com-Tag profile is always one pure
+		// type - deliberate there, data loss here, because both wrote into
+		// this same struct.
+		//
+		// What is deliberately NOT here, and why, is in
+		// docs/PROFILE_SLOT_SPEC.md. The short version: a slot stores what
+		// the filter LOOKS LIKE, never whether it is running (Enabled has
+		// exactly one authority and the neutral start is audit-pinned),
+		// never how it is painted (RenderBackend is a per-machine choice),
+		// never where it applies (SystemWide could tint a browser), and not
+		// yet the Filter Lab stack (its data model is being rebuilt - see
+		// ROADMAP phase 4 - and persisting today's shape would create the
+		// migration this rewrite exists to avoid).
 		struct ProfileSlot
 		{
 			bool Used = false;
 			std::string Name = "";
+
+			// Base correction
 			BalanceType Type = BalanceType::Protan;
-			double Severity01 = 0.0;
+			float Severity01 = 0.0f;
 			bool Mixed = false;
-			double MixedRg01 = 0.0;
-			double MixedBy01 = 0.0;
+			float MixedRg01 = 0.0f;
+			float MixedBy01 = 0.0f;
+
+			// Brightness. The gain is stored; AutoBrightness deliberately is
+			// not - SyncAutoBrightnessGain overwrites the gain from the
+			// recommendation within a frame, so a slot storing both would
+			// advertise a value it never applies. Loading sets the gain and
+			// turns the automatic off, which is what a manual act does
+			// everywhere else in this codebase.
 			float GammaGain = 1.0f;
+
+			// Eye-Sensitive layer
+			bool EyeComfortModeEnabled = false;
+			float BlueFilter01 = 0.0f;
+			float WarmTint01 = 0.0f;
+			float SaturationReduction01 = 0.0f;
+
+			// Commander Tag contrast
+			int CommanderTagMode = 0;
+			float EnhancerTolerance = 0.12f;
+
+			// The overlay layer gate. Non-obvious but load-bearing: the
+			// scanner and its overlay are gated on
+			// (EnableHybridMode || CommanderTagMode != 0), so with Com-Tag
+			// off this flag is the only thing that lets target replacement
+			// reach the screen at all.
+			bool EnableHybridMode = false;
 		};
-		ProfileSlot Slots[3]{
-			{ false, "", BalanceType::Deutan, 0.0, false, 0.0, 0.0, 1.0f },
-			{ false, "", BalanceType::Deutan, 0.0, false, 0.0, 0.0, 1.0f },
-			{ false, "", BalanceType::Deutan, 0.0, false, 0.0, 0.0, 1.0f }
-		};
+		ProfileSlot Slots[3]{ {}, {}, {} };
 		// Which Slots[] index to auto-load and auto-enable at startup, -1 = none
 		// (the default: always start neutral/off, see AddonLoad in ModuleMain.cpp).
 		// Replaces the old "LoadOnStartup" bool, which just remembered whatever

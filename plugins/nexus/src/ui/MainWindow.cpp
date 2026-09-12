@@ -635,21 +635,7 @@ namespace cba
 				int firstEmpty = -1;
 				for (int i = 0; i < 3; ++i) if (!CurrentSettings.Slots[i].Used) { firstEmpty = i; break; }
 				int targetSlot = (firstEmpty != -1) ? firstEmpty : ParameterRegistry::Get().GetInt(ParamId::ActiveSlotIdx);
-				CurrentSettings.Slots[targetSlot].Used = true;
-				if (CurrentSettings.Slots[targetSlot].Name.empty()) {
-					const char* tn = CurrentSettings.Mixed ? (isDe ? "Gemischt" : "Mixed") :
-						(CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
-						(CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
-					char defaultName[64];
-					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s)", targetSlot + 1, tn);
-					CurrentSettings.Slots[targetSlot].Name = defaultName;
-				}
-				CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
-				CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
-				CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
-				CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
-				CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
-				CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+				SaveSettingsToSlot(targetSlot);
 				ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, targetSlot);
 				saveNeeded = true;
 			}
@@ -679,15 +665,10 @@ namespace cba
 				// thing out loud. The "*" stays: it is the at-a-glance marker,
 				// and it finally has a visible control behind it.
 				if (chipClicked && used) {
-					ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
-					CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
-					CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
-					CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
-					CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
-					CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
-					CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
-					changed = true;
-					saveNeeded = true;
+					if (LoadSettingsFromSlot(sIdx)) {
+						changed = true;
+						saveNeeded = true;
+					}
 				}
 				ImGui::PopStyleColor(4);
 				if (ImGui::IsItemHovered()) {
@@ -2033,26 +2014,7 @@ namespace cba
 					EnsureDeferredInitialized();
 					int targetSlot = (CurrentSettings.Type == BalanceType::Protan) ? 0 :
 					                 (CurrentSettings.Type == BalanceType::Deutan) ? 1 : 2;
-					CurrentSettings.Slots[targetSlot].Used = true;
-					// Only auto-generate a name if the slot doesn't
-					// already have one - previously overwrote
-					// unconditionally, so a user's manually-renamed slot
-					// ("WvW Raid Preset") could silently lose its name
-					// the next time this quick-save button was clicked
-					// (found in the 2026-09-09 codebase review), matching
-					// the .Name.empty() check every other slot-save path
-					// in this file already uses.
-					if (CurrentSettings.Slots[targetSlot].Name.empty())
-					{
-						char buf[64];
-						std::snprintf(buf, sizeof(buf), "Com-Tag %s", (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
-						                                              (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan");
-						CurrentSettings.Slots[targetSlot].Name = buf;
-					}
-					CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
-					CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
-					CurrentSettings.Slots[targetSlot].Mixed = false;
-					CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+					SaveSettingsToSlot(targetSlot);
 
 					CurrentSettings.Save(AddonDir);
 					saveNeeded = true;
@@ -2333,25 +2295,7 @@ namespace cba
 			if (ImGui::Button(isDe ? "Speichern##tiny_prof" : "Save##tiny_prof", ImVec2(0.0f, 22.0f)))
 			{
 				int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : ParameterRegistry::Get().GetInt(ParamId::ActiveSlotIdx);
-				CurrentSettings.Slots[targetSlot].Used = true;
-				char defaultName[64];
-				if (CurrentSettings.Mixed) {
-					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (Mixed %d%%/%d%%)", targetSlot + 1,
-						(int)(CurrentSettings.MixedRgSeverity01 * 100), (int)(CurrentSettings.MixedBySeverity01 * 100));
-				} else {
-					const char* tn = (CurrentSettings.Type == BalanceType::Protan) ? "Protan" :
-					                 (CurrentSettings.Type == BalanceType::Deutan) ? "Deutan" : "Tritan";
-					std::snprintf(defaultName, sizeof(defaultName), "Slot %d (%s %d%%)", targetSlot + 1, tn, (int)(CurrentSettings.Severity01 * 100));
-				}
-				if (CurrentSettings.Slots[targetSlot].Name.empty()) {
-					CurrentSettings.Slots[targetSlot].Name = defaultName;
-				}
-				CurrentSettings.Slots[targetSlot].Type = CurrentSettings.Type;
-				CurrentSettings.Slots[targetSlot].Severity01 = CurrentSettings.Severity01;
-				CurrentSettings.Slots[targetSlot].Mixed = CurrentSettings.Mixed;
-				CurrentSettings.Slots[targetSlot].MixedRg01 = CurrentSettings.MixedRgSeverity01;
-				CurrentSettings.Slots[targetSlot].MixedBy01 = CurrentSettings.MixedBySeverity01;
-				CurrentSettings.Slots[targetSlot].GammaGain = CurrentSettings.GammaGain;
+				SaveSettingsToSlot(targetSlot);
 
 				s_baseType = CurrentSettings.Type;
 				s_baseSev = CurrentSettings.Severity01;
@@ -2397,25 +2341,23 @@ namespace cba
 				std::snprintf(slotChip, sizeof(slotChip), "[%d]", sIdx + 1);
 				if (ImGui::Button(slotChip, ImVec2(32.0f, 22.0f)))
 				{
-					ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
 					if (used)
 					{
-						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
-						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
-						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
-						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
-						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
-						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+						if (LoadSettingsFromSlot(sIdx)) {
+							s_baseType = CurrentSettings.Type;
+							s_baseSev = CurrentSettings.Severity01;
+							s_baseMixed = CurrentSettings.Mixed;
+							s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+							s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+							s_baseGamma = CurrentSettings.GammaGain;
 
-						s_baseType = CurrentSettings.Type;
-						s_baseSev = CurrentSettings.Severity01;
-						s_baseMixed = CurrentSettings.Mixed;
-						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
-						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
-						s_baseGamma = CurrentSettings.GammaGain;
-
-						changed = true;
-						saveNeeded = true;
+							changed = true;
+							saveNeeded = true;
+						}
+					}
+					else
+					{
+						ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
 					}
 				}
 				ImGui::PopStyleColor(4);
@@ -2468,23 +2410,17 @@ namespace cba
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
 					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
 					if (ImGui::Button(isDe ? "Laden" : "Load", ImVec2(0.0f, 0.0f))) {
-						ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, sIdx);
-						CurrentSettings.Type = CurrentSettings.Slots[sIdx].Type;
-						CurrentSettings.Severity01 = CurrentSettings.Slots[sIdx].Severity01;
-						CurrentSettings.Mixed = CurrentSettings.Slots[sIdx].Mixed;
-						CurrentSettings.MixedRgSeverity01 = CurrentSettings.Slots[sIdx].MixedRg01;
-						CurrentSettings.MixedBySeverity01 = CurrentSettings.Slots[sIdx].MixedBy01;
-						CurrentSettings.GammaGain = CurrentSettings.Slots[sIdx].GammaGain;
+						if (LoadSettingsFromSlot(sIdx)) {
+							s_baseType = CurrentSettings.Type;
+							s_baseSev = CurrentSettings.Severity01;
+							s_baseMixed = CurrentSettings.Mixed;
+							s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
+							s_baseMixedBy = CurrentSettings.MixedBySeverity01;
+							s_baseGamma = CurrentSettings.GammaGain;
 
-						s_baseType = CurrentSettings.Type;
-						s_baseSev = CurrentSettings.Severity01;
-						s_baseMixed = CurrentSettings.Mixed;
-						s_baseMixedRg = CurrentSettings.MixedRgSeverity01;
-						s_baseMixedBy = CurrentSettings.MixedBySeverity01;
-						s_baseGamma = CurrentSettings.GammaGain;
-
-						changed = true;
-						saveNeeded = true;
+							changed = true;
+							saveNeeded = true;
+						}
 					}
 					ImGui::PopStyleColor(4);
 
