@@ -109,19 +109,43 @@ thing this tool can honestly measure about its own effect.
 
 ## Currently open
 
-Five things, all deliberate:
-
+- **Untested since the backend swap:** do Commander Tags look the same under
+  the shader as under DWM? That is the exact property the PostRender placement
+  protects, and nothing has verified it on a screen yet.
+- **Unreleased work.** Latest tag is v1.11.0; `main` is well past it and the
+  `v2-shader-core` branch further still. None of it reaches players.
 - `cba_session.lock` / Safe-Start works but is a workaround, not a design.
-- Vision Lab's Clinical Report asks for a Nagel-AQ and an HRR score and reads
-  neither (`VisionLab.cpp` — declaration and widget, no reader). Placement is
-  intentional; whether anything should consume them is undecided.
-- The "Windowed Fullscreen required" premise is unverified and Emi says it is
-  wrong. If confirmed, the in-game banner, Section 3's warning and the README's
-  requirements all change together.
 - "Regional Hybrid Mode" (4-quadrant per-region filter) — a proposal, not
   started, larger than it looks.
 - `EAddonFlags::DisableHotloading` on release builds — recorded, Emi's
   explicit "not now".
+- **Retire the DWM backend** once Emi has compared enough. ~104 references
+  across 9 files fall out with it.
+
+## Where Filter Lab is going
+
+Filter Lab is a precursor, not a feature. Emi's intent for it (2026-09-12): a
+**modular stack of filter layers, orderable, composed on top of each other to
+eliminate specific wavelengths** — and it is meant to be the centrepiece once
+the rest is solid. Do not treat its current contents as the design.
+
+The reference is the Nancy Grace Roman Space Telescope
+(<https://en.wikipedia.org/wiki/Nancy_Grace_Roman_Space_Telescope>). Two ideas
+from it that shaped this, worth keeping straight:
+
+- Its Wide Field Instrument takes **separate exposures through single filters**
+  per wavelength band and combines them afterwards — not a cascade of filters
+  stacked in one beam. That distinction is the whole point: the target model is
+  every layer contributing a weight, not each one narrowing what the next sees.
+- Its Coronagraph **suppresses an overwhelming dominant signal** to reveal a
+  faint one beside it — conceptually what Commander Tag contrast already does
+  when it pushes back a confusable hue.
+
+Known blocker, so nobody rediscovers it: `HybridScanner::AnalyzeBuffer`'s
+cluster step groups matches by *exact* replacement-colour equality to tell a
+real tag icon from single-pixel noise. A true weighted blend makes nearly every
+pixel a slightly different colour and fragments every cluster. Grouping by
+target ID or colour similarity has to come first.
 
 ---
 

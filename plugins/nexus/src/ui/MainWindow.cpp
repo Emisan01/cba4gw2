@@ -351,53 +351,16 @@ namespace cba
 		// audience than the first.
 		ImGui::Spacing();
 
-		// ── "The filter physically cannot work right now" banner ───────────
-		// Added 2026-09-11 (PRODUCT_CONCEPT.md section 1). This condition
-		// used to be reported ONLY in the Main Window, i.e. inside
-		// Studio, i.e. behind the Advanced Mode gate - so a base-panel user in
-		// exclusive fullscreen saw "ON", a live status dot and
-		// "Active - N of 9 colors shifted" while absolutely nothing happened
-		// on screen. That is not a missing warning, it is the panel actively
-		// supplying FALSE evidence, which is the one thing the whole concept
-		// exists to prevent. It sits above everything else because it
-		// invalidates every status line below it.
-		{
-			WindowMode embWinMode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
-			// The second condition this banner used to carry - "Windows is
-			// rejecting the colour correction", driven by
-			// g_DwmLastCallSuccessful - was removed 2026-09-12. It fires
-			// whenever GW2 is not the foreground window (alt-tab to a
-			// browser, open the snipping tool), because a background
-			// process's MagSetFullscreenColorEffect call does not go through
-			// - while the already-installed effect keeps working perfectly.
-			// So the banner accused the OS of blocking a filter that was
-			// visibly running: the same false-evidence failure this banner
-			// exists to prevent, only in the other direction. A warning that
-			// cries wolf on every alt-tab teaches people to ignore warnings.
-			// The flag is not lost - SelfTest reports it as INFO, the right
-			// surface for a fact that legitimately varies (CLAUDE.md, "Where
-			// a fact belongs").
-			if (embWinMode == WindowMode::ExclusiveFullscreen)
-			{
-				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.38f, 0.14f, 0.10f, 0.55f));
-				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
-				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
-				float bannerH = ImGui::GetTextLineHeightWithSpacing() * 3.0f + 12.0f;
-				if (ImGui::BeginChild("##emb_blocked", ImVec2(0.0f, bannerH), false, ImGuiWindowFlags_NoScrollbar))
-				{
-					ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.38f, 1.0f), "%s", isDe
-						? "Der Filter kann gerade nicht wirken"
-						: "The filter cannot take effect right now");
-					ImGui::TextWrapped("%s", isDe
-						? "GW2 laeuft im exklusiven Vollbild. Stelle in den Grafik-Optionen auf 'Vollbild im Fenster' um - Windows kann die Farbkorrektur sonst nicht anwenden."
-						: "GW2 is in exclusive fullscreen. Switch Graphics Options to 'Windowed Fullscreen' - Windows cannot apply the colour correction otherwise.");
-				}
-				ImGui::EndChild();
-				ImGui::PopStyleVar(2);
-				ImGui::PopStyleColor();
-				ImGui::Spacing();
-			}
-		}
+		// The exclusive-fullscreen banner that used to sit here is gone
+		// (2026-09-12, Emi's call). It belonged to the DWM backend, where
+		// Windows genuinely refused to apply the effect over an exclusive
+		// fullscreen swapchain. The shader path draws into GW2's own
+		// backbuffer and does not care what window mode the game is in, so on
+		// the default backend the warning was answering a question nobody
+		// has any more - and Emi reported the underlying premise as wrong in
+		// the first place. A warning about a condition that does not apply is
+		// the same false-evidence failure as the "OS BLOCKED" banner before
+		// it.
 
 		// ── Row 1: Master ON/OFF + live status. Pushed to the very top
 		// (2026-09-09, Emi's reorder request) - this is "the basic button,"
@@ -1975,43 +1938,11 @@ namespace cba
 			ImGui::Dummy(ImVec2(0.0f, 12.0f));
 		};
 
-		// ── Exclusive Fullscreen Warning Banner ──────────────────────────────
+		// Exclusive-fullscreen warning removed 2026-09-12 - see the note in
+		// RenderEmbeddedOptions. curWinMode is still queried once here because
+		// Section 3 reports the window mode as information, and the value
+		// cannot change within a frame.
 		WindowMode curWinMode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
-		if (curWinMode == WindowMode::ExclusiveFullscreen)
-		{
-			ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.35f, 0.20f, 0.05f, 0.85f));
-			ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.95f, 0.65f, 0.20f, 0.90f));
-			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
-			if (ImGui::BeginChild("##excl_fullscreen_warning", ImVec2(0.0f, 46.0f), true, ImGuiWindowFlags_NoScrollbar))
-			{
-				ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.35f, 1.0f), "%s", isDe ? "[WARNUNG] GW2 laeuft im exklusiven Vollbildmodus!" : "[WARNING] GW2 is running in exclusive fullscreen!");
-				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe 
-					? "DWM-Filter pausiert. Bitte in den GW2-Optionen auf 'Fenster' oder 'Rahmenlos' stellen."
-					: "DWM filter paused. Please set GW2 Graphics Options to 'Windowed' or 'Borderless'.");
-			}
-			ImGui::EndChild();
-			ImGui::PopStyleVar();
-			ImGui::PopStyleColor(2);
-			ImGui::Spacing();
-		}
-
-		// ── Live Game Mode Context Indicator ──────────────────────────────────
-		MumbleGameContext gameCtx = GetCurrentGameContext();
-		if (gameCtx.mapId != 0)
-		{
-			ImGui::TextColored(Theme::kTextCyanLicht, "%s: %s (Map %u)%s",
-				isDe ? "Aktiver Spielmodus" : "Active Game Mode",
-				isDe ? gameCtx.modeNameDe : gameCtx.modeNameEn,
-				gameCtx.mapId,
-				gameCtx.isInCombat ? (isDe ? " [Im Kampf]" : " [In Combat]") : "");
-			if (gameCtx.isWvW && CurrentSettings.CommanderTagMode == 0)
-			{
-				ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe 
-					? "[Tipp] WvW erkannt! Der Commander-Tag Enhancer in Sektion 1 wird empfohlen."
-					: "[Tip] WvW detected! Commander-Tag Enhancer in Section 1 is recommended.");
-			}
-			ImGui::Spacing();
-		}
 
 		// ── Section 1: Farbprofil & Korrektur ────────────────────────────────
 		if (renderSectionHeader(0, t.HeaderSection1, ImGuiTreeNodeFlags_DefaultOpen))
@@ -2893,15 +2824,11 @@ namespace cba
 			// expanded. The third call site (the diagnostics button) keeps its
 			// own fresh query on purpose: it runs on click, not per frame, and
 			// a snapshot report should read current truth.
+			// Reported, not judged (2026-09-12). The window mode is worth
+			// showing in a diagnostics section; telling the user to change it
+			// is not, because the shader backend works in every mode.
 			WindowMode mode = curWinMode;
-			if (mode == WindowMode::ExclusiveFullscreen) {
-				ImGui::TextColored({1.0f,0.55f,0.2f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode, isDe));
-				ImGui::TextWrapped(isDe 
-					? "Stelle GW2 in den Grafik-Optionen auf 'Fenster' oder 'Vollbild im Fenster' (Rahmenlos), damit der Filter aktiv werden kann."
-					: "Switch GW2 to Windowed or Windowed Fullscreen (Borderless) in Graphics Options to enable the filter.");
-			} else {
-				ImGui::TextColored({0.4f,0.85f,0.4f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode, isDe));
-			}
+			ImGui::TextColored({0.4f,0.85f,0.4f,1.0f}, "%s: %s", t.WindowMode, ToDisplayString(mode, isDe));
 			ImGui::Spacing();
 			if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
 				changed = true;

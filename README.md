@@ -18,14 +18,6 @@ A 100% hookless Guild Wars 2 addon for the [Nexus](https://raidcore.gg/Nexus) ad
 
 ---
 
-## ⚠️ One requirement before anything works
-
-Set Guild Wars 2 to **Windowed** or **Windowed Fullscreen (Borderless)** in Graphics Options.
-
-Windows cannot apply a colour correction to an *exclusive* fullscreen window — the desktop compositor is bypassed entirely in that mode. CBA will tell you in its own panel if it detects this, but it cannot work around it. This is not a CBA limitation, it applies to every tool built this way.
-
----
-
 ## 📦 Installation
 
 1. Download [`cba.dll`](https://github.com/Emisan01/cba4gw2/releases/latest/download/cba.dll) from the [latest release](https://github.com/Emisan01/cba4gw2/releases/latest)

@@ -675,17 +675,21 @@ namespace cba
 			sumTrans += transLuma;
 		};
 
-		// NOTE: 8, not 9 - kGw2TagRefs[8] is White, and it is skipped. Flagged
-		// 2026-09-11 as genuinely ambiguous rather than silently "fixed",
-		// because it reads exactly like an off-by-one against a [9] array but
-		// has a defensible reading too: white is invariant under the
-		// correction (see COLOR_MATH.md's white-point proof), so including it
-		// would add an identical value to both sums and drag the retention
-		// ratio toward 1.0 - and neutrals are already represented in the
-		// ambient sample below by "Stein" (0.52 grey). Including it would
-		// lower the recommended gain, i.e. visibly change everyone's
-		// brightness, so it is Emi's call to make, not a silent edit.
-		for (int i = 0; i < 8; ++i)
+		// All 9, including White (Emi's call, 2026-09-12). It skipped
+		// kGw2TagRefs[8] from 2026-09-11 until now, flagged rather than
+		// silently "fixed" because it changes everyone's brightness and the
+		// reasoning cut both ways: white is invariant under the correction, so
+		// including it adds an identical value to both sums and pulls the
+		// ratio toward 1.0.
+		//
+		// Emi's reason for closing it: the separation was a relic. Brightness
+		// and colour were treated as unrelated questions back when brightness
+		// was not measurable from inside the process, so the brightness logic
+		// grew its own exceptions. FilterSensor measures it now, and this
+		// prediction is the thing the sensor is compared against - an estimate
+		// with a hand-picked exclusion is the wrong thing to hold a
+		// measurement up to. Comprehensive beats tuned here.
+		for (int i = 0; i < 9; ++i)
 		{
 			processColor(kGw2TagRefs[i].r, kGw2TagRefs[i].g, kGw2TagRefs[i].b);
 		}

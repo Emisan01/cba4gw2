@@ -48,9 +48,6 @@ namespace cba
 
 		// Determine current filter state
 		bool isEnabled = CurrentSettings.Enabled;
-		WindowMode mode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
-		bool isExclusive = (mode == WindowMode::ExclusiveFullscreen);
-
 		// Was the third hand-written copy of the gate condition (2026-09-12).
 		// "Paused" here means specifically "suspended because GW2 is not in
 		// front", which is why it still asks about minimized separately - the
@@ -70,13 +67,11 @@ namespace cba
 			tooltipText = isDe ? "CBA Status: Farbfilter ist ausgeschaltet (OFF).\nKlicke auf [ON], um den Filter zu aktivieren." 
 			                   : "CBA Status: Color filter is OFF.\nClick [ON] to activate the filter.";
 		}
-		else if (isExclusive)
-		{
-			dotColor = Theme::kDotWarnCol;
-			statusText = isDe ? "Blockiert (Vollbild)" : "Blocked (Fullscreen)";
-			tooltipText = isDe ? "CBA Status: Windows DWM-Farbfilter wird durch exklusives Vollbild blockiert!\nBitte in GW2 Grafikoptionen auf 'Fenster-Vollbild' (Borderless) umschalten."
-			                   : "CBA Status: Windows DWM filter blocked by exclusive fullscreen!\nPlease switch GW2 graphics to 'Windowed Fullscreen' (Borderless).";
-		}
+		// The "Blockiert (Vollbild)" state is gone (2026-09-12). It described
+		// the DWM backend, where Windows really did refuse over an exclusive
+		// fullscreen swapchain. The shader backend writes into GW2's own
+		// backbuffer regardless of window mode, so the dot would have been
+		// reporting a blockage that was not happening.
 		else if (isMinimized || isPaused)
 		{
 			dotColor = Theme::kDotWarnCol;
