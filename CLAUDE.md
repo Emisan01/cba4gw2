@@ -107,18 +107,10 @@ thing this tool can honestly measure about its own effect.
 
 ---
 
-## Currently open
+## Open work
 
-- **Untested since the backend swap:** do Commander Tags look the same under
-  the shader as under DWM? That is the exact property the PostRender placement
-  protects, and nothing has verified it on a screen yet.
-- **Unreleased work.** Latest tag is v1.11.0; `main` is well past it and the
-  `v2-shader-core` branch further still. None of it reaches players.
-- `cba_session.lock` / Safe-Start works but is a workaround, not a design.
-- "Regional Hybrid Mode" (4-quadrant per-region filter) — a proposal, not
-  started, larger than it looks.
-- `EAddonFlags::DisableHotloading` on release builds — recorded, Emi's
-  explicit "not now".
+Lives in `ROADMAP.md` — all of it, so there is one list rather than two that
+drift apart. This file holds rules; the roadmap holds what is left to do.
 
 ## Where Filter Lab is going
 
