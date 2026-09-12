@@ -236,6 +236,22 @@ namespace cba
 				magInit ? "" : "Not initialized yet - normal before first Enable, or MagInitialize failed and is retrying.");
 			AddInfo(r, "Platform", "Last DWM color-effect call accepted by the OS", g_DwmLastCallSuccessful,
 				g_DwmLastCallSuccessful ? "" : "OS currently rejecting calls - expected under real exclusive fullscreen.");
+
+			// The screen-effect gate (2026-09-12). Two separate questions:
+			// whether the effect is in the state the gate asks for *right now*,
+			// and whether switching it off has ever been refused since load.
+			// The second is the one that matters, because the failure happens
+			// while the user is in another application and cannot see it.
+			const bool wantActive = ShouldScreenEffectBeActive();
+			const bool isApplied  = IsScreenEffectApplied();
+			Add(r, "Platform", "Screen effect matches the gate", wantActive || !isApplied,
+				(wantActive || !isApplied) ? ""
+					: "Effect is still installed although the gate says it should be off - it is tinting the whole desktop right now.");
+
+			const unsigned int rejects = g_DwmClearRejectCount.load();
+			AddInfo(r, "Platform", "Clears the OS refused since load", rejects == 0,
+				rejects == 0 ? "Every attempt to switch the screen-wide effect off went through."
+				             : ("" + std::to_string(rejects) + " rejected clear(s). Each one is a window in which the correction stayed on the desktop after alt-tab or minimize."));
 		}
 		{
 			// The HybridScanner worker thread self-heals via the Watchdog and

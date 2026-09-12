@@ -673,15 +673,7 @@ namespace cba
 			return;
 		}
 
-		HWND fg = GetForegroundWindow();
-		DWORD fgPid = 0;
-		if (fg) GetWindowThreadProcessId(fg, &fgPid);
-		bool isGw2Foreground = (fg && fgPid == GetCurrentProcessId());
-		bool isMinimized = s_gw2Minimized.load() || (s_gw2Hwnd.load() && IsIconic(s_gw2Hwnd.load()));
-
-		bool shouldBeActive = (!isMinimized && (isGw2Foreground || CurrentSettings.SystemWide));
-
-		if (!shouldBeActive)
+		if (!ShouldScreenEffectBeActive())
 		{
 			if (s_hasApplied)
 			{
@@ -703,6 +695,52 @@ namespace cba
 
 		MAGCOLOREFFECT effect = ColorMatrix::ToMagColorEffect(m3x3);
 		ApplyThrottled(effect, aForce);
+	}
+
+	// ── The screen-effect gate ────────────────────────────────────────────
+	// See UIState.h for why this exists and why the render thread drives it.
+	bool ShouldScreenEffectBeActive()
+	{
+		if (!CurrentSettings.Enabled) return false;
+		if (s_compareHoldActive.load()) return false;
+
+		HWND fg = GetForegroundWindow();
+		DWORD fgPid = 0;
+		if (fg) GetWindowThreadProcessId(fg, &fgPid);
+		const bool isGw2Foreground = (fg && fgPid == GetCurrentProcessId());
+		const bool isMinimized = s_gw2Minimized.load() || (s_gw2Hwnd.load() && IsIconic(s_gw2Hwnd.load()));
+
+		// Minimized always wins over SystemWide. "Keep active in background"
+		// means "I alt-tabbed to a browser and still want the correction",
+		// not "I put the game away and still want my whole desktop tinted" -
+		// Emi's own framing, and the reason this is an && and not part of the
+		// || below.
+		if (isMinimized) return false;
+		return isGw2Foreground || CurrentSettings.SystemWide;
+	}
+
+	bool IsScreenEffectApplied()
+	{
+		return s_hasApplied;
+	}
+
+	void SyncScreenEffectToGate()
+	{
+		if (!s_deferredInitDone.load()) return;
+
+		if (ShouldScreenEffectBeActive())
+		{
+			// Recompute takes s_recomputeMutex itself, so it must not be
+			// called with the lock held (std::mutex is not recursive) - same
+			// split the Watchdog has always used.
+			if (s_hasApplied) return;
+			Recompute(/*aForce=*/true);
+			return;
+		}
+
+		if (!s_hasApplied) return;
+		std::lock_guard<std::mutex> lock(s_recomputeMutex);
+		TryClearAppliedEffect();
 	}
 
 	namespace
@@ -765,39 +803,13 @@ namespace cba
 						GetHybridScanner().Initialize();
 					}
 
-					if (!CurrentSettings.Enabled)
-					{
-						if (s_hasApplied)
-						{
-							std::lock_guard<std::mutex> lock(s_recomputeMutex);
-							TryClearAppliedEffect();
-						}
-						continue;
-					}
-
-					HWND fg = GetForegroundWindow();
-					DWORD fgPid = 0;
-					if (fg) GetWindowThreadProcessId(fg, &fgPid);
-					bool isGw2Foreground = (fg && fgPid == GetCurrentProcessId());
-					bool isMinimized = s_gw2Minimized.load() || (s_gw2Hwnd.load() && IsIconic(s_gw2Hwnd.load()));
-
-					bool shouldBeActive = (!isMinimized && (isGw2Foreground || CurrentSettings.SystemWide));
-
-					if (!shouldBeActive)
-					{
-						if (s_hasApplied)
-						{
-							std::lock_guard<std::mutex> lock(s_recomputeMutex);
-							TryClearAppliedEffect();
-						}
-					}
-					else
-					{
-						if (!s_hasApplied)
-						{
-							Recompute(/*aForce=*/true);
-						}
-					}
+					// The Watchdog is the fallback, not the owner: while GW2
+					// is minimized the render thread stops presenting, so
+					// this 50ms tick is the only thing left that can retry a
+					// clear the OS refused. When the game is merely
+					// unfocused, the render callback usually gets there
+					// first - and its attempt is the one that succeeds.
+					SyncScreenEffectToGate();
 				}
 				catch (...)
 				{
@@ -814,28 +826,43 @@ namespace cba
 		if (aWnd) s_gw2Hwnd = aWnd;
 		switch (aMsg)
 		{
+			case WM_SYSCOMMAND:
+			{
+				// Earliest warning we get that the window is about to be
+				// minimized (added 2026-09-12): WM_SYSCOMMAND/SC_MINIMIZE
+				// arrives BEFORE the minimize happens, while GW2 is still the
+				// foreground window - which is the state in which a
+				// MagSetFullscreenColorEffect call actually goes through. By
+				// the time WM_SIZE/SIZE_MINIMIZED arrives we may already be in
+				// the background and the clear gets rejected, leaving the
+				// colour effect installed across a desktop the user has
+				// walked away to.
+				//
+				// Not a guarantee on its own - Win+D and Win+M do not
+				// necessarily route through here - which is why WM_SIZE and
+				// the Watchdog retry both stay below it as the safety net.
+				if ((aWParam & 0xFFF0) == SC_MINIMIZE)
+				{
+					s_gw2Minimized = true;
+					SyncScreenEffectToGate();
+				}
+				break;
+			}
 			case WM_ACTIVATE:
 			{
 				WORD state = LOWORD(aWParam);
-				if (state == WA_INACTIVE)
-				{
-					if (!CurrentSettings.SystemWide)
-					{
-						// Every other mutator of s_hasApplied/s_lastAppliedEffect
-						// (Recompute, WatchdogLoop) takes s_recomputeMutex - this
-						// call site didn't, so the WndProc message thread could
-						// genuinely race the Watchdog thread over the same plain
-						// shared state (found in the 2026-09-09 codebase review,
-						// same bug shape as the HybridScanner thread-death fix).
-						std::lock_guard<std::mutex> lock(s_recomputeMutex);
-						TryClearAppliedEffect();
-					}
-				}
-				else
+				if (state != WA_INACTIVE)
 				{
 					s_gw2Minimized = false;
-					Recompute(/*aForce=*/true);
 				}
+				// One rule for both directions now. The old code asked
+				// `if (!SystemWide)` here and called Recompute() there, i.e.
+				// re-derived half the gate at each branch; the gate function
+				// owns the whole question, including the SystemWide case.
+				// (The mutex discipline the 2026-09-09 review added is now
+				// inside SyncScreenEffectToGate, so this call site cannot
+				// forget it - it was the one that had.)
+				SyncScreenEffectToGate();
 				break;
 			}
 			case WM_SIZE:
@@ -843,14 +870,12 @@ namespace cba
 				if (aWParam == SIZE_MINIMIZED)
 				{
 					s_gw2Minimized = true;
-					std::lock_guard<std::mutex> lock(s_recomputeMutex);
-					TryClearAppliedEffect();
 				}
 				else if (aWParam == SIZE_RESTORED || aWParam == SIZE_MAXIMIZED)
 				{
 					s_gw2Minimized = false;
-					Recompute(/*aForce=*/true);
 				}
+				SyncScreenEffectToGate();
 				break;
 			}
 			// WM_KEYDOWN/WM_SYSKEYDOWN handling for Filter-Off/Main-Window/Sensor-Graph
@@ -995,6 +1020,22 @@ namespace cba
 			if (++s_renderWarmupFrames >= 30)
 			{
 				EnsureDeferredInitialized();
+			}
+		}
+
+		// ── Screen-effect gate, evaluated on the render thread ──────────────────
+		// This is where the colour effect switching off actually became
+		// reliable (2026-09-12). Throttled to the same 50ms the Watchdog uses,
+		// so this adds no measurable per-frame cost - it moves *where* the
+		// call happens, not how often. See UIState.h's ShouldScreenEffectBeActive
+		// for the evidence this rests on.
+		{
+			static ULONGLONG s_lastGateTick = 0;
+			const ULONGLONG nowTick = GetTickCount64();
+			if (nowTick - s_lastGateTick >= 50)
+			{
+				s_lastGateTick = nowTick;
+				SyncScreenEffectToGate();
 			}
 		}
 

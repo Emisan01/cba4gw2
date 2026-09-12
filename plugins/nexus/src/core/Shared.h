@@ -8,6 +8,7 @@
 #include "Settings.h"
 #include <string>
 #include <cstdint>
+#include <atomic>
 
 namespace cba
 {
@@ -76,3 +77,12 @@ extern std::string   AddonDir;
 extern NexusLinkData* NexusLink;
 extern cba::GW2MumbleLink* MumbleLinkData;
 extern bool g_DwmLastCallSuccessful;
+// How many times the OS refused to switch the screen-wide colour effect OFF
+// since this DLL was loaded (2026-09-12). Counted, not inferred: the Nexus
+// log showed only "(Clear) REJECTED" lines and never an Apply rejection,
+// which is what pointed at clears running from the wrong thread while GW2 was
+// already in the background. A rejected clear is the one failure the user
+// actually feels - the correction stays on their whole desktop after they
+// alt-tab away - so it gets a number instead of a banner. SelfTest reports it;
+// see "Where a fact belongs" in CLAUDE.md.
+extern std::atomic<unsigned int> g_DwmClearRejectCount;

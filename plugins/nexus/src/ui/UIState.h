@@ -70,6 +70,39 @@ namespace cba
 	// state-changing logic is shared.
 	void ToggleMasterEnabled();
 
+	// ── The screen-effect gate (one rule, one place, 2026-09-12) ───────────
+	//
+	// ShouldScreenEffectBeActive() is the single answer to "should the
+	// screen-wide colour effect be installed right now": not minimized, and
+	// either GW2 is the foreground process or the user asked for it to stay
+	// on in the background (Settings.SystemWide). It used to be written out
+	// by hand in three places - Recompute(), WatchdogLoop() and
+	// DrawFilterStatusIndicator()'s inverse - which is how a rule this small
+	// becomes three rules.
+	//
+	// SyncScreenEffectToGate() makes the actual screen match that answer, and
+	// is the only thing any caller needs. It is idempotent (guarded by
+	// s_hasApplied) and safe to call from any thread, so the render callback,
+	// the Watchdog and the WndProc all just poke it instead of each
+	// hand-rolling apply/clear.
+	//
+	// Why the render thread pokes it at all (this is the actual bug fix):
+	// the Nexus log from 2026-09-12 contains only "(Clear) REJECTED" lines,
+	// never an Apply rejection. Apply runs from the render thread, which is
+	// also where MagInitialize() ran; Clear on focus loss ran from the WndProc
+	// or Watchdog thread, while GW2 was already in the background. So the
+	// filter reliably switched ON and unreliably switched OFF - it could stay
+	// applied across the whole desktop while the user was in another app.
+	// Evaluating the gate on the render thread gives the clear the same
+	// conditions the apply has.
+	bool ShouldScreenEffectBeActive();
+	void SyncScreenEffectToGate();
+	// Whether a non-identity effect is currently believed to be installed in
+	// DWM. Exposed so SelfTest can compare it against the gate - "applied
+	// while the gate says it should be off" is the stuck-on-the-desktop bug,
+	// and it is the one state nobody can see from inside the game.
+	bool IsScreenEffectApplied();
+
 	// Which Slots[] index the UI currently treats as "active" (highlighted,
 	// and where "Save" writes to). Physical storage for
 	// ParamId::ActiveSlotIdx (see ParameterRegistry.cpp) - read/write through

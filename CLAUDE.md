@@ -300,6 +300,23 @@ things.
   fullscreen warning (driven by `DetectWindowMode()`, which is correct) stays.
   The flag itself is untouched and still load-bearing in `ApplyThrottled`'s
   retry logic - it just no longer has a UI surface, only SelfTest's INFO row.
+- **The "Windowed Fullscreen required" premise is unverified and Emi says it
+  is wrong** (raised 2026-09-12). The exclusive-fullscreen banner, Section 3's
+  window-mode warning and the README's own requirements section all rest on
+  "Windows cannot apply the colour correction in exclusive fullscreen". Emi
+  reports from actual play that the filter runs in native fullscreen, in
+  windowed fullscreen and in windowed mode alike, and offered to demonstrate
+  it. One piece of independent evidence points the same way: the Nexus log
+  from 2026-09-12 contains only `(Clear)` rejections and not a single
+  `Apply` rejection, i.e. installing the effect has never been refused in that
+  session - though that session's window mode is not recorded, so this is
+  consistent with his claim rather than proof of it.
+  Emi's call for now: **leave the banner as it is**, do not churn the UI on an
+  untested belief. But do not build anything new on the premise either, and if
+  it is confirmed false, three things change together - the banner, Section 3's
+  warning and the README's headline requirement. Worth one deliberate test
+  (start in native fullscreen, toggle the filter, read the Nexus log for an
+  `Apply` rejection) rather than another round of guessing.
 - **"Regional Hybrid Mode" (4-quadrant per-region filter) - a genuinely new
   proposal, not a variant of the Roman Space Telescope idea above.** Came
   from the same Devin brainstorm session 2026-09-10: split the screen into 4
@@ -1547,6 +1564,63 @@ middle of a `SameLine()` row is invisible in code review and invisible in
 testing, because it only misbehaves in the state that makes it appear.
 
 Build 33, 26/26 unit tests, 24/24 audit + 1 informational.
+
+### Third pass: why the filter would not switch off
+
+Emi: the filter is supposed to get out of the way when he leaves the game, and
+it does not. He proposed two possible rules - "off when the game is in the
+background", like GW2's own music setting, or the simpler "off when the window
+is minimized" - and asked whether we could do it cleanly.
+
+**The rule was already in the code and already correct.**
+`!isMinimized && (isGw2Foreground || SystemWide)` says exactly what he asked
+for, including minimize overriding "keep active in background". So the
+interesting question was not what to build but why what exists does not work.
+
+**The Nexus log answered it in one line.** Every rejection in
+`addons/Nexus/Nexus.log` reads `MagSetFullscreenColorEffect (Clear) REJECTED`.
+Not one `Apply` rejection in the whole file. The filter switched **on**
+reliably and **off** unreliably - and a rejected clear is invisible from inside
+the game, because by definition you are looking at something else.
+
+The asymmetry follows the thread: `MagInitialize()` and almost every `Apply()`
+run on the render thread; the clears on focus loss ran from the WndProc thread
+or the Watchdog thread, at a moment when GW2 was already in the background.
+Whether the OS refuses because of the thread or because of the foreground state
+is not settled - but both readings have the same fix, so it did not need to be:
+**evaluate the gate where the calls demonstrably succeed.**
+
+What was built:
+- `ShouldScreenEffectBeActive()` and `SyncScreenEffectToGate()` (declared in
+  `ui/UIState.h`, defined in `ModuleMain.cpp`, same convention as
+  `ToggleMasterEnabled` and friends). The gate condition had been written out
+  by hand in three places - `Recompute`, `WatchdogLoop`, and
+  `DrawFilterStatusIndicator`'s inverse - which is how a rule this small turns
+  into three rules. One now.
+- The **render callback** drives the gate, throttled to the same 50ms the
+  Watchdog uses, so this moves *where* the call happens rather than how often.
+  This is the actual fix for the alt-tab case: a windowed GW2 keeps presenting
+  in the background, so the render thread is alive exactly when the clear is
+  needed.
+- `WM_SYSCOMMAND`/`SC_MINIMIZE` added, which arrives *before* the window is
+  minimized while GW2 is still in front. `WM_SIZE` and the Watchdog stay as the
+  safety net, because Win+D and Win+M do not necessarily route through
+  `WM_SYSCOMMAND`.
+- The WndProc cases stopped re-deriving half the rule each
+  (`if (!SystemWide)` in one branch, a bare `Recompute()` in the other) and now
+  just poke the gate. The mutex discipline the 2026-09-09 review added by hand
+  lives inside the gate function now, so the call site that had forgotten it
+  cannot forget it again.
+
+**Made verifiable rather than asserted**: `g_DwmClearRejectCount` counts
+refused clears since load, and SelfTest reports it alongside a hard check that
+the effect is not installed while the gate says off. The claim "it switches off
+now" is therefore something Emi can read off the panel after alt-tabbing, and
+something the Nexus log will contradict if it is wrong. That is the point - the
+previous version of this belief was a banner that stated the opposite of what
+was happening.
+
+Build 35, 26/26 unit tests, 24/24 audit + 1 informational.
 
 ## Build feedback loop
 

@@ -3,6 +3,8 @@
 
 #pragma comment(lib, "Magnification.lib")
 
+std::atomic<unsigned int> g_DwmClearRejectCount{0};
+
 namespace cba
 {
 	bool ColorEffectController::Initialize()
@@ -47,6 +49,7 @@ namespace cba
 		identity.transform[4][4] = 1.0f;
 		BOOL success = MagSetFullscreenColorEffect(&identity);
 		bool newSuccess = (success != FALSE);
+		if (!newSuccess) g_DwmClearRejectCount.fetch_add(1);
 
 		// Nur loggen wenn sich der Status ändert (Log-Spam verhindern)
 		if (newSuccess != g_DwmLastCallSuccessful)

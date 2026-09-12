@@ -50,12 +50,12 @@ namespace cba
 		WindowMode mode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
 		bool isExclusive = (mode == WindowMode::ExclusiveFullscreen);
 
-		HWND fg = GetForegroundWindow();
-		DWORD fgPid = 0;
-		if (fg) GetWindowThreadProcessId(fg, &fgPid);
-		bool isGw2Foreground = (fg && fgPid == GetCurrentProcessId());
+		// Was the third hand-written copy of the gate condition (2026-09-12).
+		// "Paused" here means specifically "suspended because GW2 is not in
+		// front", which is why it still asks about minimized separately - the
+		// minimized case has its own status text below.
 		bool isMinimized = s_gw2Minimized.load() || (s_gw2Hwnd.load() && IsIconic(s_gw2Hwnd.load()));
-		bool isPaused = (!isMinimized && !isGw2Foreground && !CurrentSettings.SystemWide);
+		bool isPaused = (isEnabled && !isMinimized && !ShouldScreenEffectBeActive());
 
 		ImU32 dotColor;
 		ImU32 glowColor = 0;
