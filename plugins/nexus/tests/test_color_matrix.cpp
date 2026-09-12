@@ -306,8 +306,64 @@ void TestCorrectionKeepsWhiteNeutral()
 	Check(allNeutral, "CorrectionMatrix keeps white neutral at every severity");
 }
 
+// Two backends, one transform - or the whole "compare them live" exercise is
+// comparing two different filters (added 2026-09-12, v2-shader-core).
+//
+// The shader computes out.r = dot(rgb, m[0]) etc., i.e. exactly ApplyPixel's
+// row-vector convention. The Magnification API gets the SAME 3x3 handed to it
+// transposed by ToMagColorEffect, because it multiplies row-vector x matrix:
+//   out[j] = sum_i in[i] * transform[i][j]
+// and transform[i][j] == m[j][i], which folds straight back into row j of m
+// dotted with the input. So the two agree - by construction, not by luck.
+//
+// The reason this is worth a test: ToMagColorEffect's transpose looks like a
+// mistake to anyone reading it cold. "Fixing" it would leave the DWM path
+// applying the transposed correction while the shader path applied the right
+// one, and for a near-symmetric correction matrix the result would look
+// plausible rather than broken. That is the failure mode this pins.
+void TestBothBackendsApplyTheSameTransform()
+{
+	double m[3][3];
+	ColorMatrix::CorrectionMatrix(BalanceType::Deutan, 0.8, m);
+	MAGCOLOREFFECT e = ColorMatrix::ToMagColorEffect(m);
+
+	const double probes[5][3] = {
+		{ 1.0, 1.0, 1.0 }, { 0.0, 0.0, 0.0 },
+		{ 0.86, 0.20, 0.18 }, { 0.20, 0.70, 0.30 }, { 0.25, 0.40, 0.85 }
+	};
+
+	bool agree = true;
+	double worst = 0.0;
+	for (int p = 0; p < 5; ++p)
+	{
+		double shader[3];
+		ColorMatrix::ApplyPixel(probes[p][0], probes[p][1], probes[p][2], m,
+		                        shader[0], shader[1], shader[2]);
+
+		// What the Magnification API will compute from the same effect.
+		double dwm[3];
+		for (int j = 0; j < 3; ++j)
+		{
+			double acc = 0.0;
+			for (int i = 0; i < 3; ++i)
+				acc += probes[p][i] * (double)e.transform[i][j];
+			dwm[j] = acc < 0.0 ? 0.0 : (acc > 1.0 ? 1.0 : acc); // ApplyPixel clamps, so clamp here too
+		}
+
+		for (int c = 0; c < 3; ++c)
+		{
+			const double d = std::fabs(shader[c] - dwm[c]);
+			if (d > worst) worst = d;
+			if (d > 1e-6) agree = false;
+		}
+	}
+	std::printf("   (worst shader-vs-DWM channel difference over 5 probes: %.9f)\n", worst);
+	Check(agree, "Shader and Magnification backends apply the same transform");
+}
+
 int main()
 {
+	TestBothBackendsApplyTheSameTransform();
 	TestCorrectionKeepsWhiteNeutral();
 	TestIdentityAtZeroSeverity();
 	TestSeverityIsClamped();

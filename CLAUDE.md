@@ -1866,6 +1866,80 @@ not a thing that happened on a Friday.
 
 Build 41, 26/26 unit tests, 25/25 audit + 1 informational.
 
+## Branch log (v2-shader-core, opened 2026-09-12)
+
+Not on `main`. This is the branch where the colour correction stops being a
+system-wide Windows accessibility effect and becomes a pass on GW2's own
+frame. Written up only after it had answered every question that could have
+killed it, which is the bar I set before starting.
+
+**The question that opened it.** Emi asked whether the filter could apply to
+the GW2 window only - "wir teilen den Screen in 2 Layer". The literal idea has
+no API: `MagSetFullscreenColorEffect` takes a matrix and nothing else, and DWM
+composes every window into one surface before the effect applies. The two real
+options were a magnifier overlay window (topmost, a fullscreen copy per
+refresh, dead in exclusive fullscreen) and a post-process pass on the
+swapchain. The second is the right one and was blocked only by AGENTS.md
+section 4's "no D3D11 hooking" rule.
+
+**Why that rule turned out not to be in the way.** Emi's reason for it is
+specific and good: a 20-year-old GW2 account he will not risk, and no wish to
+trip a heuristic scanner. So this was checked in his own Nexus checkout rather
+than reasoned about:
+- Nexus already installs the only hook involved - a MinHook vtable detour on
+  `IDXGISwapChain::Present`, `Core/Hooks/Hooks.cpp:81`.
+- Nexus already binds the game's backbuffer as a render target and draws ImGui
+  into it, `UI/UiContext.cpp:348/490`. Every CBA window is already pixels in
+  GW2's frame.
+- CBA already takes the device off the swapchain, creates textures,
+  `CopyResource`s the rendered frame and `Map`s it for CPU reading
+  (`HybridScanner.cpp:489-608`), and already draws a display-sized textured
+  quad over the game (`ModuleMain.cpp:1159`).
+The pass adds one draw call and a compiled shader. No new hook, no new module,
+no process or memory access. The rule means "do not inject or hook like
+ReShade"; it never meant "never touch D3D", and CBA had been past that line
+for weeks in the more invasive direction.
+
+**What the branch answers, with numbers rather than argument:**
+
+| Question | Answer | How |
+|---|---|---|
+| Does it work? | yes | live, Emi |
+| Does HDR10 break the maths? | no | backbuffer is `R8G8B8A8_UNORM`, normalised 0..1 - SelfTest reports the format |
+| What does it cost? | 0.032-0.061 ms CPU | `g_perfShaderPassMs`, in the report and the Performance Watchdog |
+| Do the two backends agree? | to 1e-9 | unit test `TestBothBackendsApplyTheSameTransform` |
+| Does the correction tint white? | no, spread 3.9e-5 | unit test `TestCorrectionKeepsWhiteNeutral`, plus a live SelfTest check |
+
+**The mistake worth keeping.** The pass first went into
+`ERenderType_PreRender`, which corrects the game before ImGui and therefore
+left CBA's own interface true colour. That is genuinely desirable - under DWM
+even Vision Lab's anomaloscope was viewed through the correction it exists to
+measure - and it was advertised as a benefit. It also silently broke the
+invariant the entire Commander Tag derivation rests on ("everything on screen
+gets M"): `HybridScanner::ScanFrame` runs in `ERenderType_Render`, i.e. after,
+so it would have matched an already-corrected frame against raw reference tag
+colours; and the tag overlay, also drawn in Render, would never have received
+M while the enhancer chose its colours assuming it would. It would have shown
+up only with Commander Tag Contrast on, only as "the colours look a bit off" -
+the hardest class of bug to attribute, with the cause written in the docs as a
+feature. `ERenderType_PostRender` restores the invariant exactly: the pass sees
+game plus overlay plus UI, the same content DWM saw, still before Present.
+
+Recorded because the lesson is not "check the frame order". It is that a
+pleasing side effect discovered during a refactor deserves more suspicion than
+a planned one, not less.
+
+**Still open on this branch:**
+- The true-colour UI is not abandoned, it is deferred. Doing it properly means
+  giving the enhancer two matrices - one for game pixels, one for overlay
+  pixels - which is a colour-science change and belongs in its own step.
+- The DWM path stays until Emi has lived with the shader for a while. Both are
+  selectable at runtime; SelfTest asserts only one is painting, because both at
+  once would square the correction rather than double it.
+- `Magnification session: initialized` still appears in shader mode - harmless
+  dead weight that falls out with the DWM path, not before, because the
+  comparison needs it.
+
 ## Build feedback loop
 
 **This changed from earlier sessions**: Claude now has direct local access
