@@ -107,7 +107,17 @@ namespace cba
 		// luminance actually measured before and after the correction on the
 		// real frame. Default stays 0: the prediction works everywhere, the
 		// measurement needs the shader backend and a valid reading.
+		// 0 = matrix prediction (works everywhere, the only option under DWM)
+		// 1 = sensor, filter-neutral: hold the CORRECTION to zero brightness
+		//     cost. Scene-independent, because it steers on a ratio.
+		// 2 = sensor, hold a level: steer the measured brightness towards a
+		//     remembered target. This is auto-exposure, and it WILL fight the
+		//     game's own lighting - a cave and a desert are supposed to differ.
+		//     Bounded only by GammaGain's own 0.70-1.30 clamp.
 		int AutoBrightnessSource = 0;
+		// The level mode 2 steers towards, captured from a measurement.
+		// 0 means "not captured yet" - mode 2 does nothing until it is.
+		float SensorBrightnessTarget = 0.0f;
 		bool SystemWide = false; // false = strictly GW2 window focus only (default), true = optionally extended to system on Alt-Tab
 
 		int ContrastPairIndex = 0; // 0=Blau/Grün, 1=Rot/Grün, 2=Gelb/Blau, 3=Cyan/Blau, 4=Orange/Rot

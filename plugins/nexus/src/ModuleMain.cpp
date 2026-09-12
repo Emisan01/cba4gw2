@@ -873,7 +873,7 @@ namespace cba
 	{
 		if (CurrentSettings.RenderBackend != 1) return false;
 		if (!CurrentSettings.AutoBrightness) return false;
-		if (CurrentSettings.AutoBrightnessSource != 1) return false;
+		if (CurrentSettings.AutoBrightnessSource == 0) return false;
 		if (!ShouldShaderPassRun()) return false;
 
 		FilterSensor& sensor = GetFilterSensor();
@@ -895,7 +895,27 @@ namespace cba
 		s_lastCorrectionTick = now;
 
 		const float gCurrent = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
-		const float gWanted = gCurrent * (lumBefore / lumAfter);
+
+		// Two different jobs, and they are not variants of each other.
+		//
+		// Mode 1 holds the CORRECTION to zero brightness cost: drive
+		// measured_after towards measured_before. Scene-independent, because
+		// it steers on a ratio - a cave and a desert give the same answer.
+		//
+		// Mode 2 holds a LEVEL: drive measured_after towards a remembered
+		// target. That is auto-exposure, and it will fight the game's own
+		// lighting, because a cave and a desert are supposed to differ. It
+		// exists because Emi asked the real question behind it: if the game's
+		// own output is too bright, CBA should be able to pull it back. The
+		// GammaGain clamp (0.70-1.30) is what keeps that bounded.
+		float lumTarget = lumBefore;
+		if (CurrentSettings.AutoBrightnessSource == 2)
+		{
+			if (CurrentSettings.SensorBrightnessTarget <= 0.0f) return false; // never captured
+			lumTarget = CurrentSettings.SensorBrightnessTarget;
+		}
+
+		const float gWanted = gCurrent * (lumTarget / lumAfter);
 		const float delta = gWanted - gCurrent;
 
 		if (std::fabs(delta) < 0.005f) return false;          // deadband

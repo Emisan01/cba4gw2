@@ -587,21 +587,28 @@ namespace cba
 
 		// ── Measured, not predicted ──────────────────────────────────────────
 		// Everything else this tool says about its own effect is derived from
-		// the matrix: "Luminanz-Retention 102.8%" is computed from nine
-		// reference tag colours, never from the screen. It could not be
-		// otherwise while the correction happened inside DWM, where the result
-		// was never visible to us.
+		// the matrix. This is the one thing it can honestly measure: the same
+		// frame before and after the correction, differenced.
 		//
-		// The shader path holds both halves of the same frame - the copy taken
-		// before the correction and the backbuffer after it - so the difference
-		// between them is the effect, measured, on the actual image. The row
-		// that matters is predicted-vs-measured: if those two disagree, the
-		// prediction model is wrong, and nothing else in the UI would ever have
-		// said so.
+		// The first version of this block compared the sensor's ratio directly
+		// against GetBrightnessRetention() and reported the gap as a
+		// disagreement. That was wrong, and wrong in the way this project keeps
+		// having to correct: retentionRatio is computed from ColorStackMatrix,
+		// which deliberately EXCLUDES GammaGain (CLAUDE.md - Auto-Brightness
+		// solves for the gain, so its own measurement must not contain it). The
+		// sensor measures the whole pipeline, gain included. At severity 0 with
+		// a 1.25x gain the panel therefore announced "116.2% vs 100.0%, off by
+		// 16.2 points" while both numbers were exactly right about different
+		// questions. Comparing like with like below: predicted TOTAL change is
+		// retention x gain, and the gap against the measurement is a real
+		// finding rather than a unit mismatch.
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
 		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Sensor - gemessen am echten Bild" : "Sensor - measured on the real frame");
+		ImGui::TextDisabled("%s", isDe
+			? "Derselbe Frame vor und nach der Korrektur. Die Differenz ist, was der Filter tut."
+			: "The same frame before and after the correction. The difference is what the filter does.");
 
 		if (CurrentSettings.RenderBackend != 1)
 		{
@@ -622,78 +629,57 @@ namespace cba
 				const float lumAfter  = SensorLuma(reading.afterR,  reading.afterG,  reading.afterB);
 				const float measuredRatio = (lumBefore > 1e-5f) ? (lumAfter / lumBefore) : 1.0f;
 
-				// Two swatches: the average colour of the frame as the game drew
-				// it, and as it reaches the screen. A single number cannot show
-				// a hue shift; two patches can.
 				ImDrawList* sdl = ImGui::GetWindowDrawList();
-				auto swatch = [&](const char* aLabel, float r, float g, float b)
+				auto swatch = [&](const char* aLabel, float r, float g, float b, float lum)
 				{
 					ImVec2 p = ImGui::GetCursorScreenPos();
-					const float s = ImGui::GetTextLineHeight() + 4.0f;
-					sdl->AddRectFilled(p, ImVec2(p.x + s, p.y + s), IM_COL32((int)(r * 255), (int)(g * 255), (int)(b * 255), 255), 3.0f);
-					sdl->AddRect(p, ImVec2(p.x + s, p.y + s), IM_COL32(90, 110, 140, 180), 3.0f);
-					ImGui::Dummy(ImVec2(s, s));
+					const float sz = ImGui::GetTextLineHeight() + 4.0f;
+					sdl->AddRectFilled(p, ImVec2(p.x + sz, p.y + sz), IM_COL32((int)(r * 255), (int)(g * 255), (int)(b * 255), 255), 3.0f);
+					sdl->AddRect(p, ImVec2(p.x + sz, p.y + sz), IM_COL32(90, 110, 140, 180), 3.0f);
+					ImGui::Dummy(ImVec2(sz, sz));
 					ImGui::SameLine(0, 6.0f);
 					ImGui::TextDisabled("%s", aLabel);
 					ImGui::SameLine(0, 6.0f);
 					ImGui::Text("%.3f %.3f %.3f", r, g, b);
+					ImGui::SameLine(0, 10.0f);
+					ImGui::TextDisabled(isDe ? "Helligkeit %.4f" : "luminance %.4f", lum);
 				};
-				swatch(isDe ? "Vorher " : "Before", reading.beforeR, reading.beforeG, reading.beforeB);
-				swatch(isDe ? "Nachher" : "After ", reading.afterR, reading.afterG, reading.afterB);
+				swatch(isDe ? "So zeichnet GW2 " : "As GW2 draws it ", reading.beforeR, reading.beforeG, reading.beforeB, lumBefore);
+				swatch(isDe ? "So siehst du es" : "As you see it   ", reading.afterR, reading.afterG, reading.afterB, lumAfter);
 
 				ImGui::Spacing();
-				ImGui::TextUnformatted(isDe ? "Helligkeit (BT.709):" : "Luminance (BT.709):");
+				ImGui::TextUnformatted(isDe ? "Aenderung durch den Filter:" : "Change caused by the filter:");
 				ImGui::SameLine(0, 6.0f);
-				ImGui::TextColored(Theme::kTextCyanLicht, "%.4f -> %.4f", lumBefore, lumAfter);
-				ImGui::SameLine(0, 10.0f);
-				ImGui::TextColored(Theme::kTextGoldLabel, "%+.2f%%", (measuredRatio - 1.0f) * 100.0f);
+				ImGui::TextColored(Theme::kTextGoldLabel, "%+.1f%%", (measuredRatio - 1.0f) * 100.0f);
 
-				// The comparison this whole block exists for.
+				// Like with like: the matrix's prediction for the SAME thing the
+				// sensor measured, which means retention times the gain.
 				const BrightnessRetentionResult predicted = GetBrightnessRetention();
-				const float predictedRatio = predicted.retentionRatio;
-				const float disagreement = std::abs(measuredRatio - predictedRatio) * 100.0f;
-				ImGui::TextUnformatted(isDe ? "Vorhersage vs. Messung:" : "Predicted vs measured:");
-				ImGui::SameLine(0, 6.0f);
-				ImGui::Text("%.1f%% / %.1f%%", predictedRatio * 100.0f, measuredRatio * 100.0f);
-				ImGui::SameLine(0, 10.0f);
-				if (disagreement < 3.0f)
-					ImGui::TextColored(Theme::kTextCyanLicht, isDe ? "(deckt sich)" : "(agrees)");
-				else
-					ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "(weicht um %.1f Punkte ab)" : "(off by %.1f points)", disagreement);
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip("%s", isDe
-						? "Links: was die Matrix aus neun Referenz-Tagfarben vorhersagt.\nRechts: was tatsaechlich zwischen Vorher- und Nachher-Bild passiert ist.\nEine Abweichung ist kein Fehler - die Vorhersage kennt nur Tagfarben, die Messung sieht das ganze Bild."
-						: "Left: what the matrix predicts from nine reference tag colours.\nRight: what actually happened between the before and after frame.\nA gap is not a bug - the prediction only knows tag colours, the measurement sees the whole image.");
-				}
+				const float gain = CurrentSettings.GammaGain;
+				const float predictedTotal = predicted.retentionRatio * gain;
+				const float gapPoints = (measuredRatio - predictedTotal) * 100.0f;
 
-				// Close the loop, optionally. Emi's framing: every logic we
-				// already have becomes verifiable, and then adjustable, against
-				// a measurement instead of a model. Auto-Brightness is the
-				// first one because it is the only one that already states a
-				// number the sensor can contradict.
-				ImGui::Spacing();
+				ImGui::TextDisabled(isDe ? "Erwartet laut Matrix: %+.1f%%  (Korrektur %.0f%% x Helligkeit %.2fx)"
+				                         : "Expected from the matrix: %+.1f%%  (correction %.0f%% x brightness %.2fx)",
+					(predictedTotal - 1.0f) * 100.0f, predicted.retentionRatio * 100.0f, gain);
+
+				if (std::abs(gapPoints) >= 2.0f)
 				{
-					bool useSensor = (CurrentSettings.AutoBrightnessSource == 1);
-					if (ImGui::Checkbox(isDe ? "Auto-Helligkeit nach Messung regeln##ab_sensor"
-					                         : "Steer Auto-Brightness by measurement##ab_sensor", &useSensor))
-					{
-						CurrentSettings.AutoBrightnessSource = useSensor ? 1 : 0;
-						changed = true;
-						saveNeeded = true;
-					}
-					if (ImGui::IsItemHovered())
-					{
-						ImGui::SetTooltip("%s", isDe
-							? "Aus: die Empfehlung kommt aus der Matrix, gerechnet auf neun Referenz-Tagfarben.\nAn: sie kommt aus dem gemessenen Helligkeitsunterschied im echten Bild.\nGeregelt wird gedaempft und mit Totband, damit ein Szenenwechsel nichts aufschaukelt."
-							: "Off: the target comes from the matrix, computed on nine reference tag colours.\nOn: it comes from the measured luminance difference in the real frame.\nDamped, with a deadband, so a scene change cannot make it hunt.");
-					}
-					if (useSensor && !CurrentSettings.AutoBrightness)
-					{
-						ImGui::SameLine(0, 8.0f);
-						ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
-							? "(Auto-Helligkeit ist aus)" : "(Auto-Brightness is off)");
-					}
+					ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "Differenz: %+.1f Punkte" : "Gap: %+.1f points", gapPoints);
+					ImGui::SameLine(0, 6.0f);
+					// The overwhelmingly likely cause, and the one the sensor
+					// exists to make visible: the shader clamps, so a gain above
+					// 1.0 cannot brighten pixels that are already at maximum.
+					// The matrix cannot know that; only a measurement can.
+					ImGui::TextDisabled("%s", (gain > 1.01f && gapPoints < 0.0f)
+						? (isDe ? "- helle Bildbereiche sind bereits am Anschlag (Clipping)"
+						        : "- bright areas are already at maximum (clipping)")
+						: (isDe ? "- die Vorhersage kennt nur neun Tagfarben, die Messung das ganze Bild"
+						        : "- the prediction knows nine tag colours, the measurement the whole image"));
+				}
+				else
+				{
+					ImGui::TextDisabled("%s", isDe ? "Deckt sich mit der Messung." : "Matches the measurement.");
 				}
 
 				ImGui::Spacing();
@@ -701,6 +687,89 @@ namespace cba
 					reading.afterR - reading.beforeR,
 					reading.afterG - reading.beforeG,
 					reading.afterB - reading.beforeB);
+
+				// ── Regulation ────────────────────────────────────────────────
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Helligkeit nach Messung regeln" : "Steer brightness by measurement");
+
+				if (!CurrentSettings.AutoBrightness)
+				{
+					ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
+						? "Auto-Helligkeit ist aus - ohne sie regelt hier nichts."
+						: "Auto-Brightness is off - nothing steers without it.");
+					ImGui::SameLine(0, 8.0f);
+					if (ImGui::SmallButton(isDe ? "Einschalten##ab_on" : "Turn on##ab_on"))
+					{
+						CurrentSettings.AutoBrightness = true;
+						changed = true;
+						saveNeeded = true;
+					}
+				}
+
+				int src = CurrentSettings.AutoBrightnessSource;
+				auto srcRadio = [&](const char* aLabel, int aValue, const char* aTip)
+				{
+					if (ImGui::RadioButton(aLabel, src == aValue))
+					{
+						CurrentSettings.AutoBrightnessSource = aValue;
+						changed = true;
+						saveNeeded = true;
+					}
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTip);
+				};
+				srcRadio(isDe ? "Vorhersage##abs0" : "Prediction##abs0", 0, isDe
+					? "Die Empfehlung kommt aus der Matrix, gerechnet auf neun Referenz-Tagfarben.\nFunktioniert in jedem Modus, sieht aber nie das Bild."
+					: "The target comes from the matrix, computed on nine reference tag colours.\nWorks in every mode, but never sees the image.");
+				ImGui::SameLine(0, 12.0f);
+				srcRadio(isDe ? "Filter neutral halten##abs1" : "Keep the filter neutral##abs1", 1, isDe
+					? "Regelt so, dass die KORREKTUR keine Helligkeit kostet - gemessen, nicht geschaetzt.\nUnabhaengig von der Szene, weil auf ein Verhaeltnis geregelt wird."
+					: "Steers so the CORRECTION costs no brightness - measured, not estimated.\nScene-independent, because it steers on a ratio.");
+				ImGui::SameLine(0, 12.0f);
+				srcRadio(isDe ? "Niveau halten##abs2" : "Hold a level##abs2", 2, isDe
+					? "Regelt die gemessene Helligkeit auf einen gemerkten Wert.\nDas ist Belichtungsautomatik - sie arbeitet GEGEN die Beleuchtung des Spiels.\nHoehle und Wueste sollen sich unterscheiden; das hier gleicht sie an."
+					: "Steers measured brightness towards a remembered value.\nThis is auto-exposure - it works AGAINST the game's own lighting.\nA cave and a desert are meant to differ; this evens them out.");
+
+				if (CurrentSettings.AutoBrightnessSource == 2)
+				{
+					ImGui::Indent(12.0f);
+					const float target = CurrentSettings.SensorBrightnessTarget;
+					if (target <= 0.0f)
+					{
+						ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
+							? "Noch kein Niveau gemerkt - bis dahin regelt nichts."
+							: "No level captured yet - nothing steers until there is one.");
+					}
+					else
+					{
+						ImGui::TextDisabled(isDe ? "Ziel: %.4f   (gerade gemessen: %.4f)" : "Target: %.4f   (measured now: %.4f)",
+							target, lumAfter);
+					}
+					if (ImGui::SmallButton(isDe ? "Jetzige Helligkeit merken##cap" : "Remember current brightness##cap"))
+					{
+						CurrentSettings.SensorBrightnessTarget = lumAfter;
+						changed = true;
+						saveNeeded = true;
+					}
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip("%s", isDe
+							? "Nimmt die gerade gemessene Helligkeit als Ziel.\nStell das Bild vorher so ein, wie du es haben willst."
+							: "Takes the brightness measured right now as the target.\nSet the image the way you want it first.");
+					}
+					if (target > 0.0f)
+					{
+						ImGui::SameLine(0, 8.0f);
+						if (ImGui::SmallButton(isDe ? "Vergessen##capclr" : "Forget##capclr"))
+						{
+							CurrentSettings.SensorBrightnessTarget = 0.0f;
+							changed = true;
+							saveNeeded = true;
+						}
+					}
+					ImGui::Unindent(12.0f);
+				}
 			}
 
 			// Stated, not implied. A sensor that let someone believe it knew
