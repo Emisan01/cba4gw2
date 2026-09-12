@@ -1595,14 +1595,30 @@ namespace cba
 
 		ImGui::PushID("CBA_MainWindow");
 
-		ImGuiStyle& style = ImGui::GetStyle();
-		style.FrameRounding = 4.0f;
-		style.WindowRounding = 6.0f;
-		style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
-		style.Colors[ImGuiCol_Header] = ImVec4(0.24f, 0.44f, 0.68f, 0.85f);
-		style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.32f, 0.54f, 0.82f, 0.95f);
-		style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.18f, 0.36f, 0.58f, 1.00f);
-		style.ItemSpacing = ImVec2(8, 5);
+		// Scoped, not global (2026-09-12). This block used to write straight
+		// into ImGui::GetStyle(), which returns a reference to the ONE style
+		// struct shared by everything drawing in Nexus's ImGui context - Nexus
+		// itself, arcdps, every other addon. Those writes were never restored,
+		// so from the first frame CBA's window rendered, our frame rounding,
+		// our item spacing, our button text alignment and our blue on
+		// CollapsingHeaders applied to every other addon for the rest of the
+		// session.
+		//
+		// Nobody reported it because it looks like a theme rather than a bug.
+		// It is still us redecorating someone else's house: we are a guest in
+		// this context, and 179 other Push/Pop pairs in this file already get
+		// that right. These eight lines were the leftovers.
+		//
+		// Popped at the end of the function, next to PopID. There is no early
+		// return after this point - the only one is the context guard above -
+		// so the pairing cannot be skipped.
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 5));
+		ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.24f, 0.44f, 0.68f, 0.85f));
+		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.32f, 0.54f, 0.82f, 0.95f));
+		ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0.18f, 0.36f, 0.58f, 1.00f));
 
 		// ── Fixed Top Header Bar ──────────────────────────────────────────────
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
@@ -3119,6 +3135,11 @@ namespace cba
 			Recompute(/*aForce=*/false);
 		}
 
+		// Pairs with the four PushStyleVar / three PushStyleColor at the top of
+		// this function. Order does not matter to ImGui, but keeping them next
+		// to PopID keeps the whole scope visible in one place.
+		ImGui::PopStyleColor(3);
+		ImGui::PopStyleVar(4);
 		ImGui::PopID();
 	}
 

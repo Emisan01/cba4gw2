@@ -346,6 +346,35 @@ check("6. Codebase Health", "Settings::Load forces a neutral start (filter off, 
       "every launch starts neutral; an Auto-Start profile is the one deliberate exception"
       if not missing else "MISSING: " + ", ".join(missing))
 
+# 6.5 Nobody writes into the shared ImGui style.
+# ImGui::GetStyle() returns a reference to the ONE style struct shared by
+# everything drawing in Nexus's context - Nexus itself, arcdps, every other
+# addon. Writing to it is permanent and global: until 2026-09-12 CBA set frame
+# rounding, item spacing, button text alignment and three header colours there
+# and never restored them, so every other addon rendered with our styling for
+# the rest of the session. It looks like a theme rather than a bug, which is
+# why it survived so long.
+#
+# Push/PopStyleVar and Push/PopStyleColor are the scoped equivalents and this
+# codebase already uses them in ~180 places. This check exists so the eight
+# leftovers cannot come back.
+style_writes = []
+for _root, _dirs, _files in os.walk(NEXUS_SRC):
+    for _f in _files:
+        if not _f.endswith((".cpp", ".h")):
+            continue
+        _path = os.path.join(_root, _f)
+        with open(_path, "r", encoding="utf-8", errors="ignore") as _fh:
+            for _n, _line in enumerate(_fh, 1):
+                _code = _line.split("//", 1)[0]
+                if re.search(r"style\s*\.\s*\w+\s*(\[[^\]]*\])?\s*=[^=]", _code):
+                    style_writes.append("%s:%d" % (_f, _n))
+
+check("6. Codebase Health", "Nothing writes into the shared ImGui style",
+      not style_writes,
+      "scoped Push/Pop only - the context belongs to Nexus and every other addon"
+      if not style_writes else "direct writes at: " + ", ".join(style_writes[:6]))
+
 # =============================================================================
 # SUMMARY REPORT
 # =============================================================================

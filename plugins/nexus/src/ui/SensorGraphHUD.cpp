@@ -378,8 +378,10 @@ namespace cba
 
 		ImGui::PushID("CBA_GraphHUD");
 
-		ImGuiStyle& style = ImGui::GetStyle();
-		style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
+		// Scoped, not global - same fix as RenderMainWindow, same reason: this
+		// wrote into the style struct shared with every other addon in Nexus's
+		// ImGui context and never put it back.
+		ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
 
 		// ── Header Bar: Live Status Dot, Live Profile & Brightness Info, Reset Button, Mischpult Opacity Button ──
 		DrawFilterStatusIndicator(false);
@@ -1197,6 +1199,7 @@ namespace cba
 			Recompute(/*aForce=*/false);
 		}
 
+		ImGui::PopStyleVar(1); // pairs with ButtonTextAlign at the top
 		ImGui::PopID();
 	}
 }
