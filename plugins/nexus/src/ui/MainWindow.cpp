@@ -246,8 +246,8 @@ namespace cba
 		ImGui::Spacing();
 
 		// ── "The filter physically cannot work right now" banner ───────────
-		// Added 2026-09-11 (PRODUCT_CONCEPT.md section 1). Both of these
-		// conditions used to be reported ONLY in the Main Window, i.e. inside
+		// Added 2026-09-11 (PRODUCT_CONCEPT.md section 1). This condition
+		// used to be reported ONLY in the Main Window, i.e. inside
 		// Studio, i.e. behind the Advanced Mode gate - so a base-panel user in
 		// exclusive fullscreen saw "ON", a live status dot and
 		// "Active - N of 9 colors shifted" while absolutely nothing happened
@@ -257,9 +257,21 @@ namespace cba
 		// invalidates every status line below it.
 		{
 			WindowMode embWinMode = DetectWindowMode(APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr);
-			bool exclusiveFs = (embWinMode == WindowMode::ExclusiveFullscreen);
-			bool osBlocked = CurrentSettings.Enabled && !g_DwmLastCallSuccessful;
-			if (exclusiveFs || osBlocked)
+			// The second condition this banner used to carry - "Windows is
+			// rejecting the colour correction", driven by
+			// g_DwmLastCallSuccessful - was removed 2026-09-12. It fires
+			// whenever GW2 is not the foreground window (alt-tab to a
+			// browser, open the snipping tool), because a background
+			// process's MagSetFullscreenColorEffect call does not go through
+			// - while the already-installed effect keeps working perfectly.
+			// So the banner accused the OS of blocking a filter that was
+			// visibly running: the same false-evidence failure this banner
+			// exists to prevent, only in the other direction. A warning that
+			// cries wolf on every alt-tab teaches people to ignore warnings.
+			// The flag is not lost - SelfTest reports it as INFO, the right
+			// surface for a fact that legitimately varies (CLAUDE.md, "Where
+			// a fact belongs").
+			if (embWinMode == WindowMode::ExclusiveFullscreen)
 			{
 				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.38f, 0.14f, 0.10f, 0.55f));
 				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
@@ -270,11 +282,9 @@ namespace cba
 					ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.38f, 1.0f), "%s", isDe
 						? "Der Filter kann gerade nicht wirken"
 						: "The filter cannot take effect right now");
-					ImGui::TextWrapped("%s", exclusiveFs
-						? (isDe ? "GW2 laeuft im exklusiven Vollbild. Stelle in den Grafik-Optionen auf 'Vollbild im Fenster' um - Windows kann die Farbkorrektur sonst nicht anwenden."
-						        : "GW2 is in exclusive fullscreen. Switch Graphics Options to 'Windowed Fullscreen' - Windows cannot apply the colour correction otherwise.")
-						: (isDe ? "Windows nimmt die Farbkorrektur gerade nicht an. Das passiert meist im exklusiven Vollbild oder waehrend eines Aufloesungswechsels."
-						        : "Windows is currently rejecting the colour correction. This usually happens in exclusive fullscreen or during a resolution change."));
+					ImGui::TextWrapped("%s", isDe
+						? "GW2 laeuft im exklusiven Vollbild. Stelle in den Grafik-Optionen auf 'Vollbild im Fenster' um - Windows kann die Farbkorrektur sonst nicht anwenden."
+						: "GW2 is in exclusive fullscreen. Switch Graphics Options to 'Windowed Fullscreen' - Windows cannot apply the colour correction otherwise.");
 				}
 				ImGui::EndChild();
 				ImGui::PopStyleVar(2);
@@ -941,7 +951,20 @@ namespace cba
 			ImGui::Indent(12.0f);
 			auto embEyeSlider = [&](const char* aLabel, const char* aId, ParamId aParam) {
 				ImGui::TextDisabled("%s", aLabel);
-				ImGui::SetNextItemWidth(-FLT_MIN);
+
+				// Reset per slider (2026-09-12, Emi's ask). Without one, the
+				// only ways back to neutral were dragging by eye to exactly
+				// zero or "Filter zuruecksetzen", which also wipes the colour
+				// profile - a far bigger hammer than "undo this one tint".
+				// Same width math and styling as the Sensor Graph window's
+				// sliders, so the pair reads identically in both places.
+				float avail = ImGui::GetContentRegionAvail().x;
+				float padX  = ImGui::GetStyle().FramePadding.x * 2.0f;
+				float btnW  = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
+				const float sp = 6.0f;
+				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
+
+				ImGui::SetNextItemWidth(sW);
 				// 0-100 display units converted at the boundary - ImGui's
 				// format string does not auto-scale a 0..1 range (same fix as
 				// Section 2, see its comment).
@@ -952,6 +975,22 @@ namespace cba
 					changed = true;
 				}
 				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+				ImGui::SameLine(0, sp);
+				char embResetId[64];
+				std::snprintf(embResetId, sizeof(embResetId), "Reset%s", aId);
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+				if (ImGui::Button(embResetId, ImVec2(btnW, 0.0f)))
+				{
+					ParameterRegistry::Get().SetFloat(aParam, 0.0f);
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Wert auf 0% zuruecksetzen" : "Reset value to 0%");
 			};
 			embEyeSlider(isDe ? "Blaufilter" : "Blue light filter", "##emb_blue", ParamId::BlueFilter01);
 			embEyeSlider(isDe ? "Warmton" : "Warm tint", "##emb_warm", ParamId::WarmTint01);
@@ -1258,22 +1297,33 @@ namespace cba
 			}
 			ImGui::PopStyleColor(4);
 
-			// ── OS Block Warning Banner ─────────────────────────────────────────
-			if (CurrentSettings.Enabled && !g_DwmLastCallSuccessful) {
-				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.3f, 0.0f, 0.0f, 1.0f));
-				ImGui::BeginChild("ErrorBanner", ImVec2(0, 40), true);
-				// Was a raw German-only string literal, no isDe ternary at
-				// all - the one string in this file that skipped translation,
-				// found right when an English user most needs to understand
-				// an error (2026-09-09 codebase review).
-				ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", isDe
-					? " OS BLOCKIERT FILTER! Bitte GW2 auf 'Windowed Fullscreen' stellen\n"
-					  " oder HDR/Windows-Farbfilter in den OS-Einstellungen deaktivieren."
-					: " OS IS BLOCKING THE FILTER! Please switch GW2 to 'Windowed Fullscreen'\n"
-					  " or disable HDR/Windows color filters in your OS settings.");
-				ImGui::EndChild();
-				ImGui::PopStyleColor();
-			}
+			// The "OS BLOCKIERT FILTER!" banner used to sit right here, and
+			// it was wrong twice over (removed 2026-09-12, Emi's report).
+			//
+			// Wrong about the world: g_DwmLastCallSuccessful goes false
+			// whenever GW2 is not the foreground window, because a background
+			// process's MagSetFullscreenColorEffect call does not go through.
+			// Alt-tab to a browser or open the snipping tool and the banner
+			// appeared - while the already-installed colour effect kept
+			// working perfectly. It accused the OS of blocking a filter that
+			// was visibly running.
+			//
+			// Wrong about this window: it was a full-width BeginChild dropped
+			// between the master button and the toolbar buttons that follow it
+			// on the same row via SameLine(). The child ends the row, so every
+			// one of those buttons - Sensor Graph, Filter Lab, Vision Lab,
+			// Reset UI, Reset Filter, Export, Import, language - was laid out
+			// past the right edge and vanished. The whole tab bar disappeared
+			// exactly when someone alt-tabbed away to screenshot it. It also
+			// stole the two ImGui "last item" queries below: the master
+			// button's own tooltip, and the GetItemRectMin/Max that the
+			// OFF-state glint animation traces, both read the banner's rect
+			// instead of the button's whenever it showed. Removing it repairs
+			// all three at once.
+			//
+			// The signal is not lost: SelfTest reports it as INFO, the right
+			// surface for a fact that legitimately varies (CLAUDE.md, "Where a
+			// fact belongs").
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip(wasEnabled ? (isDe ? "Filter aktiv - Klicke zum Ausschalten" : "Filter active - click to disable")
 				                             : (isDe ? "Filter inaktiv - Klicke zum Einschalten" : "Filter inactive - click to enable"));
@@ -2409,41 +2459,50 @@ namespace cba
 				// units, converted to/from the registry's 0.0-1.0 storage
 				// range right at the boundary - same trick the "Strength"
 				// display text a few lines up already uses (manual *100.0).
-				ImGui::TextUnformatted(isDe ? "Blaufilter:" : "Blue Light Filter:");
-				ImGui::SetNextItemWidth(-FLT_MIN);
-				{
-					float v = ParameterRegistry::Get().GetFloat(ParamId::BlueFilter01) * 100.0f;
-					if (ImGui::SliderFloat("##blue_filter_slider", &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
-					{
-						ParameterRegistry::Get().SetFloat(ParamId::BlueFilter01, v / 100.0f);
-						changed = true;
-					}
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+				// Three near-identical hand-copied blocks until 2026-09-12,
+				// which is how they came to differ from the Nexus panel's own
+				// copy of the same three sliders (that one had no Reset at
+				// all). One lambda now, Reset included - same shape as the
+				// panel's embEyeSlider and the Sensor Graph window's
+				// severitySlider.
+				auto eyeSlider = [&](const char* aLabel, const char* aId, ParamId aParam) {
+					ImGui::TextUnformatted(aLabel);
 
-				ImGui::TextUnformatted(isDe ? "Warmton:" : "Warm Tint:");
-				ImGui::SetNextItemWidth(-FLT_MIN);
-				{
-					float v = ParameterRegistry::Get().GetFloat(ParamId::WarmTint01) * 100.0f;
-					if (ImGui::SliderFloat("##warm_tint_slider", &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
-					{
-						ParameterRegistry::Get().SetFloat(ParamId::WarmTint01, v / 100.0f);
-						changed = true;
-					}
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+					float avail = ImGui::GetContentRegionAvail().x;
+					float padX  = ImGui::GetStyle().FramePadding.x * 2.0f;
+					float btnW  = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
+					const float sp = 6.0f;
+					float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
 
-				ImGui::TextUnformatted(isDe ? "Saettigungsreduktion:" : "Saturation Reduction:");
-				ImGui::SetNextItemWidth(-FLT_MIN);
-				{
-					float v = ParameterRegistry::Get().GetFloat(ParamId::SaturationReduction01) * 100.0f;
-					if (ImGui::SliderFloat("##sat_reduction_slider", &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+					ImGui::SetNextItemWidth(sW);
+					float v = ParameterRegistry::Get().GetFloat(aParam) * 100.0f;
+					if (ImGui::SliderFloat(aId, &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
 					{
-						ParameterRegistry::Get().SetFloat(ParamId::SaturationReduction01, v / 100.0f);
+						ParameterRegistry::Get().SetFloat(aParam, v / 100.0f);
 						changed = true;
 					}
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+					if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+					ImGui::SameLine(0, sp);
+					char eyeResetId[64];
+					std::snprintf(eyeResetId, sizeof(eyeResetId), "Reset%s", aId);
+					ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+					ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+					if (ImGui::Button(eyeResetId, ImVec2(btnW, 0.0f)))
+					{
+						ParameterRegistry::Get().SetFloat(aParam, 0.0f);
+						changed = true;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Wert auf 0% zuruecksetzen" : "Reset value to 0%");
+				};
+
+				eyeSlider(isDe ? "Blaufilter:" : "Blue Light Filter:", "##blue_filter_slider", ParamId::BlueFilter01);
+				eyeSlider(isDe ? "Warmton:" : "Warm Tint:", "##warm_tint_slider", ParamId::WarmTint01);
+				eyeSlider(isDe ? "Saettigungsreduktion:" : "Saturation Reduction:", "##sat_reduction_slider", ParamId::SaturationReduction01);
 
 				ImGui::Unindent(16.0f);
 			}

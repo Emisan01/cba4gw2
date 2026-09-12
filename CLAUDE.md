@@ -285,18 +285,21 @@ things.
   the Sensor Graph window the same day and its tooltip now points at Vision
   Lab -> Clinical Report for translating a real diagnosis into filter values,
   so the two are at least verbally connected now.
-- **Stale "OS blocked" banner possible across an exclusive-fullscreen
-  transition** (found 2026-09-10, same cross-check): `g_DwmLastCallSuccessful`
-  (Magnification.cpp) and `DetectWindowMode()` (WindowMode.cpp) never
-  cross-check each other - switching into exclusive fullscreen can show the
-  correct "Exclusive Fullscreen" warning while the separate "OS BLOCKED"
-  banner (driven only by `g_DwmLastCallSuccessful`) stays in whatever state
-  it was last in, since the Watchdog's stuck-effect recovery only re-checks
-  `g_DwmLastCallSuccessful` itself (see "How filtering actually composes"),
-  not `DetectWindowMode()`'s result. Genuinely undocumented until now, not
-  something to fix blindly - worth deciding deliberately (one shared
-  source-of-truth check, or leave as two separate informational signals)
-  rather than guessing at a fix.
+- ~~**Stale "OS blocked" banner possible across an exclusive-fullscreen
+  transition**~~ - **CLOSED 2026-09-12 by deleting the banner.** The entry
+  (found 2026-09-10) described `g_DwmLastCallSuccessful` (Magnification.cpp)
+  and `DetectWindowMode()` (WindowMode.cpp) never cross-checking each other,
+  and asked for a deliberate decision between one shared source of truth and
+  two separate informational signals. Emi's live report settled it by finding
+  a much bigger problem than staleness: the flag goes false whenever GW2 is
+  simply **not the foreground window**, because a background process's
+  `MagSetFullscreenColorEffect` call does not go through - while the effect
+  already installed in DWM keeps working. Alt-tab to a browser or open the
+  snipping tool and the banner accused the OS of blocking a filter that was
+  visibly running. Both banners driven by it are gone; the exclusive-
+  fullscreen warning (driven by `DetectWindowMode()`, which is correct) stays.
+  The flag itself is untouched and still load-bearing in `ApplyThrottled`'s
+  retry logic - it just no longer has a UI surface, only SelfTest's INFO row.
 - **"Regional Hybrid Mode" (4-quadrant per-region filter) - a genuinely new
   proposal, not a variant of the Roman Space Telescope idea above.** Came
   from the same Devin brainstorm session 2026-09-10: split the screen into 4
@@ -420,7 +423,10 @@ actually *accepted* that call. One rejected `MagSetFullscreenColorEffect`
 (confirmed to genuinely happen under real exclusive fullscreen, not just
 theoretical) then had two consequences: (1) the "OS BLOCKED" banner could get
 stuck showing even after the OS started accepting calls again, since nothing
-ever called `Apply()` again to notice the recovery; (2) worse, `Clear()`
+ever called `Apply()` again to notice the recovery (that banner no longer
+exists as of 2026-09-12 - see "Known loose ends" - but the retry fix below is
+what keeps the *effect* from staying stuck, which was always the load-bearing
+half); (2) worse, `Clear()`
 calls (Enabled toggled off, focus lost, minimized, Reset Filter, etc.) marked
 `s_hasApplied = false` even when `Clear()` itself failed, so a failed clear
 was never retried - the color effect could stay visibly stuck on screen even
@@ -1510,6 +1516,37 @@ record here.
   undo each character as it is typed.
 
 Build 32, 26/26 unit tests, 24/24 audit + 1 informational.
+
+**Second pass the same day, from Emi's live screenshot of the new module.**
+Three asks, one of which turned out to be two bugs wearing one coat:
+
+- *Reset buttons on the Eye Comfort sliders.* Without one the only routes back
+  to neutral were dragging by eye to exactly zero or "Filter zuruecksetzen",
+  which also wipes the colour profile. Added to the Nexus panel's three
+  sliders, and to Main Window Section 2's copy of the same three - which had
+  been three hand-copied blocks and is now one lambda, the same shape as the
+  panel's and the Sensor Graph window's. Reset in one place and not the other
+  is precisely the "Reset UI" drift already on record above.
+- *Remove the "OS BLOCKIERT FILTER!" banner.* Emi: it is not correct anyway.
+  He was right, and about more than he knew - see the loose-ends entry. It was
+  wrong about the world (the flag reports "not foreground", not "blocked") and
+  wrong about its own window: a full-width `BeginChild` dropped between the
+  master button and the toolbar buttons that follow it via `SameLine()`. The
+  child ends the row, so Sensor Graph / Filter Lab / Vision Lab / Reset UI /
+  Reset Filter / Export / Import / language were all laid out past the right
+  edge and vanished. That is the "**die ganze Tab-Leiste verschwindet, sobald
+  ich das Snipping-Tool im Vordergrund habe**" report: one condition, two
+  visible symptoms, and the screenshot tool was itself the trigger.
+- It also silently stole the two ImGui "last item" queries that follow it: the
+  master button's own tooltip and the `GetItemRectMin/Max` the OFF-state glint
+  animation traces both read the *banner's* rect whenever it showed. Neither
+  was reported by anyone; both are repaired by the same deletion.
+
+The general lesson worth keeping: a conditional full-width `BeginChild` in the
+middle of a `SameLine()` row is invisible in code review and invisible in
+testing, because it only misbehaves in the state that makes it appear.
+
+Build 33, 26/26 unit tests, 24/24 audit + 1 informational.
 
 ## Build feedback loop
 
