@@ -261,6 +261,21 @@ namespace cba
 				const char* err = GetShaderColorPipeline().LastError();
 				Add(r, "Platform", "Shader pipeline is ready", ready,
 					ready ? "" : ((err && *err) ? err : "Not initialized yet - builds on the next rendered frame."));
+
+				const DXGI_FORMAT fmt = GetShaderColorPipeline().SourceFormat();
+				const char* fmtName =
+					(fmt == DXGI_FORMAT_R8G8B8A8_UNORM)       ? "R8G8B8A8_UNORM (8-bit, normalised)" :
+					(fmt == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB)  ? "R8G8B8A8_UNORM_SRGB (8-bit, normalised)" :
+					(fmt == DXGI_FORMAT_B8G8R8A8_UNORM)       ? "B8G8R8A8_UNORM (8-bit, normalised)" :
+					(fmt == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB)  ? "B8G8R8A8_UNORM_SRGB (8-bit, normalised)" :
+					(fmt == DXGI_FORMAT_R10G10B10A2_UNORM)    ? "R10G10B10A2_UNORM (10-bit, normalised)" :
+					(fmt == DXGI_FORMAT_R16G16B16A16_FLOAT)   ? "R16G16B16A16_FLOAT (scRGB - values may exceed 1.0)" :
+					(fmt == DXGI_FORMAT_UNKNOWN)              ? "not sampled yet" : "other";
+				// A float backbuffer is the one case where the maths would be
+				// wrong rather than merely unusual - saturate() would clip
+				// highlights the display can actually show.
+				const bool normalised = (fmt != DXGI_FORMAT_R16G16B16A16_FLOAT);
+				AddInfo(r, "Platform", "Backbuffer format", normalised, fmtName);
 			}
 
 			const unsigned int rejects = g_DwmClearRejectCount.load();

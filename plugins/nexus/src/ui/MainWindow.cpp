@@ -302,6 +302,27 @@ namespace cba
 		ImGui::Unindent(16.0f);
 	}
 
+	// ── One look for every block on the panel ─────────────────────────────
+	// The heading + one-line "what this does for you" pair was written out by
+	// hand per section, which is how two blocks doing the same job end up
+	// looking like two different kinds of thing. Defined once as of
+	// 2026-09-12 (Emi: "eine einheitliche UI-Darstellung insgesamt"), so a new
+	// section cannot quietly adopt its own spacing or its own shade of cyan.
+	//
+	// The subtitle is not decoration: PRODUCT_CONCEPT.md's rule is that a
+	// heading naming a mechanism ("Commander-Tag-Kontrast") tells a player
+	// nothing about whether they want it, so every section owes one line
+	// saying what it does FOR them. Making it a parameter makes that rule
+	// hard to skip.
+	void PanelSection(const char* aTitle, const char* aSubtitle)
+	{
+		ImGui::TextColored(Theme::kTextCyanLicht, "%s", aTitle);
+		if (aSubtitle && *aSubtitle)
+		{
+			ImGui::TextDisabled("%s", aSubtitle);
+		}
+	}
+
 	void RenderEmbeddedOptions()
 	{
 		if (!ImGui::GetCurrentContext()) return;
@@ -328,24 +349,6 @@ namespace cba
 		// does FOR you. Two lines because there are genuinely two jobs, and
 		// per PRODUCT_CONCEPT.md 2D the second one reaches a far wider
 		// audience than the first.
-		ImGui::TextColored(Theme::kTextPrimary, "%s", isDe
-			? "Commander-Tags im Zerg auseinanderhalten."
-			: "Tell commander tags apart in a zerg.");
-		ImGui::TextColored(Theme::kTextSecondary, "%s", isDe
-			? "Augen schonen bei langen Sessions."
-			: "Take the strain off your eyes on long sessions.");
-
-		// First-run orientation only. Disappears the moment anything is set
-		// up, so it never becomes clutter for a returning user - and it points
-		// at the one action that actually gets a newcomer somewhere, instead
-		// of leaving them to guess which control to touch first.
-		if (CurrentSettings.CommanderTagMode == 0 && CurrentSettings.Severity01 <= 0.01f)
-		{
-			ImGui::Spacing();
-			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
-				? "Noch nicht eingerichtet - der Sehtest unten dauert eine Minute."
-				: "Not set up yet - the short vision check below takes a minute.");
-		}
 		ImGui::Spacing();
 
 		// ── "The filter physically cannot work right now" banner ───────────
@@ -426,41 +429,187 @@ namespace cba
 				                             : (isDe ? "Filter inaktiv - Klicke zum Einschalten" : "Filter inactive - click to enable"));
 		}
 
-		ImGui::SameLine(0, 10.0f);
-		// Deliberately kept as its own live indicator, not merged into the
-		// OFF/ON button above (2026-09-09 UI review flagged this as
-		// redundant-looking; Emi's call: keep it - this doubles as a
-		// Nexus/Mumble handshake/connectivity check, not just a restatement
-		// of Enabled, so it stays a separate signal).
-		DrawFilterStatusIndicator(true);
+		// One line, read left to right: what the filter is doing, and the two
+		// ways out of a mess (2026-09-12, Emi's layout). The resets used to
+		// sit three blocks further down, under Eye Comfort - findable only by
+		// someone who already knew they were there.
+		const char* uiResetLabel  = isDe ? "UI zuruecksetzen" : "Reset UI";
+		const char* filResetLabel = isDe ? "Filter zuruecksetzen" : "Reset Filter";
+		const float btnPadX       = ImGui::GetStyle().FramePadding.x * 2.0f;
+		const float uiResetW      = ImGui::CalcTextSize(uiResetLabel).x + btnPadX;
+		const float filResetW     = ImGui::CalcTextSize(filResetLabel).x + btnPadX;
 
-		// Extend the "it's alive" handshake indicator with what's actually
-		// active (2026-09-10, Emi: same idea as the toolbar icon only
-		// lighting up when on - the status dot already says "alive," this
-		// adds "and here's what's running"). Reuses the same
-		// FeatureModuleRegistry loop the Sensor Graph HUD's "Aktiv:" list
-		// already runs - Commander Tag/Hybrid Mode/Filter Lab/Eye-Sensitive
-		// otherwise have no visibility at all on this compact panel.
-		if (CurrentSettings.Enabled)
+		ImGui::SameLine(0, 10.0f);
 		{
-			std::string activeList;
-			for (const auto& module : FeatureModuleRegistry::Get().GetAll())
+			// The live state gets a ground of its own (Emi: "das aktive Feld
+			// neben dem ON-Button sollte so einen unterlegten Bereich haben").
+			// Floating text beside a button reads as that button's label; a
+			// panel behind it reads as a readout, which is what it is.
+			//
+			// Channel split rather than measure-then-draw: the draw list has
+			// no z-order, so a rect added after the text covers it. Splitting
+			// lets the content be drawn first and the ground be added behind
+			// it afterwards - the standard ImGui idiom for exactly this.
+			const float fieldH   = ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.y * 2.0f + 6.0f;
+			const float availRow = ImGui::GetContentRegionAvail().x;
+			const float reserved = uiResetW + filResetW + 8.0f + 12.0f;
+			float fieldW = availRow - reserved;
+			if (fieldW < 90.0f) fieldW = 90.0f;
+
+			const ImVec2 fieldPos = ImGui::GetCursorScreenPos();
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			dl->ChannelsSplit(2);
+			dl->ChannelsSetCurrent(1);
+
+			ImGui::SetCursorScreenPos(ImVec2(fieldPos.x + 8.0f,
+				fieldPos.y + (fieldH - ImGui::GetTextLineHeight()) * 0.5f));
+
+			// Deliberately its own live indicator, not merged into the OFF/ON
+			// button (2026-09-09 review called it redundant; Emi's call: keep
+			// it - it doubles as a Nexus/Mumble handshake check, not just a
+			// restatement of Enabled).
+			DrawFilterStatusIndicator(true);
+
+			// What is actually running, next to the "it's alive" dot
+			// (2026-09-10). Same FeatureModuleRegistry loop the Sensor Graph
+			// HUD's "Aktiv:" list uses - without it Commander Tag, Hybrid
+			// Mode, Filter Lab and Eye-Sensitive have no visibility at all on
+			// this compact panel.
+			if (CurrentSettings.Enabled)
 			{
-				if (!module.isActive || !module.isActive()) continue;
-				if (!activeList.empty()) activeList += ", ";
-				activeList += isDe ? module.labelDe : module.labelEn;
-			}
-			if (!activeList.empty())
-			{
-				ImGui::SameLine(0, 6.0f);
-				ImGui::TextDisabled("(%s)", activeList.c_str());
-				if (ImGui::IsItemHovered())
+				std::string activeList;
+				for (const auto& module : FeatureModuleRegistry::Get().GetAll())
 				{
-					ImGui::SetTooltip(isDe ? "Aktive Zusatzmodule (siehe auch Sensor-Graph-HUD fuer Details)."
-					                       : "Active add-on modules (see the Sensor Graph HUD for details).");
+					if (!module.isActive || !module.isActive()) continue;
+					if (!activeList.empty()) activeList += ", ";
+					activeList += isDe ? module.labelDe : module.labelEn;
+				}
+				if (!activeList.empty())
+				{
+					ImGui::SameLine(0, 6.0f);
+					ImGui::TextDisabled("(%s)", activeList.c_str());
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip(isDe ? "Aktive Zusatzmodule (siehe auch Sensor-Graph-HUD fuer Details)."
+						                       : "Active add-on modules (see the Sensor Graph HUD for details).");
+					}
 				}
 			}
+
+			dl->ChannelsSetCurrent(0);
+			dl->AddRectFilled(fieldPos, ImVec2(fieldPos.x + fieldW, fieldPos.y + fieldH),
+				IM_COL32(14, 24, 36, 190), 5.0f);
+			dl->AddRect(fieldPos, ImVec2(fieldPos.x + fieldW, fieldPos.y + fieldH),
+				IM_COL32(32, 66, 96, 150), 5.0f);
+			dl->ChannelsMerge();
+
+			// Put the layout cursor back where the field ends, so the reset
+			// buttons line up with it instead of with whatever text happened
+			// to be drawn last inside it.
+			ImGui::SetCursorScreenPos(ImVec2(fieldPos.x + fieldW, fieldPos.y));
+			ImGui::Dummy(ImVec2(0.0f, fieldH));
 		}
+
+		ImGui::SameLine(0, 12.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+		if (ImGui::Button(uiResetLabel, ImVec2(uiResetW, 26.0f)))
+		{
+			ResetUiLayout();
+			// Only force-open the Main Window if Advanced Mode actually allows
+			// it (2026-09-09) - otherwise this button would silently bypass
+			// the Advanced Mode gate sitting right below it.
+			if (CurrentSettings.AdvancedModeUnlocked)
+			{
+				CurrentSettings.ShowMainWindow = true;
+				s_focusMainWindow = true;
+			}
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt Position und Groesse aller CBA-Fenster und des Taskleisten-Symbols auf Standard zurueck."
+			                       : "Resets position and size of all CBA windows and the toolbar icon to defaults.");
+		}
+
+		ImGui::SameLine(0, 8.0f);
+		// Visually distinct from "Reset UI" (2026-09-09, Emi's UI walkthrough
+		// - the two used to look identical, easy to misclick).
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+		if (ImGui::Button(filResetLabel, ImVec2(filResetW, 26.0f)))
+		{
+			// Was a third, incomplete hand-rolled reset (missed
+			// LabModeEnabled/EnableHybridMode - same bug class as the "CBA -
+			// Filter Off" keybind before it used this shared function too).
+			ResetFilterSettingsAndDisable();
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt Farbkorrektur, Helligkeit und Commander-Tags komplett auf neutral (Filter AUS, Staerke 0, Gamma 1.00x)."
+			                       : "Resets all color correction, brightness and tag settings to neutral defaults (Filter OFF, Severity 0, Gamma 1.00x).");
+		}
+
+		ImGui::Spacing();
+		// How the correction reaches the screen. Moved out of the Advanced
+		// fold and up here 2026-09-12 - it decides what the master switch
+		// above actually does to the machine, so hiding it one fold deeper
+		// than the switch it qualifies had it backwards. Emi found it, in
+		// his words, "muehsam".
+		ImGui::TextDisabled("%s:", isDe ? "Wie der Filter gemalt wird" : "How the filter is painted");
+		{
+			int backend = CurrentSettings.RenderBackend;
+			if (ImGui::RadioButton(isDe ? "Bildschirm (DWM)##backend0" : "Screen (DWM)##backend0", backend == 0))
+			{
+				CurrentSettings.RenderBackend = 0;
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("%s", isDe
+					? "Windows faerbt den gesamten Bildschirm. Bisheriger Weg.\nPausiert deshalb, sobald du GW2 verlaesst - sonst waere auch dein Browser eingefaerbt."
+					: "Windows tints the whole screen. The path shipped so far.\nPauses when you leave GW2, otherwise your browser would be tinted too.");
+			}
+			ImGui::SameLine(0, 12.0f);
+			if (ImGui::RadioButton(isDe ? "Nur GW2 (Shader)##backend1" : "GW2 only (shader)##backend1", backend == 1))
+			{
+				CurrentSettings.RenderBackend = 1;
+				changed = true;
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("%s", isDe
+					? "Die Korrektur wird direkt in das Bild von GW2 gerechnet.\nAusserhalb des Spiels passiert nichts - kein Pausieren noetig, und die CBA-Oberflaeche bleibt unverfaelscht."
+					: "The correction is computed straight into GW2's own frame.\nNothing outside the game is touched - no pausing needed, and CBA's own interface stays true colour.");
+			}
+
+			if (CurrentSettings.RenderBackend == 1)
+			{
+				ImGui::Indent(16.0f);
+				if (GetShaderColorPipeline().IsReady())
+				{
+					ImGui::TextDisabled("%s", isDe ? "Aktiv. \"Im Hintergrund aktiv lassen\" ist hier ohne Wirkung."
+					                              : "Active. \"Keep active in background\" has no effect here.");
+				}
+				else
+				{
+					const char* err = GetShaderColorPipeline().LastError();
+					ImGui::TextColored(Theme::kTextGoldLabel, "%s%s", isDe ? "Noch nicht bereit: " : "Not ready yet: ",
+						(err && *err) ? err : (isDe ? "wird beim naechsten Frame aufgebaut" : "builds on the next frame"));
+				}
+				ImGui::Unindent(16.0f);
+			}
+		}
+
 
 		// Directly under the master switch because it answers the very next
 		// question that switch raises: not "is the filter on" but "on when?"
@@ -552,69 +701,6 @@ namespace cba
 				}
 			}
 		}
-
-		// Recovery, part of the base control field since 2026-09-12 (Emi:
-		// "die grossen UI zuruecksetzen und Filter zuruecksetzen nach oben in
-		// die obere Hauptsteuerung"). They used to sit under Eye Comfort,
-		// which put the two panic buttons at the bottom of an unrelated
-		// feature - findable only by someone who already knew they were
-		// there, i.e. not the person who needs them.
-		ImGui::Spacing();
-
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		if (ImGui::Button(isDe ? "UI zuruecksetzen" : "Reset UI", ImVec2(0.0f, 26.0f)))
-		{
-			ResetUiLayout();
-			// Only force-open the Main Window if Advanced Mode actually
-			// allows it (2026-09-09) - otherwise this button would silently
-			// bypass the Advanced Mode gate right next to it.
-			if (CurrentSettings.AdvancedModeUnlocked)
-			{
-				CurrentSettings.ShowMainWindow = true;
-				s_focusMainWindow = true;
-			}
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip(isDe ? "Setzt Position und Groesse aller CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) und des Taskleisten-Symbols auf Standardkoordinaten links oben zurueck."
-			                       : "Resets position and size of all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) and the toolbar icon to default top-left coordinates.");
-		}
-
-		ImGui::PopStyleColor(4);
-
-		ImGui::SameLine(0, 8.0f);
-
-		// Visually distinct from "Reset UI" above (2026-09-09, Emi's UI
-		// walkthrough - the two used to look identical, easy to misclick).
-		// Same danger-subtle tint the Main Window's own Reset Filter button
-		// already used - this one just never got it.
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-		if (ImGui::Button(isDe ? "Filter zuruecksetzen" : "Reset Filter", ImVec2(0.0f, 26.0f)))
-		{
-			// Was a third, incomplete hand-rolled reset (missed
-			// LabModeEnabled/EnableHybridMode - same bug class as the "CBA -
-			// Filter Off" keybind before it used this shared function too).
-			ResetFilterSettingsAndDisable();
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip(isDe ? "Setzt Farbkorrektur, Helligkeit und Commander-Tags komplett auf neutral (Filter AUS, Staerke 0, Gamma 1.00x)."
-			                       : "Resets all color correction, brightness and tag settings to neutral defaults (Filter OFF, Severity 0, Gamma 1.00x).");
-		}
-		ImGui::PopStyleColor(4);
-
-
-
-		ImGui::Spacing();
-		ImGui::Separator();
 
 		// Profile Slots - quick switch between saved profiles without opening
 		// the Studio. Deliberately independent of Main Window's slot-chip loop
@@ -714,11 +800,230 @@ namespace cba
 		ImGui::Separator();
 		ImGui::Spacing();
 
+		// ── Eye Comfort (2026-09-11, PRODUCT_CONCEPT.md section 2D) ────────
+		// Added here after the finding that the ENTIRE Eye-Sensitive UI lived
+		// in Main Window Section 2, i.e. inside Studio, i.e. unreachable
+		// without ticking Advanced Mode - the same structural mistake as
+		// Vision Lab's, applied to the feature Emi reports as the actual
+		// reason he keeps the tool running while playing. An acquisition
+		// feature may sit behind a gate; a retention feature must not.
+		//
+		// Safe as a second binding rather than a duplicated editor: all three
+		// values are ParameterRegistry-backed, so this shares storage AND the
+		// clamp with Section 2 - literally the registry's stated litmus test
+		// ("any control can be moved to another panel with zero behavior
+		// change"). Deliberately the compact set only; retention readout, HDR
+		// and Apply-Target stay in Section 2 as the full version, the same
+		// compact-vs-full split already documented for Profile Slots.
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+		PanelSection(isDe ? "Augenschonung" : "Eye Comfort",
+			isDe ? "Blaulicht, Warmton, Saettigung und Helligkeit - unabhaengig von der Farbkorrektur."
+			     : "Blue light, warm tint, saturation and brightness - independent of the colour correction.");
+		if (ImGui::Checkbox(isDe ? "Aktivieren##emb_eye" : "Activate##emb_eye", &CurrentSettings.EyeComfortModeEnabled))
+		{
+			changed = true;
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe
+				? "Blaufilter, Warmton und Saettigungsreduktion - unabhaengig von der Farbkorrektur, wird zusaetzlich angewendet.\nWirkt sofort sichtbar und ist die eine Einstellung, die du direkt selbst beurteilen kannst."
+				: "Blue-light filter, warm tint and saturation reduction - independent of the colour correction, applied on top of it.\nVisible immediately, and the one setting you can judge for yourself directly.");
+		}
+		// Dead end (2026-09-11): Recompute() returns early while the master
+		// filter is off, so Eye Comfort is enabled-but-inert in that state and
+		// the sliders below would move with no visible result. That case is
+		// not exotic - per PRODUCT_CONCEPT.md 2D this feature has a far wider
+		// audience than CVD, so "I only want the eye comfort" is a normal
+		// path, and those users have no reason to guess that a filter they do
+		// not need has to be on first. Say it, and offer the one click.
+		if (CurrentSettings.EyeComfortModeEnabled && !CurrentSettings.Enabled)
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.38f, 1.0f), "%s", isDe
+				? "Wirkt erst, wenn der Filter oben an ist."
+				: "Only takes effect once the filter above is on.");
+			ImGui::SameLine(0, 8.0f);
+			if (ImGui::SmallButton(isDe ? "Jetzt einschalten##eye_enable" : "Turn on now##eye_enable"))
+			{
+				ToggleMasterEnabled();
+				changed = true;
+				saveNeeded = true;
+			}
+		}
+
+		if (CurrentSettings.EyeComfortModeEnabled)
+		{
+			ImGui::Indent(12.0f);
+			auto embEyeSlider = [&](const char* aLabel, const char* aId, ParamId aParam) {
+				ImGui::TextDisabled("%s", aLabel);
+
+				// Reset per slider (2026-09-12, Emi's ask). Without one, the
+				// only ways back to neutral were dragging by eye to exactly
+				// zero or "Filter zuruecksetzen", which also wipes the colour
+				// profile - a far bigger hammer than "undo this one tint".
+				// Same width math and styling as the Sensor Graph window's
+				// sliders, so the pair reads identically in both places.
+				float avail = ImGui::GetContentRegionAvail().x;
+				float padX  = ImGui::GetStyle().FramePadding.x * 2.0f;
+				float btnW  = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
+				const float sp = 6.0f;
+				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
+
+				ImGui::SetNextItemWidth(sW);
+				// 0-100 display units converted at the boundary - ImGui's
+				// format string does not auto-scale a 0..1 range (same fix as
+				// Section 2, see its comment).
+				float v = ParameterRegistry::Get().GetFloat(aParam) * 100.0f;
+				if (ImGui::SliderFloat(aId, &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+				{
+					ParameterRegistry::Get().SetFloat(aParam, v / 100.0f);
+					changed = true;
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+				ImGui::SameLine(0, sp);
+				char embResetId[64];
+				std::snprintf(embResetId, sizeof(embResetId), "Reset%s", aId);
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+				if (ImGui::Button(embResetId, ImVec2(btnW, 0.0f)))
+				{
+					ParameterRegistry::Get().SetFloat(aParam, 0.0f);
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Wert auf 0% zuruecksetzen" : "Reset value to 0%");
+			};
+			embEyeSlider(isDe ? "Blaufilter" : "Blue light filter", "##emb_blue", ParamId::BlueFilter01);
+			embEyeSlider(isDe ? "Warmton" : "Warm tint", "##emb_warm", ParamId::WarmTint01);
+			embEyeSlider(isDe ? "Saettigung reduzieren" : "Reduce saturation", "##emb_sat", ParamId::SaturationReduction01);
+			ImGui::Unindent(12.0f);
+		}
+
+		// Brightness belongs to the eye-comfort story, not to a separate
+		// window (2026-09-12, Emi's ask). Deliberately NOT inside the
+		// "Aktivieren" gate above: the compensation works on the plain colour
+		// correction too, and hiding a working control behind a checkbox that
+		// does not govern it is the exact mistake that kept Eye Comfort itself
+		// out of sight until 2026-09-11.
+		//
+		// Same three controls as the Sensor Graph window's block, in the same
+		// order, and a second *binding* rather than a duplicate editor - every
+		// value here is ParameterRegistry-backed, so storage and clamp are
+		// shared (that is the registry's own stated litmus test).
+		ImGui::Spacing();
+		SyncAutoBrightnessGain(changed, saveNeeded);
+		BrightnessRetentionResult embRetention = GetBrightnessRetention();
+		const float embImpactPct = (embRetention.retentionRatio - 1.0f) * 100.0f;
+
+		ImGui::TextDisabled("%s", isDe ? "Helligkeit" : "Brightness");
+		ImGui::Indent(12.0f);
+
+		ImGui::TextDisabled("%s", isDe ? "Das Farbprofil kostet Helligkeit - hier wird sie zurueckgeholt."
+		                               : "The colour profile costs brightness - this gives it back.");
+
+		ImGui::TextUnformatted(isDe ? "Erhalt:" : "Retention:");
+		ImGui::SameLine(0, 6.0f);
+		ImGui::TextColored(Theme::kTextCyanLicht, "%.0f%%", embRetention.retentionRatio * 100.0f);
+		ImGui::SameLine(0, 12.0f);
+		ImGui::TextUnformatted(isDe ? "Empfehlung:" : "Target:");
+		ImGui::SameLine(0, 6.0f);
+		ImGui::TextColored(Theme::kTextGoldLabel, "%.2fx", embRetention.recommendedGain);
+
+		{
+			char embApplyLabel[64];
+			std::snprintf(embApplyLabel, sizeof(embApplyLabel),
+				isDe ? "Optimalwert (%.2fx)##emb_apply" : "Apply Target (%.2fx)##emb_apply", embRetention.recommendedGain);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+			if (ImGui::Button(embApplyLabel, ImVec2(0.0f, 24.0f)))
+			{
+				ApplyAutoBrightnessGain();
+				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Setzt die Helligkeit einmalig auf den berechneten Optimalwert (%.2fx).\nEinfluss des Profils auf die Helligkeit: %+.1f%%"
+				                       : "Sets brightness to the calculated optimum once (%.2fx).\nProfile impact on brightness: %+.1f%%",
+				                       embRetention.recommendedGain, embImpactPct);
+			}
+
+			ImGui::SameLine(0, 10.0f);
+			if (ImGui::Checkbox(isDe ? "Automatisch##emb_auto_bright" : "Automatic##emb_auto_bright", &CurrentSettings.AutoBrightness))
+			{
+				if (CurrentSettings.AutoBrightness)
+				{
+					ApplyAutoBrightnessGain();
+					changed = true;
+				}
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Haelt die Helligkeit bei jeder Profil-Aenderung automatisch nach."
+				                       : "Keeps brightness in step automatically whenever the profile changes.");
+			}
+		}
+
+		{
+			char embGainLabel[64];
+			std::snprintf(embGainLabel, sizeof(embGainLabel), isDe ? "Manuell (%.2fx)" : "Manual (%.2fx)", CurrentSettings.GammaGain);
+			ImGui::TextDisabled("%s", embGainLabel);
+
+			float availB = ImGui::GetContentRegionAvail().x;
+			float padXB  = ImGui::GetStyle().FramePadding.x * 2.0f;
+			float btnWB  = ImGui::CalcTextSize("Reset").x + padXB + 8.0f;
+			const float spB = 6.0f;
+			float sWB = (availB > (btnWB + spB + 60.0f)) ? (availB - btnWB - spB) : 180.0f;
+
+			ImGui::SetNextItemWidth(sWB);
+			float gain = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
+			if (ImGui::SliderFloat("##emb_gamma", &gain, 0.70f, 1.30f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
+			{
+				// Manual input always wins over the automatic - that is what
+				// SetGammaGainManual owns, and why this does not write the
+				// field directly.
+				SetGammaGainManual(gain);
+				changed = true;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+			ImGui::SameLine(0, spB);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+			if (ImGui::Button("Reset##emb_gamma", ImVec2(btnWB, 0.0f)))
+			{
+				SetGammaGainManual(1.0f);
+				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Helligkeit auf 1.00x zuruecksetzen" : "Reset brightness to 1.00x");
+		}
+
+		ImGui::Unindent(12.0f);
+
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
 		// ── Row 2: Commander Tag Contrast - the 1-click core feature. Emi's
 		// spec (2026-09-09): put the simple base logic for automatic commander
 		// tag contrast directly on this page; the full multi-window UI becomes
 		// an opt-in "Studio" button instead of the default view.
-		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Commander-Tag-Kontrast" : "Commander Tag Contrast");
+		PanelSection(isDe ? "Commander-Tag-Kontrast" : "Commander Tag Contrast", nullptr);
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip(isDe ? "1-Klick: Waehlt dein Farbprofil und schaltet den automatischen Kontrast-Verstaerker fuer Commander-Tags ein."
@@ -732,6 +1037,26 @@ namespace cba
 		ImGui::TextDisabled("%s", isDe
 			? "Verschiebt nur die Tag-Farben, die du tatsaechlich verwechselst."
 			: "Shifts only the tag colours you actually confuse.");
+
+		ImGui::TextColored(Theme::kTextPrimary, "%s", isDe
+			? "Commander-Tags im Zerg auseinanderhalten."
+			: "Tell commander tags apart in a zerg.");
+		ImGui::TextColored(Theme::kTextSecondary, "%s", isDe
+			? "Augen schonen bei langen Sessions."
+			: "Take the strain off your eyes on long sessions.");
+
+		// First-run orientation only. Disappears the moment anything is set
+		// up, so it never becomes clutter for a returning user - and it points
+		// at the one action that actually gets a newcomer somewhere, instead
+		// of leaving them to guess which control to touch first.
+		if (CurrentSettings.CommanderTagMode == 0 && CurrentSettings.Severity01 <= 0.01f)
+		{
+			ImGui::Spacing();
+			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe
+				? "Noch nicht eingerichtet - der Sehtest unten dauert eine Minute."
+				: "Not set up yet - the short vision check below takes a minute.");
+		}
+
 
 		// ── Guided entry (2026-09-11, PRODUCT_CONCEPT.md 3.1) ──────────────
 		// Replaces "pick Protan / Deutan / Tritan" - a diagnosis most players
@@ -1097,221 +1422,6 @@ namespace cba
 		// the fuller before/after comparison is still one click away for
 		// anyone who wants to see it, just not fighting for space by default.
 
-		// ── Eye Comfort (2026-09-11, PRODUCT_CONCEPT.md section 2D) ────────
-		// Added here after the finding that the ENTIRE Eye-Sensitive UI lived
-		// in Main Window Section 2, i.e. inside Studio, i.e. unreachable
-		// without ticking Advanced Mode - the same structural mistake as
-		// Vision Lab's, applied to the feature Emi reports as the actual
-		// reason he keeps the tool running while playing. An acquisition
-		// feature may sit behind a gate; a retention feature must not.
-		//
-		// Safe as a second binding rather than a duplicated editor: all three
-		// values are ParameterRegistry-backed, so this shares storage AND the
-		// clamp with Section 2 - literally the registry's stated litmus test
-		// ("any control can be moved to another panel with zero behavior
-		// change"). Deliberately the compact set only; retention readout, HDR
-		// and Apply-Target stay in Section 2 as the full version, the same
-		// compact-vs-full split already documented for Profile Slots.
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Augenschonung" : "Eye Comfort");
-		ImGui::TextDisabled("%s", isDe
-			? "Blaulicht, Warmton und Saettigung - unabhaengig von der Farbkorrektur."
-			: "Blue light, warm tint and saturation - independent of the colour correction.");
-		if (ImGui::Checkbox(isDe ? "Aktivieren##emb_eye" : "Activate##emb_eye", &CurrentSettings.EyeComfortModeEnabled))
-		{
-			changed = true;
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip(isDe
-				? "Blaufilter, Warmton und Saettigungsreduktion - unabhaengig von der Farbkorrektur, wird zusaetzlich angewendet.\nWirkt sofort sichtbar und ist die eine Einstellung, die du direkt selbst beurteilen kannst."
-				: "Blue-light filter, warm tint and saturation reduction - independent of the colour correction, applied on top of it.\nVisible immediately, and the one setting you can judge for yourself directly.");
-		}
-		// Dead end (2026-09-11): Recompute() returns early while the master
-		// filter is off, so Eye Comfort is enabled-but-inert in that state and
-		// the sliders below would move with no visible result. That case is
-		// not exotic - per PRODUCT_CONCEPT.md 2D this feature has a far wider
-		// audience than CVD, so "I only want the eye comfort" is a normal
-		// path, and those users have no reason to guess that a filter they do
-		// not need has to be on first. Say it, and offer the one click.
-		if (CurrentSettings.EyeComfortModeEnabled && !CurrentSettings.Enabled)
-		{
-			ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.38f, 1.0f), "%s", isDe
-				? "Wirkt erst, wenn der Filter oben an ist."
-				: "Only takes effect once the filter above is on.");
-			ImGui::SameLine(0, 8.0f);
-			if (ImGui::SmallButton(isDe ? "Jetzt einschalten##eye_enable" : "Turn on now##eye_enable"))
-			{
-				ToggleMasterEnabled();
-				changed = true;
-				saveNeeded = true;
-			}
-		}
-
-		if (CurrentSettings.EyeComfortModeEnabled)
-		{
-			ImGui::Indent(12.0f);
-			auto embEyeSlider = [&](const char* aLabel, const char* aId, ParamId aParam) {
-				ImGui::TextDisabled("%s", aLabel);
-
-				// Reset per slider (2026-09-12, Emi's ask). Without one, the
-				// only ways back to neutral were dragging by eye to exactly
-				// zero or "Filter zuruecksetzen", which also wipes the colour
-				// profile - a far bigger hammer than "undo this one tint".
-				// Same width math and styling as the Sensor Graph window's
-				// sliders, so the pair reads identically in both places.
-				float avail = ImGui::GetContentRegionAvail().x;
-				float padX  = ImGui::GetStyle().FramePadding.x * 2.0f;
-				float btnW  = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
-				const float sp = 6.0f;
-				float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
-
-				ImGui::SetNextItemWidth(sW);
-				// 0-100 display units converted at the boundary - ImGui's
-				// format string does not auto-scale a 0..1 range (same fix as
-				// Section 2, see its comment).
-				float v = ParameterRegistry::Get().GetFloat(aParam) * 100.0f;
-				if (ImGui::SliderFloat(aId, &v, 0.0f, 100.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
-				{
-					ParameterRegistry::Get().SetFloat(aParam, v / 100.0f);
-					changed = true;
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-
-				ImGui::SameLine(0, sp);
-				char embResetId[64];
-				std::snprintf(embResetId, sizeof(embResetId), "Reset%s", aId);
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-				if (ImGui::Button(embResetId, ImVec2(btnW, 0.0f)))
-				{
-					ParameterRegistry::Get().SetFloat(aParam, 0.0f);
-					changed = true;
-					saveNeeded = true;
-				}
-				ImGui::PopStyleColor(4);
-				if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Wert auf 0% zuruecksetzen" : "Reset value to 0%");
-			};
-			embEyeSlider(isDe ? "Blaufilter" : "Blue light filter", "##emb_blue", ParamId::BlueFilter01);
-			embEyeSlider(isDe ? "Warmton" : "Warm tint", "##emb_warm", ParamId::WarmTint01);
-			embEyeSlider(isDe ? "Saettigung reduzieren" : "Reduce saturation", "##emb_sat", ParamId::SaturationReduction01);
-			ImGui::Unindent(12.0f);
-		}
-
-		// Brightness belongs to the eye-comfort story, not to a separate
-		// window (2026-09-12, Emi's ask). Deliberately NOT inside the
-		// "Aktivieren" gate above: the compensation works on the plain colour
-		// correction too, and hiding a working control behind a checkbox that
-		// does not govern it is the exact mistake that kept Eye Comfort itself
-		// out of sight until 2026-09-11.
-		//
-		// Same three controls as the Sensor Graph window's block, in the same
-		// order, and a second *binding* rather than a duplicate editor - every
-		// value here is ParameterRegistry-backed, so storage and clamp are
-		// shared (that is the registry's own stated litmus test).
-		ImGui::Spacing();
-		SyncAutoBrightnessGain(changed, saveNeeded);
-		BrightnessRetentionResult embRetention = GetBrightnessRetention();
-		const float embImpactPct = (embRetention.retentionRatio - 1.0f) * 100.0f;
-
-		ImGui::TextDisabled("%s", isDe ? "Helligkeit" : "Brightness");
-		ImGui::Indent(12.0f);
-
-		ImGui::TextDisabled("%s", isDe ? "Das Farbprofil kostet Helligkeit - hier wird sie zurueckgeholt."
-		                               : "The colour profile costs brightness - this gives it back.");
-
-		ImGui::TextUnformatted(isDe ? "Erhalt:" : "Retention:");
-		ImGui::SameLine(0, 6.0f);
-		ImGui::TextColored(Theme::kTextCyanLicht, "%.0f%%", embRetention.retentionRatio * 100.0f);
-		ImGui::SameLine(0, 12.0f);
-		ImGui::TextUnformatted(isDe ? "Empfehlung:" : "Target:");
-		ImGui::SameLine(0, 6.0f);
-		ImGui::TextColored(Theme::kTextGoldLabel, "%.2fx", embRetention.recommendedGain);
-
-		{
-			char embApplyLabel[64];
-			std::snprintf(embApplyLabel, sizeof(embApplyLabel),
-				isDe ? "Optimalwert (%.2fx)##emb_apply" : "Apply Target (%.2fx)##emb_apply", embRetention.recommendedGain);
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-			if (ImGui::Button(embApplyLabel, ImVec2(0.0f, 24.0f)))
-			{
-				ApplyAutoBrightnessGain();
-				changed = true;
-				saveNeeded = true;
-			}
-			ImGui::PopStyleColor(4);
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip(isDe ? "Setzt die Helligkeit einmalig auf den berechneten Optimalwert (%.2fx).\nEinfluss des Profils auf die Helligkeit: %+.1f%%"
-				                       : "Sets brightness to the calculated optimum once (%.2fx).\nProfile impact on brightness: %+.1f%%",
-				                       embRetention.recommendedGain, embImpactPct);
-			}
-
-			ImGui::SameLine(0, 10.0f);
-			if (ImGui::Checkbox(isDe ? "Automatisch##emb_auto_bright" : "Automatic##emb_auto_bright", &CurrentSettings.AutoBrightness))
-			{
-				if (CurrentSettings.AutoBrightness)
-				{
-					ApplyAutoBrightnessGain();
-					changed = true;
-				}
-				saveNeeded = true;
-			}
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip(isDe ? "Haelt die Helligkeit bei jeder Profil-Aenderung automatisch nach."
-				                       : "Keeps brightness in step automatically whenever the profile changes.");
-			}
-		}
-
-		{
-			char embGainLabel[64];
-			std::snprintf(embGainLabel, sizeof(embGainLabel), isDe ? "Manuell (%.2fx)" : "Manual (%.2fx)", CurrentSettings.GammaGain);
-			ImGui::TextDisabled("%s", embGainLabel);
-
-			float availB = ImGui::GetContentRegionAvail().x;
-			float padXB  = ImGui::GetStyle().FramePadding.x * 2.0f;
-			float btnWB  = ImGui::CalcTextSize("Reset").x + padXB + 8.0f;
-			const float spB = 6.0f;
-			float sWB = (availB > (btnWB + spB + 60.0f)) ? (availB - btnWB - spB) : 180.0f;
-
-			ImGui::SetNextItemWidth(sWB);
-			float gain = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
-			if (ImGui::SliderFloat("##emb_gamma", &gain, 0.70f, 1.30f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
-			{
-				// Manual input always wins over the automatic - that is what
-				// SetGammaGainManual owns, and why this does not write the
-				// field directly.
-				SetGammaGainManual(gain);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-
-			ImGui::SameLine(0, spB);
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-			if (ImGui::Button("Reset##emb_gamma", ImVec2(btnWB, 0.0f)))
-			{
-				SetGammaGainManual(1.0f);
-				changed = true;
-				saveNeeded = true;
-			}
-			ImGui::PopStyleColor(4);
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Helligkeit auf 1.00x zuruecksetzen" : "Reset brightness to 1.00x");
-		}
-
-		ImGui::Unindent(12.0f);
-
 		// Profile-code export/import moved into "Advanced" below (2026-09-11,
 		// PRODUCT_CONCEPT.md section 2): sharing a profile is a power-user
 		// action, and every element competing for space on the base panel
@@ -1336,57 +1446,6 @@ namespace cba
 			// players have never been measured - but someone who HAS been
 			// should not have to sit through a questionnaire to say so.
 			// Same shared ActivateCommanderTagProfile() the guided flow uses.
-			// Backend switch (v2-shader-core, 2026-09-12). Experimental, so it
-			// lives here - but reachable without a rebuild, because the whole
-			// point is comparing the two on a real screen rather than
-			// reasoning about which one looks right.
-			ImGui::TextDisabled("%s:", isDe ? "Wie der Filter gemalt wird" : "How the filter is painted");
-			{
-				int backend = CurrentSettings.RenderBackend;
-				if (ImGui::RadioButton(isDe ? "Bildschirm (DWM)##backend0" : "Screen (DWM)##backend0", backend == 0))
-				{
-					CurrentSettings.RenderBackend = 0;
-					changed = true;
-					saveNeeded = true;
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip("%s", isDe
-						? "Windows faerbt den gesamten Bildschirm. Bisheriger Weg.\nPausiert deshalb, sobald du GW2 verlaesst - sonst waere auch dein Browser eingefaerbt."
-						: "Windows tints the whole screen. The path shipped so far.\nPauses when you leave GW2, otherwise your browser would be tinted too.");
-				}
-				ImGui::SameLine(0, 12.0f);
-				if (ImGui::RadioButton(isDe ? "Nur GW2 (Shader)##backend1" : "GW2 only (shader)##backend1", backend == 1))
-				{
-					CurrentSettings.RenderBackend = 1;
-					changed = true;
-					saveNeeded = true;
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip("%s", isDe
-						? "Die Korrektur wird direkt in das Bild von GW2 gerechnet.\nAusserhalb des Spiels passiert nichts - kein Pausieren noetig, und die CBA-Oberflaeche bleibt unverfaelscht."
-						: "The correction is computed straight into GW2's own frame.\nNothing outside the game is touched - no pausing needed, and CBA's own interface stays true colour.");
-				}
-
-				if (CurrentSettings.RenderBackend == 1)
-				{
-					ImGui::Indent(16.0f);
-					if (GetShaderColorPipeline().IsReady())
-					{
-						ImGui::TextDisabled("%s", isDe ? "Aktiv. \"Im Hintergrund aktiv lassen\" ist hier ohne Wirkung."
-						                              : "Active. \"Keep active in background\" has no effect here.");
-					}
-					else
-					{
-						const char* err = GetShaderColorPipeline().LastError();
-						ImGui::TextColored(Theme::kTextGoldLabel, "%s%s", isDe ? "Noch nicht bereit: " : "Not ready yet: ",
-							(err && *err) ? err : (isDe ? "wird beim naechsten Frame aufgebaut" : "builds on the next frame"));
-					}
-					ImGui::Unindent(16.0f);
-				}
-			}
-
 			ImGui::Spacing();
 			ImGui::TextDisabled("%s:", isDe ? "Ich kenne meinen Typ" : "I know my type");
 			{

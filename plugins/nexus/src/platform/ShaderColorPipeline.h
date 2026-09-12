@@ -55,6 +55,14 @@ namespace cba
 		// while healthy.
 		const char* LastError() const { return _lastError; }
 
+		// The backbuffer format the pass is actually operating on. Reported
+		// in diagnostics because Emi runs HDR10, and the maths assumes
+		// normalised 0..1 values: 8-bit and 10-bit UNORM are fine, a float
+		// (scRGB) backbuffer would carry values above 1.0 that the shader's
+		// saturate() would clip. Knowing which one it is beats reasoning
+		// about it. DXGI_FORMAT_UNKNOWN until the first frame.
+		DXGI_FORMAT SourceFormat() const { return _srcFormat; }
+
 	private:
 		bool EnsureRenderTarget(IDXGISwapChain* aSwapChain);
 		void ReleaseRenderTarget();
