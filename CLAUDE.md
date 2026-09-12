@@ -82,28 +82,44 @@ Two shapes worth knowing, both in Pillar 6 of the audit:
   anything. Use it when the number is expected to change and only exists so
   nobody writes it into prose again.
 
-**Before adding a new checking mechanism, put it on one of these three.** A
-fourth surface is how this problem started.
+A fourth exists as of 2026-09-12: **`platform/FilterSensor`** reads the
+rendered image itself, before and after the correction - the one thing none of
+the three above can see. It answers questions about the *picture*, not about
+the repo; an assertion that follows from a reading still belongs in SelfTest.
 
-**`platform/FilterSensor` (2026-09-12) is the one thing that is not on that
-list, and the exception is argued rather than assumed.** It observes something
-none of the three can reach: the rendered image, before and after the
-correction. The audit reads source text, the unit tests read pure maths,
-SelfTest reads in-process state — none of them can see a pixel.
+## Traps this project has hit more than once
 
-It is still not a fourth checking surface, because it does not check the
-*project*. It is a product feature that measures the *filter*, for the user,
-and its output is a number on screen rather than a pass/fail about the
-codebase. The distinction is load-bearing: when a sensor reading indicates a
-real defect, the assertion about it belongs in **SelfTest**, which already
-carries the shader-pipeline checks. Nothing about the repo's correctness is
-allowed to live only in the sensor.
+Each of these cost real debugging time on separate occasions. They are here
+once so the session logs below do not have to keep re-explaining them.
 
-Worth knowing what it earned on its first real reading: at severity 0 with a
-1.25x gain it measured +16.2% where the matrix predicted +25%, because the
-shader clamps and a gain above 1.0 cannot brighten pixels already at maximum.
-No amount of source reading, unit testing or state inspection would have found
-that. That is the case for it existing at all.
+- **ImGui does not scale a value to match its format string.** A 0.0-1.0 value
+  with `"%.0f%%"` prints "0%" or "1%" and nothing in between - the widget still
+  works, the number beside it has two states, and a user reasonably reports it
+  as "the slider has two positions". Hit on the Eye-Sensitive sliders, the
+  strength sliders and the HUD opacity slider. **Fix is always the same**: run
+  the widget in display units (0-100, 0-125) and convert at the boundary.
+- **A silent `false` is worse than a loud failure.** `MagSetFullscreenColorEffect`
+  returning FALSE, a `Clear()` that never lands, a `CopyResource` from a
+  multisampled source - each produced "the filter is stuck" or "the screen went
+  dark" with nothing anywhere saying why. Check the return, count the failures,
+  and put the count somewhere a person can read it.
+- **A thread that dies takes its safety net with it, quietly.** HybridScanner's
+  worker and the Watchdog both had whole-loop `try/catch` or none at all.
+  Per-iteration guards, an accurate running flag, and a SelfTest check that the
+  thread is alive.
+- **State that survives a reload.** Nexus's disable/enable does not necessarily
+  unload the DLL, so file-scope statics persist into the next `AddonLoad`.
+  This bit the FeatureModule registry (double registration) and then
+  `s_deferredInitDone` (a dead Magnification session with no path back).
+  Anything module-scoped needs a reset in `AddonUnload`.
+- **Two UI elements editing one value drift apart.** The "Reset UI" buttons,
+  the auto-start control, three copies of the profile editor. The registry
+  exists so a control can move without behaviour changing; use it, and give a
+  shared action exactly one implementation.
+- **A panel that states something it did not check is worse than a silent
+  one.** The "OS BLOCKED" banner, the "Filter Applied" line and the sensor's
+  first comparison row all asserted things that were not true. See
+  PRODUCT_CONCEPT.md's rule: supply evidence or say nothing.
 
 ## Commit / release attribution (read this before your first commit)
 
@@ -235,6 +251,25 @@ things.
    expansion.
 
 ## Known loose ends
+
+Most of this list is settled. **Actually open, as of 2026-09-12:**
+
+1. `cba_session.lock` / Safe-Start - works, but still a workaround rather than
+   a design.
+2. Vision Lab's Clinical Report reads neither of the two numbers it asks for.
+   Placement is deliberate (Emi confirmed); whether anything should consume
+   them is still undecided.
+3. The "Windowed Fullscreen required" premise is unverified and Emi says it is
+   wrong. If confirmed, the banner, Section 3's warning and the README's
+   headline requirement all change together.
+4. "Regional Hybrid Mode" - a proposal, deliberately not started.
+5. `EAddonFlags::DisableHotloading` for release builds - recorded, Emi's
+   explicit "not now".
+
+Everything else below is kept for the reasoning, not because it is pending -
+the discarded options are usually what explain why the shipped thing looks the
+way it does.
+
 
 - `FreeFilterEnabled` / `FreeFilterTargetRgb` / `FreeFilterReplaceRgb` /
   `FreeFilterToleranceTones` ("Free Filter Design", HSV-wheel color-swap
@@ -459,18 +494,12 @@ things.
   Practical mitigation: avoid manually clicking "Check for Updates" while
   cba4gw2 is actively loaded; this is exactly why local dev builds keep
   auto-update paused (`CBA_LOCAL_DEV`, see below).
-- **Investigated Nexus's ArcDPS "bridge" (`Engine/Loader/ArcDPS.cpp` in
-  Emi's local Nexus checkout) looking for a reusable update/restart
-  mechanism - dead end, but worth having actually checked.** The bridge is
-  pure combat-log event-relay compatibility (arcdps predates Nexus's addon
-  API entirely, loads via an old d3d11 proxy/chainload convention, and
-  Nexus's `ArcDPS::Detect()` + `DeployBridge()` just unpacks a small
-  `arcdps_integration64.dll` to relay `addextension2`/`listextension`
-  callbacks so other addons can receive its combat events) - zero
-  update-check or version-comparison code anywhere in that file. Whatever
-  in-game update UI Emi remembers from ArcDPS is ArcDPS's own closed-source
-  overlay (it gets its own `imgui` render callback slot via
-  `arcdps_exports_t`), not anything Nexus provides generically.
+- **Nexus's ArcDPS bridge is not a reusable update/restart mechanism** - checked
+  2026-09-10 rather than assumed. `Engine/Loader/ArcDPS.cpp` is pure combat-log
+  event relay (arcdps predates the Nexus addon API and loads via an old d3d11
+  proxy convention); there is no update-check or version-comparison code in it
+  at all. Whatever in-game update UI ArcDPS appears to have is its own
+  closed-source overlay, not something Nexus provides generically.
 - **The mechanism actually available to us, confirmed in Nexus's source but
   deliberately NOT implemented yet**: `EAddonFlags::DisableHotloading`
   (`EAddonFlags.h:10`, doc comment: "prevents unloading at runtime, aka.
@@ -1164,116 +1193,47 @@ Emi's rethink of the embedded panel):
   changing the shared function's behavior for its other two callers, which
   pass `aWithText=false` and don't want this.
 
-**OFF-state button glint animation redesigned** (2026-09-10, Emi's ask -
-"diese Animation sollten wir mal kurz huebscher machen"): the Main Window's
-top-bar master ON/OFF button (`MainWindow.cpp`, `RenderMainWindow`) draws a
-small glint that traces the button's border when OFF - was a single dot
-ping-ponging back and forth (direction flips every 3.6s). Redesigned to two
-glints starting top-center/bottom-center (exactly half a perimeter apart on
-a rectangle) rotating continuously counter-clockwise, one lap per 5.5s. Note:
-this animation only exists on the *Main Window's* master button - the
-Nexus-embedded panel's own master button (now the default/base surface per
-the Advanced Mode gate) has no such animation at all. Not added there -
-Emi's ask was specifically "make this [existing] animation prettier," not
-"add it somewhere new" - flagged as a possible follow-up, not done
-unprompted.
+**Toolbar icon: the "O" to Nexus's "X"** (2026-09-10, four rounds of live
+testing; only the outcome and the one reusable finding are kept here).
 
-**Toolbar icon redesigned to an "O" motif** (2026-09-10, Emi's live-testing
-feedback on the actual Nexus quick-access bar icon, `CbaIcon.h`): the old
-32x32 baked PNG was a multi-color rainbow-ring icon that read as too bright/
-busy next to Nexus's own flat "X" mark, sat too low in its canvas, and didn't
-share its fill density. Regenerated via `ui/gen_icon.py` (kept alongside the
-header for future adjustments, not part of the CMake build) as three
-concentric rings in a single accent color (`Theme::kTextCyanLicht`) - Emi's
-own idea: Nexus's mark is an "X", so CBA's is the visual counterpart, an "O"
-("XO"). State now reads from brightness alone (Active = full bright,
-Inactive = dim like native Nexus icons at rest, Inactive+Hover = a step
-brighter than Inactive) rather than color, per Emi's explicit simplification
-("es muss nur farblich bzw in der Helligkeit unterscheidbar sein ob es an
-oder aus ist" - a colored button is no longer required). Rings sized larger
-and centered slightly above the vertical midpoint, fixing both the "sits too
-low" and "doesn't match the X icon's fill" complaints at once (same root
-cause: baked-in padding). Purely a data swap - `QuickAccess.Add` /
-`RenderMovableToolbarIcon`'s texture-swap logic in `ModuleMain.cpp`/
-`MainWindow.cpp` is unchanged, per Emi's "die Funktionen sind gut, nur
-optisch angleichen."
+Emi's idea: Nexus's own mark is an "X", so CBA's is its visual counterpart, an
+"O" - three concentric rings, generated by `ui/gen_icon.py` into `CbaIcon.h`
+(the script stays alongside the header for future adjustments, not part of the
+CMake build).
 
-**Force-custom-icon setting confirmed intact, not orphaned** (2026-09-10,
-Emi couldn't immediately find it after the 2026-09-09 declutter pass and
-asked if it got removed): it didn't - `ShowQuickAccessIcon` (checkbox),
-`MovableToolbarIcon` ("Force custom toolbar icon" checkbox), `ToolbarIconPosX`
-(X-position slider + Reset), and `SystemWide` ("Keep active in background")
-are all still present and wired, just tucked inside the embedded panel's
-collapsed "Advanced" `TreeNode##emb_advanced` (`MainWindow.cpp` ~line
-588-644) as part of that same declutter pass - nothing to fix here, just a
-"where did it go" navigation question. Once found, Emi noticed the
-X-Position slider + Reset button were riding on the checkbox's own line via
-`ImGui::SameLine` - separated onto their own row (same `MovableToolbarIcon`
-gate, just no longer visually fused with the checkbox above it).
+The reusable finding, because it was read out of Nexus's source rather than
+guessed at after two rounds of estimating from screenshots: every Nexus icon is
+exactly **two baked textures** (Normal/Hover), drawn via `ImGui::IconButton`
+with `tint_col` left at default - **no runtime colour or brightness modulation
+per icon, ever**. The only dimming in the bar is one shared
+`ImGuiStyleVar_Alpha` for the whole QuickAccess window, animated 0.5 idle <->
+1.0 when the mouse is near. Whatever is baked into the PNG is exactly what
+renders. The family's actual pixel values, sampled from `Nexus.png` /
+`Nexus_Hover.png`: Normal `(218,214,171)` muted warm tan, Hover
+`(247,247,238)` near-white - a large, consistent brightness jump on hover, the
+same for every icon regardless of what it does. Format is plain
+`DXGI_FORMAT_R8G8B8A8_UNORM` via `stbi_load`, no sRGB remap, so those values
+are what CBA's own PNGs target directly.
 
-**Icon color/proportions corrected after live-testing (2026-09-10, round 3)**:
-the first live look at the 3-ring redesign showed it didn't fit the bar -
-Emi's diagnosis from a screenshot of the actual Nexus toolbar: every native
-Nexus icon (map, sword, mail, tower, crossed-swords, X, ...) shares one flat
-warm parchment/cream tone and fairly slender linework, not a custom accent
-color or thick rings. `gen_icon.py`'s `BASE_RGB` swapped from
-`Theme::kTextCyanLicht` (round 1/2) to an estimate of that native tone
-(`(218, 203, 167)` - read off the screenshot, not pixel-exact), stroke
-thinned `2.8px -> 2.0px`, ring radii evened to ~4px steps
-(`[13.5, 9.5, 5.5]`). Brightness-only state logic unchanged from round 1/2's
-design decision (native Nexus icons have no per-icon color variation either,
-so hue staying fixed across states fits the bar's own convention): Active =
-full brightness, Inactive = dim (0.40x, resting-brightness read), Inactive
-+ Hover = a step brighter (0.65x), still below Active.
+CBA follows that convention exactly, with one addition it has no family
+equivalent for: a dimmed (0.45x) Inactive texture, because static native
+shortcuts have no on/off state to represent. Hover always brightens now,
+Active or Inactive alike, because native icons do.
 
-**Full Nexus icon-family integration, ground-truth colors (2026-09-10, round
-4, Emi: "wir integrieren uns voll in die nexus icon familie")**: read
-`CQuickAccess::Render()` in Emi's local Nexus source checkout
-(`C:/Users/Emi/Desktop/Nexus/src/UI/Widgets/QuickAccess/QuickAccess.cpp`) to
-understand how native icons actually work, instead of guessing further:
-- Every Nexus icon is exactly 2 textures (Normal/Hover), rendered via
-  `ImGui::IconButton` with `tint_col` left at its default `(1,1,1,1)` - no
-  runtime brightness/color modulation per icon at all, ever. Whatever's
-  baked into the PNG is exactly what renders.
-- The only "dimming" in the bar is one shared `ImGuiStyleVar_Alpha` for the
-  *entire* QuickAccess window, animated 0.5 (idle) <-> 1.0 (mouse near the
-  bar) - nothing to do with any individual icon's state.
-- Sampled the actual pixel colors from `RES_ICON_NEXUS`'s baked assets
-  (`src/Resources/Images/QuickAccess/Nexus.png` / `Nexus_Hover.png`,
-  confirmed as a real family convention since `Generic.png`/
-  `Generic_Hover.png` match): Normal = muted warm tan `(218,214,171)`,
-  Hover = near-white/cream `(247,247,238)` - a big, consistent brightness
-  jump on hover, same for every native icon regardless of what it does.
-  Texture format is plain `DXGI_FORMAT_R8G8B8A8_UNORM` via `stbi_load`, no
-  sRGB/gamma remap, so these values are exactly what CBA's own baked PNGs
-  should target too.
+**OFF-state button glint** (2026-09-10, Emi: "diese Animation sollten wir mal
+kurz huebscher machen", then "laengliche Glanzpunkte...wie eine
+Lichtreflektion auf glaenzender Oberflaeche"). The Main Window's top-bar master
+button draws a glint tracing its border while OFF. Final shape: two glints half
+a perimeter apart, rotating counter-clockwise, one lap per 5.5s, each a soft
+comet trail - `drawGlint` samples 7 points behind the head along the same
+`getPerimeterPoint` walk, tapering radius and alpha, so it bends naturally
+around the corners. (It went single-dot ping-pong -> two rotating dots ->
+this; only the last one matters.)
 
-Applied: `gen_icon.py`'s colors are no longer estimated - `kCbaIconPng`
-(Active/Normal) now uses the exact sampled Nexus tone, `kCbaIconInactivePng`
-stays a dimmed (0.45x) version of it (CBA's own addition - static native
-shortcuts have no on/off state to represent, so this has no family
-equivalent to match), and the old `CBA_ICON_INACTIVE_HOVER` was renamed to
-`CBA_ICON_HOVER`/`kCbaIconHoverPng` and now holds the exact near-white
-family Hover tone. Two behavior changes to match the family exactly (Emi's
-"volle Integration," not just color-matching): `ModuleMain.cpp`'s
-`QuickAccess.Add` call now always passes `"CBA_ICON_HOVER"` as the hover
-texture regardless of Active/Inactive (was: Active-state hover = same as
-Normal, no brightening at all), and `MainWindow.cpp`'s
-`RenderMovableToolbarIcon` dropped its `!CurrentSettings.Enabled` guard so
-the movable icon also brightens on hover while Active - previously only the
-Inactive state got a hover response, native icons always do regardless of
-state.
-
-**OFF-state glint reshaped into an elongated streak** (2026-09-10, superseding
-the same-day dot-rotation redesign above - Emi: "laengliche Glanzpunkte...wie
-eine Lichtreflektion auf glaenzender Oberflaeche"): `drawGlint` now samples 7
-points trailing behind the head along the same perimeter-walk path, tapering
-radius and alpha toward the tail - a soft "comet trail" smear that bends
-naturally around the button's corners (all samples use the same
-`getPerimeterPoint` function as the head, just offset in `u`), instead of the
-single dot + tiny crosshair ticks from the first redesign. Still two glints,
-still counter-clockwise, still one lap per 5.5s - only the glint's own shape
-changed.
+Worth keeping: this animation exists **only** on the Main Window's master
+button. The Nexus-embedded panel's own master button - now the default surface
+- has none. Not added there, because Emi's ask was "make this existing
+animation prettier", not "put it somewhere new".
 
 ## Session log (2026-09-11) - UI finalization pass, "ein Zuhause pro Einstellung"
 
