@@ -311,6 +311,18 @@ things.
   `Apply` rejection, i.e. installing the effect has never been refused in that
   session - though that session's window mode is not recorded, so this is
   consistent with his claim rather than proof of it.
+  **Testing it got harder the same day, by our own hand**: the screen-effect
+  gate now switches the filter off the instant GW2 loses focus, so Emi can no
+  longer take a screenshot of the filter working in fullscreen - the act of
+  reaching for the snipping tool turns it off. Any future test has to be
+  read from the Nexus log or SelfTest, not from a screenshot. (Emi also
+  suspects a screen capture may *contain* the effect even when he perceives it
+  as off, which would fit the Magnification effect living in DWM composition
+  rather than in the game's own frame - unverified, but a reason not to trust
+  screenshots as evidence about this particular question either way.)
+  One more data point on the premise: his 2026-09-12 diagnostic report reads
+  "HDR Detected: YES" while the filter is active, and HDR was the other half
+  of the old banner's accusation.
   Emi's call for now: **leave the banner as it is**, do not churn the UI on an
   untested belief. But do not build anything new on the premise either, and if
   it is confirmed false, three things change together - the banner, Section 3's
@@ -1621,6 +1633,39 @@ previous version of this belief was a banner that stated the opposite of what
 was happening.
 
 Build 35, 26/26 unit tests, 24/24 audit + 1 informational.
+
+Confirmed live the same evening: Emi's SelfTest read *"Clears the OS refused
+since load - Every attempt to switch the screen-wide effect off went through"*,
+and the filter dropped the moment the snipping tool took focus. The fix is
+observed, not assumed.
+
+### Fourth pass: the base panel gets a control field
+
+Emi, after using it: the panel's own controls were scattered by accident of
+history rather than by meaning. Three moves, all in `RenderEmbeddedOptions`:
+
+- **"Filter auch im Hintergrund aktiv lassen" moved out of the Advanced fold**
+  to sit directly under the master switch. It answers the very next question
+  that switch raises - not "is the filter on" but "on *when*" - and until the
+  screen-effect gate was fixed a few hours earlier it barely did anything
+  observable, which is probably how it drifted somewhere nobody looks.
+- **"UI zuruecksetzen" / "Filter zuruecksetzen" moved up** out of the bottom of
+  the Eye Comfort section. Two panic buttons parked at the end of an unrelated
+  feature are findable only by someone who already knows they are there - i.e.
+  not by the person who needs them.
+- Reading order of the base field is now: what is on -> when -> how much app
+  (Advanced Mode / Studio) -> recovery.
+
+**Brightness joined Eye Comfort** on the base panel: retention and recommended
+gain, the one-shot "Optimalwert" button, the automatic checkbox, and a manual
+slider with Reset - the same three controls as the Sensor Graph window's block,
+in the same order. Deliberately *not* inside the "Aktivieren" gate above it:
+the compensation works on the plain colour correction too, and hiding a working
+control behind a checkbox that does not govern it is the exact mistake that
+kept Eye Comfort itself out of sight until 2026-09-11. Every value is
+ParameterRegistry-backed, so this is a second *binding*, not a second editor.
+
+Build 37, 26/26 unit tests, 24/24 audit + 1 informational.
 
 ## Build feedback loop
 

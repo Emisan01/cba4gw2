@@ -359,6 +359,24 @@ namespace cba
 			}
 		}
 
+		// Directly under the master switch because it answers the very next
+		// question that switch raises: not "is the filter on" but "on when?"
+		// (moved up from the Advanced fold 2026-09-12). Before the
+		// screen-effect gate was fixed this checkbox barely did anything
+		// observable - the filter stayed on in the background either way -
+		// which is probably why it had drifted somewhere nobody looked.
+		ImGui::Spacing();
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextSecondary);
+			if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide))
+			{
+				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor();
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
+		}
+
 		// Advanced Mode gate + Studio entry, moved onto its own row
 		// (2026-09-10, UI-weighting pass) - used to sit crammed onto the same
 		// line as the master ON/OFF button, reading like a sub-option of it
@@ -409,6 +427,69 @@ namespace cba
 				}
 			}
 		}
+
+		// Recovery, part of the base control field since 2026-09-12 (Emi:
+		// "die grossen UI zuruecksetzen und Filter zuruecksetzen nach oben in
+		// die obere Hauptsteuerung"). They used to sit under Eye Comfort,
+		// which put the two panic buttons at the bottom of an unrelated
+		// feature - findable only by someone who already knew they were
+		// there, i.e. not the person who needs them.
+		ImGui::Spacing();
+
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+		if (ImGui::Button(isDe ? "UI zuruecksetzen" : "Reset UI", ImVec2(0.0f, 26.0f)))
+		{
+			ResetUiLayout();
+			// Only force-open the Main Window if Advanced Mode actually
+			// allows it (2026-09-09) - otherwise this button would silently
+			// bypass the Advanced Mode gate right next to it.
+			if (CurrentSettings.AdvancedModeUnlocked)
+			{
+				CurrentSettings.ShowMainWindow = true;
+				s_focusMainWindow = true;
+			}
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt Position und Groesse aller CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) und des Taskleisten-Symbols auf Standardkoordinaten links oben zurueck."
+			                       : "Resets position and size of all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) and the toolbar icon to default top-left coordinates.");
+		}
+
+		ImGui::PopStyleColor(4);
+
+		ImGui::SameLine(0, 8.0f);
+
+		// Visually distinct from "Reset UI" above (2026-09-09, Emi's UI
+		// walkthrough - the two used to look identical, easy to misclick).
+		// Same danger-subtle tint the Main Window's own Reset Filter button
+		// already used - this one just never got it.
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+		if (ImGui::Button(isDe ? "Filter zuruecksetzen" : "Reset Filter", ImVec2(0.0f, 26.0f)))
+		{
+			// Was a third, incomplete hand-rolled reset (missed
+			// LabModeEnabled/EnableHybridMode - same bug class as the "CBA -
+			// Filter Off" keybind before it used this shared function too).
+			ResetFilterSettingsAndDisable();
+			saveNeeded = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Setzt Farbkorrektur, Helligkeit und Commander-Tags komplett auf neutral (Filter AUS, Staerke 0, Gamma 1.00x)."
+			                       : "Resets all color correction, brightness and tag settings to neutral defaults (Filter OFF, Severity 0, Gamma 1.00x).");
+		}
+		ImGui::PopStyleColor(4);
+
+
+
+		ImGui::Spacing();
+		ImGui::Separator();
 
 		// Profile Slots - quick switch between saved profiles without opening
 		// the Studio. Deliberately independent of Main Window's slot-chip loop
@@ -998,60 +1079,114 @@ namespace cba
 			ImGui::Unindent(12.0f);
 		}
 
-		// ── Row 3: Reset & Recovery Actions ───
+		// Brightness belongs to the eye-comfort story, not to a separate
+		// window (2026-09-12, Emi's ask). Deliberately NOT inside the
+		// "Aktivieren" gate above: the compensation works on the plain colour
+		// correction too, and hiding a working control behind a checkbox that
+		// does not govern it is the exact mistake that kept Eye Comfort itself
+		// out of sight until 2026-09-11.
+		//
+		// Same three controls as the Sensor Graph window's block, in the same
+		// order, and a second *binding* rather than a duplicate editor - every
+		// value here is ParameterRegistry-backed, so storage and clamp are
+		// shared (that is the registry's own stated litmus test).
 		ImGui::Spacing();
+		SyncAutoBrightnessGain(changed, saveNeeded);
+		BrightnessRetentionResult embRetention = GetBrightnessRetention();
+		const float embImpactPct = (embRetention.retentionRatio - 1.0f) * 100.0f;
 
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		if (ImGui::Button(isDe ? "UI zuruecksetzen" : "Reset UI", ImVec2(0.0f, 26.0f)))
+		ImGui::TextDisabled("%s", isDe ? "Helligkeit" : "Brightness");
+		ImGui::Indent(12.0f);
+
+		ImGui::TextDisabled("%s", isDe ? "Das Farbprofil kostet Helligkeit - hier wird sie zurueckgeholt."
+		                               : "The colour profile costs brightness - this gives it back.");
+
+		ImGui::TextUnformatted(isDe ? "Erhalt:" : "Retention:");
+		ImGui::SameLine(0, 6.0f);
+		ImGui::TextColored(Theme::kTextCyanLicht, "%.0f%%", embRetention.retentionRatio * 100.0f);
+		ImGui::SameLine(0, 12.0f);
+		ImGui::TextUnformatted(isDe ? "Empfehlung:" : "Target:");
+		ImGui::SameLine(0, 6.0f);
+		ImGui::TextColored(Theme::kTextGoldLabel, "%.2fx", embRetention.recommendedGain);
+
 		{
-			ResetUiLayout();
-			// Only force-open the Main Window if Advanced Mode actually
-			// allows it (2026-09-09) - otherwise this button would silently
-			// bypass the Advanced Mode gate right next to it.
-			if (CurrentSettings.AdvancedModeUnlocked)
+			char embApplyLabel[64];
+			std::snprintf(embApplyLabel, sizeof(embApplyLabel),
+				isDe ? "Optimalwert (%.2fx)##emb_apply" : "Apply Target (%.2fx)##emb_apply", embRetention.recommendedGain);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+			if (ImGui::Button(embApplyLabel, ImVec2(0.0f, 24.0f)))
 			{
-				CurrentSettings.ShowMainWindow = true;
-				s_focusMainWindow = true;
+				ApplyAutoBrightnessGain();
+				changed = true;
+				saveNeeded = true;
 			}
-			saveNeeded = true;
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Setzt die Helligkeit einmalig auf den berechneten Optimalwert (%.2fx).\nEinfluss des Profils auf die Helligkeit: %+.1f%%"
+				                       : "Sets brightness to the calculated optimum once (%.2fx).\nProfile impact on brightness: %+.1f%%",
+				                       embRetention.recommendedGain, embImpactPct);
+			}
+
+			ImGui::SameLine(0, 10.0f);
+			if (ImGui::Checkbox(isDe ? "Automatisch##emb_auto_bright" : "Automatic##emb_auto_bright", &CurrentSettings.AutoBrightness))
+			{
+				if (CurrentSettings.AutoBrightness)
+				{
+					ApplyAutoBrightnessGain();
+					changed = true;
+				}
+				saveNeeded = true;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(isDe ? "Haelt die Helligkeit bei jeder Profil-Aenderung automatisch nach."
+				                       : "Keeps brightness in step automatically whenever the profile changes.");
+			}
 		}
-		if (ImGui::IsItemHovered())
+
 		{
-			ImGui::SetTooltip(isDe ? "Setzt Position und Groesse aller CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) und des Taskleisten-Symbols auf Standardkoordinaten links oben zurueck."
-			                       : "Resets position and size of all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) and the toolbar icon to default top-left coordinates.");
+			char embGainLabel[64];
+			std::snprintf(embGainLabel, sizeof(embGainLabel), isDe ? "Manuell (%.2fx)" : "Manual (%.2fx)", CurrentSettings.GammaGain);
+			ImGui::TextDisabled("%s", embGainLabel);
+
+			float availB = ImGui::GetContentRegionAvail().x;
+			float padXB  = ImGui::GetStyle().FramePadding.x * 2.0f;
+			float btnWB  = ImGui::CalcTextSize("Reset").x + padXB + 8.0f;
+			const float spB = 6.0f;
+			float sWB = (availB > (btnWB + spB + 60.0f)) ? (availB - btnWB - spB) : 180.0f;
+
+			ImGui::SetNextItemWidth(sWB);
+			float gain = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
+			if (ImGui::SliderFloat("##emb_gamma", &gain, 0.70f, 1.30f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
+			{
+				// Manual input always wins over the automatic - that is what
+				// SetGammaGainManual owns, and why this does not write the
+				// field directly.
+				SetGammaGainManual(gain);
+				changed = true;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+
+			ImGui::SameLine(0, spB);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+			if (ImGui::Button("Reset##emb_gamma", ImVec2(btnWB, 0.0f)))
+			{
+				SetGammaGainManual(1.0f);
+				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Helligkeit auf 1.00x zuruecksetzen" : "Reset brightness to 1.00x");
 		}
 
-		ImGui::PopStyleColor(4);
-
-		ImGui::SameLine(0, 8.0f);
-
-		// Visually distinct from "Reset UI" above (2026-09-09, Emi's UI
-		// walkthrough - the two used to look identical, easy to misclick).
-		// Same danger-subtle tint the Main Window's own Reset Filter button
-		// already used - this one just never got it.
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-		if (ImGui::Button(isDe ? "Filter zuruecksetzen" : "Reset Filter", ImVec2(0.0f, 26.0f)))
-		{
-			// Was a third, incomplete hand-rolled reset (missed
-			// LabModeEnabled/EnableHybridMode - same bug class as the "CBA -
-			// Filter Off" keybind before it used this shared function too).
-			ResetFilterSettingsAndDisable();
-			saveNeeded = true;
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip(isDe ? "Setzt Farbkorrektur, Helligkeit und Commander-Tags komplett auf neutral (Filter AUS, Staerke 0, Gamma 1.00x)."
-			                       : "Resets all color correction, brightness and tag settings to neutral defaults (Filter OFF, Severity 0, Gamma 1.00x).");
-		}
-		ImGui::PopStyleColor(4);
-
-
+		ImGui::Unindent(12.0f);
 
 		// Profile-code export/import moved into "Advanced" below (2026-09-11,
 		// PRODUCT_CONCEPT.md section 2): sharing a profile is a power-user
@@ -1213,11 +1348,12 @@ namespace cba
 				ImGui::Unindent(16.0f);
 			}
 
-			if (ImGui::Checkbox(t.KeepActiveBackground, &CurrentSettings.SystemWide)) {
-				changed = true;
-				saveNeeded = true;
-			}
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.KeepActiveBackgroundTooltip);
+			// "Keep the filter active in the background" moved up into the
+			// base control field 2026-09-12 - it is a modifier of the master
+			// switch ("when is the filter on"), not a setup-once toolbar
+			// preference, and it became a lot more meaningful once switching
+			// off in the background actually worked (see the screen-effect
+			// gate).
 			ImGui::TreePop();
 		}
 
