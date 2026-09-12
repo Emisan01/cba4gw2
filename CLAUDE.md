@@ -109,8 +109,6 @@ thing this tool can honestly measure about its own effect.
 
 ## Currently open
 
-`ROADMAP.md` holds the plan and the order of work; this is the short list.
-
 - **Untested since the backend swap:** do Commander Tags look the same under
   the shader as under DWM? That is the exact property the PostRender placement
   protects, and nothing has verified it on a screen yet.
