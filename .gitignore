@@ -20,6 +20,7 @@ release-*/
 
 # Nexus plugin build output
 plugins/nexus/build/
+plugins/gw2doctor/build/
 
 # Temporary scratch and audit scripts
 scratch/
