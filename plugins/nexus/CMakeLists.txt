@@ -45,6 +45,9 @@ add_library(cba SHARED
     src/ui/UIState.cpp
     src/ui/Theme.cpp
     src/ui/MainWindow.cpp
+    src/ui/MainWindowDashboard.cpp
+    src/ui/MainWindowEyeComfort.cpp
+    src/ui/MainWindowSystem.cpp
     src/ui/MiniHUD.cpp
     src/ui/SensorGraphHUD.cpp
     src/ui/FilterLab.cpp

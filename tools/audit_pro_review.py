@@ -137,8 +137,15 @@ has_atomics = "std::atomic<bool>" in main_code and "s_deferredInitDone" in main_
 check("3. Performance & DWM", "Thread-Safe State & Atomic Concurrency", has_mutex and has_atomics, "Guards recompute against race conditions")
 
 # 3.3 Deferred Disk I/O (No SSD thrashing in render loop)
-with open(os.path.join(UI_DIR, "MainWindow.cpp"), "r", encoding="utf-8") as f:
-    main_win_code = f.read()
+# MainWindow.cpp was split 2026-09-13 (RenderMainWindow's four tabs each
+# moved to their own file) - glob rather than a fixed name so this doesn't
+# quietly go blind to code that moved into MainWindowDashboard.cpp,
+# MainWindowEyeComfort.cpp or MainWindowSystem.cpp.
+main_win_code = ""
+for f in sorted(os.listdir(UI_DIR)):
+    if f.startswith("MainWindow") and f.endswith(".cpp"):
+        with open(os.path.join(UI_DIR, f), "r", encoding="utf-8") as fh:
+            main_win_code += fh.read()
 has_deferred_save = "IsItemDeactivatedAfterEdit" in main_win_code and "saveNeeded" in main_win_code
 check("3. Performance & DWM", "Deferred Disk I/O (Zero SSD writes during slider drag)", has_deferred_save, "Saves configuration strictly on mouse release")
 
