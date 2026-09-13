@@ -774,9 +774,8 @@ namespace cba
 			ImGui::TextColored(Theme::kTextGoldLabel, "DWM");
 		} else {
 			ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Inaktiv");
-				ImGui::EndChild();
-	}
-		
+		}
+
 		ImGui::EndGroup();
 		
 		ImGui::PopStyleColor(6);
