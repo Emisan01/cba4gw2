@@ -517,8 +517,28 @@ namespace cba
 		{
 			ImGui::InvisibleButton("##cba_tb_hit", ImVec2(iconDim, iconDim));
 			bool isHovered = ImGui::IsItemHovered();
-			bool isClickedLeft = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 			bool isClickedRight = ImGui::IsItemClicked(ImGuiMouseButton_Right);
+
+			// Left-drag: reposition along the row (2026-09-13, Emi: "einfach
+			// das icon in der Zeile verschieben"). Y stays pinned to
+			// fixedRowY above - this is horizontal repositioning only.
+			// A static flag (not a local) because it has to survive across
+			// the frames of one held-down drag, not just this single frame.
+			static bool s_wasDragged = false;
+			if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2.0f))
+			{
+				CurrentSettings.ToolbarIconPosX += ImGui::GetIO().MouseDelta.x;
+				s_wasDragged = true;
+			}
+
+			// Click fires on release, not press, so a click-then-drag never
+			// also toggles the window on the way to becoming a drag.
+			bool isClickedLeft = ImGui::IsItemDeactivated() && !s_wasDragged;
+			if (ImGui::IsItemDeactivated())
+			{
+				if (s_wasDragged) CurrentSettings.Save(AddonDir); // deferred - once, on release
+				s_wasDragged = false;
+			}
 
 			// Left Click: Toggle Main Window - respects the Advanced Mode
 			// gate the same way the keybind does (2026-09-09): can always

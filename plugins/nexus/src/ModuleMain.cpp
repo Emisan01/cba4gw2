@@ -1190,9 +1190,36 @@ namespace cba
 
 	void ProcessKeybind(const char* aIdentifier, bool aIsRelease)
 	{
+		// Hold-to-compare is the one bind that cares about the release edge -
+		// handled before the early-return below, which every other (toggle-
+		// style) bind relies on. See PRODUCT_CONCEPT.md 3.2: a toggle costs
+		// two presses and the moment; holding answers "is this doing
+		// anything?" against the live game in half a second.
+		//
+		// Restored 2026-09-13: this branch, "Filter Off" and "Sensor Graph"
+		// below were silently dropped by the f0392591 TAC refactor - their
+		// RegisterWithString calls disappeared from AddonLoad while the
+		// Deregister calls and s_compareHoldActive's AddonUnload safety-net
+		// stayed behind, so "hold to compare" and the other two keybinds
+		// had no way to ever fire again.
+		if (strcmp(aIdentifier, "CBA - Compare (hold)") == 0 || strcmp(aIdentifier, "KB_CBA_COMPARE") == 0)
+		{
+			s_compareHoldActive.store(!aIsRelease);
+			Recompute(/*aForce=*/true);
+			return;
+		}
+
 		if (aIsRelease) return;
 
-		if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_TOGGLE_MAIN") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
+		if (strcmp(aIdentifier, "CBA - Filter Off") == 0 || strcmp(aIdentifier, "CBA - Not-Aus") == 0 || strcmp(aIdentifier, "KB_CBA_PANIC") == 0)
+		{
+			// Full reset (base correction + Commander Tag Enhancer + Hybrid Mode +
+			// Free Filter + Filter Lab), not just Enabled=false - this used to only
+			// touch Enabled, so Commander Tag Enhancer's tag-highlight overlay kept
+			// running after "Filter Off", which looked like the filter was still on.
+			ResetFilterSettingsAndDisable();
+		}
+		else if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_TOGGLE_MAIN") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
 		{
 			// Advanced Mode gate (2026-09-09) - only blocks opening.
 			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowMainWindow) return;
@@ -1200,6 +1227,13 @@ namespace cba
 			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
 			if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 			CurrentSettings.Save(AddonDir);
+		}
+		else if (strcmp(aIdentifier, "CBA - Sensor Graph") == 0 || strcmp(aIdentifier, "KB_CBA_GRAPH") == 0)
+		{
+			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowGraphWindow) return;
+			EnsureDeferredInitialized();
+			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 		}
 	}
 
@@ -1685,7 +1719,6 @@ namespace cba
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Main Window###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
-				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
 			}
@@ -1825,7 +1858,6 @@ namespace cba
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Main Window###CBA_MainWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba graph###CBA_GraphWindow");
-					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow");
 				}
