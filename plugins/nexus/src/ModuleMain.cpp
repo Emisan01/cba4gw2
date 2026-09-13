@@ -1943,8 +1943,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 #endif
 	AddonDef.Author = "Emisan01";
 	AddonDef.Description =
-		"Color balance, contrast enhancement and visual assist for Guild Wars 2. "
-		"Applied via the Windows Magnification API.";
+		"Color and Contrast Balance Enhancer and Filter Lab for Guild Wars 2";
 	AddonDef.Load = AddonLoad;
 	AddonDef.Unload = AddonUnload;
 	AddonDef.Flags = EAddonFlags_None;
