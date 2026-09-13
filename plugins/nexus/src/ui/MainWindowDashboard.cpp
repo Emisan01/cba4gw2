@@ -63,160 +63,6 @@ namespace cba
 		s_setupDismissed = false;
 	}
 
-	void DrawContrastTestSwatches(bool isDe, const double aCorrMat[3][3], bool& saveNeeded)
-	{
-		const char* pairNamesDe[] = {
-			"Blau / Gruen (GW2 Standard)",
-			"Rot / Gruen (Protan / Deutan Test)",
-			"Gelb / Blau (Tritanopie Test)",
-			"Cyan / Blau (Mittelwert Kontrast)",
-			"Orange / Rot (Gefahrenzonen)"
-		};
-		const char* pairNamesEn[] = {
-			"Blue / Green (GW2 Default)",
-			"Red / Green (Protan / Deutan Test)",
-			"Yellow / Blue (Tritanopia Test)",
-			"Cyan / Blue (Midtone Contrast)",
-			"Orange / Red (Hazard Zones)"
-		};
-
-		struct ColorPair { float r1, g1, b1; float r2, g2, b2; };
-		static const ColorPair kPairs[5] = {
-			{ 0.212f, 0.439f, 0.800f,   0.247f, 0.616f, 0.302f },
-			{ 0.851f, 0.275f, 0.235f,   0.247f, 0.616f, 0.302f },
-			{ 0.910f, 0.753f, 0.125f,   0.212f, 0.439f, 0.800f },
-			{ 0.149f, 0.682f, 0.741f,   0.212f, 0.439f, 0.800f },
-			{ 0.910f, 0.522f, 0.059f,   0.851f, 0.275f, 0.235f }
-		};
-
-		int pIdx = std::clamp(CurrentSettings.ContrastPairIndex, 0, 4);
-
-		ImGui::TextDisabled("%s:", isDe ? "Kontrast-Test Farbfelder" : "Contrast Test Swatches");
-		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-		if (ImGui::Combo("##contrast_pair_combo", &pIdx, isDe ? pairNamesDe : pairNamesEn, 5))
-		{
-			CurrentSettings.ContrastPairIndex = pIdx;
-			saveNeeded = true;
-		}
-
-		ColorPair p = kPairs[pIdx];
-
-		double sim1R = p.r1, sim1G = p.g1, sim1B = p.b1;
-		double sim2R = p.r2, sim2G = p.g2, sim2B = p.b2;
-		ColorMatrix::SimulatePixel(p.r1, p.g1, p.b1, CurrentSettings.Type, sim1R, sim1G, sim1B);
-		ColorMatrix::SimulatePixel(p.r2, p.g2, p.b2, CurrentSettings.Type, sim2R, sim2G, sim2B);
-
-		float cor1R = (float)std::clamp(aCorrMat[0][0]*p.r1 + aCorrMat[0][1]*p.g1 + aCorrMat[0][2]*p.b1, 0.0, 1.0);
-		float cor1G = (float)std::clamp(aCorrMat[1][0]*p.r1 + aCorrMat[1][1]*p.g1 + aCorrMat[1][2]*p.b1, 0.0, 1.0);
-		float cor1B = (float)std::clamp(aCorrMat[2][0]*p.r1 + aCorrMat[2][1]*p.g1 + aCorrMat[2][2]*p.b1, 0.0, 1.0);
-
-		float cor2R = (float)std::clamp(aCorrMat[0][0]*p.r2 + aCorrMat[0][1]*p.g2 + aCorrMat[0][2]*p.b2, 0.0, 1.0);
-		float cor2G = (float)std::clamp(aCorrMat[1][0]*p.r2 + aCorrMat[1][1]*p.g2 + aCorrMat[1][2]*p.b2, 0.0, 1.0);
-		float cor2B = (float)std::clamp(aCorrMat[2][0]*p.r2 + aCorrMat[2][1]*p.g2 + aCorrMat[2][2]*p.b2, 0.0, 1.0);
-
-		ImGui::Spacing();
-		float availW = ImGui::GetContentRegionAvail().x;
-		float cardW = (availW - 12.0f) * 0.5f;
-		if (cardW < 140.0f) cardW = availW;
-		// Redesigned 2026-09-11 (Emi: "man sieht den Effekt gar nicht
-		// wirklich") - two separate circles with a gap between them always
-		// read as "two different colored things" regardless of how close
-		// the colors actually are, since the GAP itself already visually
-		// separates them - a sighted viewer's own normal color perception
-		// does the rest of the work, defeating the point of simulating a
-		// different one. Replaced with one continuous swatch split exactly
-		// down the middle, no gap, no per-half border - only the OUTER
-		// edge is framed. Whether the seam down the middle is visible now
-		// depends entirely on the color difference, which is the actual
-		// experience the "Without Filter" card is supposed to convey.
-		float cardH = 162.0f;
-
-		// Flat, no-card look (2026-09-11, superseding the same-day "Glass"
-		// toggle below the same afternoon - Emi's live-testing diagnosis:
-		// a near-transparent child still sits on top of THIS WINDOW's own
-		// opaque background, so removing the card's own tint just revealed
-		// a flatter black underneath, not the live game behind it - true
-		// see-through would need the swatches drawn on the background draw
-		// list instead of inside a window, a bigger architectural change.
-		// The fix that actually works today, and Emi's own suggestion:
-		// drop the card fill entirely and match Vision Lab's Anomaloscope
-		// circle - plain shapes directly on the panel's own background,
-		// exactly as transparent as the rest of this window already is, no
-		// separate dark layer to fight with. Removed the now-pointless
-		// toggle along with Settings.GlassContrastCards (a keyed field,
-		// safe to drop outright - see CLAUDE.md on positional vs. keyed
-		// serialization risk).
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
-
-		// Round 2 (Emi: "muss huebscher sein, sieht aus wie eine Creditcard") -
-		// a flat rectangle split down the middle was too card-like. Two
-		// large, generously overlapping circles (Venn-diagram style) read
-		// as a proper "compare these" UI, not a swatch chip, and the
-		// overlap lens itself becomes the test: circle 2 is painted on top
-		// of circle 1, so the arc where it cuts across circle 1 is the only
-		// visible seam - similar colors make that boundary nearly vanish,
-		// distinct colors make it obvious. Bigger overlap = more of the
-		// comparison happens in that one telling boundary, per Emi's ask.
-		auto drawOverlapSwatch = [&](ImVec2 aCenter, float aRadius, float aOverlapFrac, ImU32 aColL, ImU32 aColR, ImU32 aFrameCol, float aFrameThick) {
-			ImDrawList* dl = ImGui::GetWindowDrawList();
-			float offset = aRadius * (1.0f - aOverlapFrac);
-			ImVec2 c1 = ImVec2(aCenter.x - offset, aCenter.y);
-			ImVec2 c2 = ImVec2(aCenter.x + offset, aCenter.y);
-			dl->AddCircleFilled(c1, aRadius, aColL, 48);
-			dl->AddCircleFilled(c2, aRadius, aColR, 48);
-			dl->AddCircle(c1, aRadius, aFrameCol, 48, aFrameThick);
-			dl->AddCircle(c2, aRadius, aFrameCol, 48, aFrameThick);
-		};
-
-		if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground))
-		{
-			ImGui::SetWindowFontScale(1.05f);
-			ImGui::TextDisabled("%s", isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)");
-			ImVec2 sp = ImGui::GetCursorScreenPos();
-
-			float swW = ImGui::GetContentRegionAvail().x;
-			float swH = 88.0f;
-			float radius = std::min(44.0f, swW * 0.32f);
-			ImU32 cSim1 = IM_COL32((int)(sim1R*255), (int)(sim1G*255), (int)(sim1B*255), 255);
-			ImU32 cSim2 = IM_COL32((int)(sim2R*255), (int)(sim2G*255), (int)(sim2B*255), 255);
-			drawOverlapSwatch(ImVec2(sp.x + swW * 0.5f, sp.y + swH * 0.5f), radius, 0.55f, cSim1, cSim2, IM_COL32(190, 190, 190, 150), 1.5f);
-
-			ImGui::SetCursorScreenPos(ImVec2(sp.x, sp.y + swH + 10.0f));
-			ImGui::SetNextItemWidth(swW);
-			float textW = ImGui::CalcTextSize(isDe ? "Identisch / Verwechselbar" : "Identical / Confusable").x;
-			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, (swW - textW) * 0.5f));
-			ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Identisch / Verwechselbar" : "Identical / Confusable");
-			ImGui::SetWindowFontScale(1.0f);
-		}
-		ImGui::EndChild();
-
-		if (cardW < availW) ImGui::SameLine(0, 12.0f);
-		else ImGui::Spacing();
-
-		if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground))
-		{
-			ImGui::SetWindowFontScale(1.05f);
-			ImGui::TextDisabled("%s", isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)");
-			ImVec2 sp = ImGui::GetCursorScreenPos();
-
-			float swW = ImGui::GetContentRegionAvail().x;
-			float swH = 88.0f;
-			float radius = std::min(44.0f, swW * 0.32f);
-			ImU32 cCor1 = IM_COL32((int)(cor1R*255), (int)(cor1G*255), (int)(cor1B*255), 255);
-			ImU32 cCor2 = IM_COL32((int)(cor2R*255), (int)(cor2G*255), (int)(cor2B*255), 255);
-			drawOverlapSwatch(ImVec2(sp.x + swW * 0.5f, sp.y + swH * 0.5f), radius, 0.55f, cCor1, cCor2, IM_COL32(80, 240, 160, 220), 2.0f);
-
-			ImGui::SetCursorScreenPos(ImVec2(sp.x, sp.y + swH + 10.0f));
-			float textW = ImGui::CalcTextSize(isDe ? "Klar getrennt / verschieden!" : "Clearly separated!").x;
-			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, (swW - textW) * 0.5f));
-			ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "Klar getrennt / verschieden!" : "Clearly separated!");
-			ImGui::SetWindowFontScale(1.0f);
-		}
-		ImGui::EndChild();
-
-		ImGui::PopStyleVar(1);
-	}
-
 	// ── Auto-Start profile: one value, one control, two homes ─────────────
 	//
 	// Settings.AutoStartSlot is a single int (-1 = off, 0..2 = the slot that
@@ -324,7 +170,7 @@ namespace cba
 		// Tile: Curve View (moved to the top 2026-09-13, Emi: the graph
 		// is what people look at first)
 		{
-		cba::ScopedChild tileCurveView("Tile_CurveView", ImVec2(0, 520), true, ImGuiWindowFlags_MenuBar);
+		cba::ScopedChild tileCurveView("Tile_CurveView", ImVec2(0, 320), true, ImGuiWindowFlags_MenuBar);
 		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Sensor Matrix Visualisierung"); ImGui::EndMenuBar(); }
 // Curve View is unconditional from here (see note above) - it shows
 		// the currently active Type/Severity/Mixed correction regardless of
@@ -423,12 +269,6 @@ namespace cba
 			ImGui::Dummy(ImVec2(graphW, beamH));
 
 			ImGui::Spacing();
-			ImGui::Separator();
-			ImGui::Spacing();
-
-			DrawContrastTestSwatches(isDe, mainCorrMat, saveNeeded);
-
-			ImGui::Spacing();
 			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
@@ -457,15 +297,19 @@ namespace cba
 
 		ImGui::Spacing();
 
-		// Tile: Commander Tag
+		// Tile: Commander-Tag Enhancer & Farbprofil - merged 2026-09-13
+		// (Emi: "Commander Tag Enhancer ist leer, dort koennen wir das
+		// Farbprofil-Tile einbauen, mergen wir diese Tiles") - ComTag's
+		// own box was mostly empty air whenever the enhancer was off,
+		// with the profile tile sitting right below it looking like an
+		// unrelated second box. One tile, two labeled sections now.
 		{
-		// Sized off the same flag it's about to render (2026-09-13, Emi:
-		// "leer und riesig") - a fixed 320px was mostly empty air whenever
-		// the enhancer was off, since only the "inactive" one-liner below
-		// renders in that state.
 		bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
-		cba::ScopedChild tileComTag("Tile_ComTag", ImVec2(0, enhancerActive ? 320.0f : 70.0f), true, ImGuiWindowFlags_MenuBar);
-		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Commander-Tag Enhancer"); ImGui::EndMenuBar(); }
+		cba::ScopedChild tileComTagProfile("Tile_ComTagProfile", ImVec2(0, enhancerActive ? 420.0f : 220.0f), true, ImGuiWindowFlags_MenuBar);
+		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, isDe ? "Commander-Tag & Farbprofil" : "Commander Tag & Color Profile"); ImGui::EndMenuBar(); }
+
+		ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Commander-Tag Enhancer" : "Commander Tag Enhancer");
+		ImGui::Spacing();
 // ── Commander-Tag & Contrast Enhancer Block ─────────────────────
 		// The on/off toggle + 3 profile-select buttons removed here
 		// 2026-09-11 ("ein Zuhause pro Einstellung") were an exact
@@ -587,15 +431,13 @@ namespace cba
 		}
 
 		
-		}
 
 		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
 
-		// Tile: Vision Assessment (Sehtest) & Profil - moved to sit
-		// directly above the profile-management tile (2026-09-13)
-		{
-		cba::ScopedChild tileProfile("Tile_Profile", ImVec2(0, 140), true, ImGuiWindowFlags_MenuBar);
-		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Farbprofil & Korrektur"); ImGui::EndMenuBar(); }
+		ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Farbprofil & Korrektur" : "Color Profile & Correction");
+		ImGui::Spacing();
 
 auto applyDerivedProfile = [&](BalanceType aType, bool aMixed, float aSeverity) {
 			// Routed through the shared activation function rather than
