@@ -18,9 +18,16 @@ namespace cba
 		if (!CurrentSettings.ShowMiniHUD)
 			return;
 
-		ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoCollapse;
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoCollapse;
 		if (!CurrentSettings.MiniHudTitleBar)
 			flags |= ImGuiWindowFlags_NoTitleBar;
+
+		// AlwaysAutoResize used to sit here - HANDOVER.md's own account of the
+		// original ImGui crash class names it as a contributor (negative
+		// window sizes -> D3D11 vertex-buffer crash on Nexus's ImGui 1.8x). A
+		// fixed default size the user can still resize once is the same
+		// outcome without the risk.
+		ImGui::SetNextWindowSize(ImVec2(160.0f, 40.0f), ImGuiCond_FirstUseEver);
 
 		// Apply custom ArcDPS-style transparency
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.05f, 0.05f, 0.05f, CurrentSettings.MiniHudBgAlpha));

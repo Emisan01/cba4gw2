@@ -1219,7 +1219,7 @@ namespace cba
 			// running after "Filter Off", which looked like the filter was still on.
 			ResetFilterSettingsAndDisable();
 		}
-		else if (strcmp(aIdentifier, "CBA - Main Window") == 0 || strcmp(aIdentifier, "KB_CBA_TOGGLE_MAIN") == 0 || strcmp(aIdentifier, "KB_CBA_WINDOW") == 0)
+		else if (strcmp(aIdentifier, "CBA - Main Window") == 0)
 		{
 			// Advanced Mode gate (2026-09-09) - only blocks opening.
 			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowMainWindow) return;
@@ -1851,7 +1851,6 @@ namespace cba
 					APIDefs->InputBinds.Deregister("CBA - Sensor Graph");
 					APIDefs->InputBinds.Deregister("CBA - Compare (hold)");
 					APIDefs->InputBinds.Deregister("CBA - Not-Aus");
-					APIDefs->InputBinds.Deregister("KB_CBA_WINDOW");
 				}
 				if (APIDefs->UI.DeregisterCloseOnEscape)
 				{
