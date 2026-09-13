@@ -2,61 +2,58 @@
 Not part of the build - run once, output baked into CbaIcon.h, then kept
 alongside for whoever adjusts this next.
 
-2026-09-13, round 5: live in Nexus's own Quick Access row next to filled
-icons (shield, lion, sword), the round-4 three-CONCENTRIC-thin-rings design
-read as too dark / didn't visually integrate - not a wrong color, a wrong
-shape. A 2px stroke covers a tiny fraction of the 32x32 canvas next to solid
-native icons, so even exact-ground-truth colors look faint by comparison.
-Emi's fix: two OFFSET rings instead of three concentric ones - "Oo", the same
-idea as Nexus's own overlapping "XX" mark, just circles instead of X's -
-plus a thicker stroke for more visual weight, and a lighter Inactive tone
-(0.45x read as "super dunkel", moved to 0.65x).
+2026-09-13, round 6: rounds 4 (three thin concentric rings) and 5 (offset
+"Oo", tilted ellipses, a full trefoil-knot weave) were all tried live and
+rejected - either too dark/thin next to Nexus's filled native icons, or too
+elaborate to read at 32px. Emi sketched a rough 3-ring idea by hand instead
+("ich will mich nicht zu sehr verkuenstlen") and iterated on renders from
+there: three rings, each with its own slightly off-center placement (a loose,
+hand-drawn feel rather than a mechanical bullseye), stepped from bright
+(outer) to dark (inner) - "hat was von einer Linse sowie auch von einem
+Tunnel". Final adjustment: keep the outer ring's radius/stroke exactly as
+established (matches the other Nexus icons' footprint) and pull the inner
+two rings in further with a slightly thinner stroke, so the gaps between
+bands read clearly and the offset/depth effect is a bit stronger.
 
-Colors are unchanged ground truth, re-verified this round by sampling actual
-pixels out of Emi's local Nexus checkout (not just trusting the round-4
-docstring): Nexus.png/Generic.png brightest opaque pixels average to the
-same Normal tone, Nexus_Hover.png/Generic_Hover.png to the same Hover tone.
-  - Normal (resting): muted warm tan/khaki, ~(218, 214, 171).
-  - Hover: near-white/cream, ~(250, 250, 244) - every native icon brightens
-    the same way on hover regardless of what it does.
+Colors are the same ground truth as rounds 4/5 (sampled from Emi's local
+Nexus checkout, C:/Users/Emi/Desktop/Nexus/src/Resources/Images/QuickAccess/
+{Nexus,Nexus_Hover,Generic,Generic_Hover}.png):
+  - Normal (resting): muted warm tan/khaki, ~(222, 218, 176).
+  - Hover: near-white/cream, ~(252, 252, 246).
+  - Inactive: 0.66x of Normal (round 4's 0.45x read as "super dunkel").
 """
 from PIL import Image, ImageDraw
 
 SIZE = 32
-SS = 8  # supersample factor for anti-aliasing
+SS = 12  # supersample factor for anti-aliasing
 BIG = SIZE * SS
 
-# Nexus's own RES_ICON_NEXUS / RES_ICON_GENERIC ground truth (re-sampled
-# 2026-09-13 from Nexus.png, Nexus_Hover.png, Generic.png, Generic_Hover.png).
-NORMAL_RGB = (218, 214, 171)
-HOVER_RGB = (250, 250, 244)
-# Inactive has no native-family equivalent (static shortcuts don't have an
-# off state) - dimmed version of the Normal tone, CBA's own addition.
-# 0.45x read as "super dunkel, etwas zu dunkel" live in the QA bar - lifted
-# to 0.65x, still clearly dimmer than Active but no longer looks broken/off.
-INACTIVE_DIM = 0.65
+NORMAL_RGB = (222, 218, 176)
+HOVER_RGB = (252, 252, 246)
+INACTIVE_DIM = 0.66
 INACTIVE_RGB = tuple(int(c * INACTIVE_DIM) for c in NORMAL_RGB)
+INACTIVE_ALPHA = 235
 
-# "Oo" - a big ring and a small ring, offset like two overlapping letters,
-# not concentric. Mirrors Nexus's own "XX" mark (two overlapping shapes)
-# with circles instead of X's.
-BIG_C, BIG_R = (12.5, 13.0), 10.0
-SMALL_C, SMALL_R = (20.5, 19.5), 6.5
-STROKE = 3.25  # up from 2.0 - more visual weight next to filled native icons
+# Three rings, each with its own slightly off-center placement (not a
+# mechanical bullseye) and its own brightness step (outer brightest, inner
+# darkest - the "tunnel" read). (cx, cy, radius, stroke, brightness).
+RINGS = [
+    (16.3 * SS, 15.3 * SS, 12.5 * SS, 3.6 * SS, 1.00),  # outer - footprint anchor, unchanged since round 4
+    (15.6 * SS, 16.6 * SS,  8.2 * SS, 3.0 * SS, 0.85),  # middle - pulled in, slightly thinner
+    (16.7 * SS, 16.8 * SS,  4.2 * SS, 3.0 * SS, 0.68),  # inner - pulled in, slightly thinner
+]
+
+
+def clamp(rgb):
+    return tuple(max(0, min(255, int(v))) for v in rgb)
 
 
 def render(base_rgb, alpha, name):
     img = Image.new("RGBA", (BIG, BIG), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    r, g, b = base_rgb
-    stroke_px = STROKE * SS
-    for (cx, cy), radius in ((BIG_C, BIG_R), (SMALL_C, SMALL_R)):
-        rad_px = radius * SS
-        bbox = [
-            cx * SS - rad_px, cy * SS - rad_px,
-            cx * SS + rad_px, cy * SS + rad_px,
-        ]
-        draw.ellipse(bbox, outline=(r, g, b, alpha), width=int(stroke_px))
+    for cx, cy, r, stroke, brightness in RINGS:
+        col = clamp(tuple(c * brightness for c in base_rgb))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col + (alpha,), width=int(stroke))
     img = img.resize((SIZE, SIZE), Image.LANCZOS)
     img.save(name)
     print(f"wrote {name} base_rgb={base_rgb} alpha={alpha}")
@@ -64,5 +61,5 @@ def render(base_rgb, alpha, name):
 
 if __name__ == "__main__":
     render(NORMAL_RGB, 255, "icon_active.png")
-    render(INACTIVE_RGB, 235, "icon_inactive.png")
+    render(INACTIVE_RGB, INACTIVE_ALPHA, "icon_inactive.png")
     render(HOVER_RGB, 255, "icon_hover.png")
