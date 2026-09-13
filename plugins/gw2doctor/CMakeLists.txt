@@ -27,6 +27,9 @@ target_link_libraries(gw2doctor PRIVATE
     d3d11.lib
     dxgi.lib
     psapi.lib
+    shell32.lib
+    ole32.lib
+    powrprof.lib
 )
 
 set_target_properties(gw2doctor PROPERTIES
