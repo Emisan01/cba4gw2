@@ -1114,6 +1114,24 @@ namespace cba
 		ImGui::Separator();
 		ImGui::Spacing();
 
+		RenderActiveModulesChips(isDe);
+
+		if (saveNeeded) {
+			CurrentSettings.Save(AddonDir);
+			Recompute(/*aForce=*/true);
+		} else if (changed) {
+			Recompute(/*aForce=*/false);
+		}
+
+		ImGui::PopStyleVar(1); // pairs with ButtonTextAlign at the top
+		ImGui::PopID();
+	}
+
+	// Extracted 2026-09-13 so the Main Window Dashboard can show the same
+	// "what's actually doing something right now" chip row the Sensor Graph
+	// HUD already had - one implementation, two homes (CLAUDE.md rule 10).
+	void RenderActiveModulesChips(bool isDe)
+	{
 		struct ActiveModule {
 			std::string label;
 			ImVec4 col;
@@ -1191,15 +1209,5 @@ namespace cba
 				ImGui::PopStyleColor(4);
 			}
 		}
-
-		if (saveNeeded) {
-			CurrentSettings.Save(AddonDir);
-			Recompute(/*aForce=*/true);
-		} else if (changed) {
-			Recompute(/*aForce=*/false);
-		}
-
-		ImGui::PopStyleVar(1); // pairs with ButtonTextAlign at the top
-		ImGui::PopID();
 	}
 }

@@ -426,9 +426,6 @@ namespace cba
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(6.0f, 3.0f));
 
-		ImGui::TextColored(Theme::kTextBlauPeak, "cba4gw2");
-		ImGui::SameLine(0, 8.0f);
-
 		// Master ON/OFF toggle button
 		{
 			bool wasEnabled = CurrentSettings.Enabled;
@@ -551,29 +548,6 @@ namespace cba
 		DrawFilterStatusIndicator(false);
 
 		ImGui::SameLine(0, 6.0f);
-		bool graphOpen = CurrentSettings.ShowGraphWindow;
-		if (graphOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-		}
-		if (ImGui::Button(isDe ? "Sensor-Graph##main_top" : "Sensor Graph##main_top", ImVec2(0.0f, 24.0f))) {
-			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
-			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
-		}
-
-		ImGui::SameLine(0, 5.0f);
 		bool labOpen = CurrentSettings.ShowLabWindow;
 		if (labOpen) {
 			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
@@ -594,30 +568,6 @@ namespace cba
 		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) {
 			ImGui::SetTooltip(isDe ? "Filter-Labor als eigenes Fenster oeffnen oder schliessen" : "Open or close Filter Lab detached window");
-		}
-
-		ImGui::SameLine(0, 5.0f);
-		bool visionOpen = CurrentSettings.ShowVisionLabWindow;
-		if (visionOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-		}
-		if (ImGui::Button(isDe ? "Vision-Lab##main_top" : "Vision Lab##main_top", ImVec2(0.0f, 24.0f))) {
-			CurrentSettings.ShowVisionLabWindow = !CurrentSettings.ShowVisionLabWindow;
-			if (CurrentSettings.ShowVisionLabWindow) s_focusVisionLabWindow = true;
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Vision-Lab (Klinischer Farbtest, Anomaloskop & GW2-Praxistest) oeffnen" 
-			                       : "Open Vision Lab (Clinical color tests, Anomaloscope & GW2 usability test bench)");
 		}
 
 		ImGui::SameLine(0, 5.0f);
@@ -655,32 +605,6 @@ namespace cba
 		if (ImGui::IsItemHovered()) {
 			ImGui::SetTooltip(isDe ? "Setzt Farbprofil, Commander-Tag-Enhancer, Hybrid-Modus, Free Filter und Filter-Labor zurueck und schaltet den Filter aus."
 			                       : "Resets color profile, Commander Tag Enhancer, Hybrid Mode, Free Filter and Filter Lab, and turns the filter off.");
-		}
-
-		ImGui::SameLine(0, 5.0f);
-		if (ImGui::Button(isDe ? "Export" : "Export", ImVec2(0.0f, 24.0f))) {
-			std::string presetStr = CurrentSettings.ExportPresetString();
-			ImGui::SetClipboardText(presetStr.c_str());
-		}
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Aktuelles Profil in die Zwischenablage kopieren" : "Copy current profile to clipboard");
-		}
-
-		ImGui::SameLine(0, 5.0f);
-		if (ImGui::Button(isDe ? "Import" : "Import", ImVec2(0.0f, 24.0f))) {
-			const char* clip = ImGui::GetClipboardText();
-			if (clip) {
-				std::string err;
-				if (CurrentSettings.ImportPresetString(clip, &err)) {
-					CurrentSettings.Save(AddonDir);
-					GetColorEffectController().Clear();
-					Recompute(/*aForce=*/true);
-					saveNeeded = true;
-				}
-			}
-		}
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Profil aus der Zwischenablage laden" : "Load profile from clipboard");
 		}
 
 		ImGui::SameLine(0, 5.0f);
@@ -765,7 +689,29 @@ namespace cba
 		ImGui::SameLine();
 		tabBtn(isDe ? "System" : "System", 3);
 		
-		ImGui::SameLine(ImGui::GetContentRegionAvail().x - 180.0f);
+		ImGui::SameLine(ImGui::GetContentRegionAvail().x - 285.0f);
+		bool graphOpen = CurrentSettings.ShowGraphWindow;
+		if (graphOpen) {
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+		}
+		if (ImGui::Button(isDe ? "Sensor##tabbar_graph" : "Sensor##tabbar_graph", ImVec2(95.0f, 32.0f))) {
+			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
+			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
+		}
+		ImGui::SameLine();
 		ImGui::TextDisabled("%s", isDe ? "Backend:" : "Backend:");
 		ImGui::SameLine();
 		if (CurrentSettings.RenderBackend == 1 && GetShaderColorPipeline().IsReady()) {
@@ -797,9 +743,276 @@ namespace cba
 // ── Section 1: Farbprofil & Korrektur ────────────────────────────────
 		if (s_ActiveTab == 0)
 		{
+			// Tile: Curve View (moved to the top 2026-09-13, Emi: the graph
+			// is what people look at first)
 			{
-			// Tile: Vision Assessment (Sehtest) & Profil
-			cba::ScopedChild tileProfile("Tile_Profile", ImVec2(0, 100), true, ImGuiWindowFlags_MenuBar);
+			cba::ScopedChild tileCurveView("Tile_CurveView", ImVec2(0, 260), true, ImGuiWindowFlags_MenuBar);
+			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Sensor Matrix Visualisierung"); ImGui::EndMenuBar(); }
+// Curve View is unconditional from here (see note above) - it shows
+			// the currently active Type/Severity/Mixed correction regardless of
+			// whether Auto Com-Tag happens to be on.
+			ImGui::Spacing();
+			ImGui::Spacing();
+			ImGui::TextDisabled("%s", isDe ? "Kurvenansicht (geladenes Preset / Farbprofil):"
+			                               : "Curve View (Loaded Preset / Color Profile):");
+				ImGui::Spacing();
+
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
+
+				auto mainGraphModeBtn = [&](const char* aName, int aModeVal, const char* aTip) {
+					bool active = (CurrentSettings.MainGraphMode == aModeVal);
+					if (active) {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+					} else {
+						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+					}
+					if (ImGui::Button(aName, ImVec2(0.0f, 22.0f))) {
+						CurrentSettings.MainGraphMode = aModeVal;
+						saveNeeded = true;
+					}
+					ImGui::PopStyleColor(4);
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTip);
+				};
+
+				ImGui::TextDisabled("%s:", isDe ? "Ansicht" : "View");
+				ImGui::SameLine(0, 8.0f);
+				mainGraphModeBtn(isDe ? "Polygonal##main" : "Polygonal##main", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nStueckweise lineare Farbvektor-Projektion ueber die Hue-Winkel."
+				                                            : "1. Spectral Transfer Function (Piecewise-Linear / PWL)\nPiecewise linear color vector projection across hue angles.");
+				ImGui::SameLine();
+				mainGraphModeBtn(isDe ? "Harmonisch##main" : "Harmonic##main", 1, isDe ? "2. Harmonische Resonanz (Gauss / Sinusoidale LMS-Kurven)\nFliessende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
+				                                             : "2. Harmonic Spectral Response (Gaussian / Smooth Spline)\nFlowing, continuous wave curves based on the human LMS cone model.");
+				ImGui::SameLine();
+				mainGraphModeBtn(isDe ? "Strahlen##main" : "Rays##main", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkanaele wie bei einem Gitterspektrometer."
+				                                           : "3. Linear Spectral Rays (Ray Scope / Dispersion Bars)\nPhysical ray-optics decomposition of channels like a diffraction spectrometer.");
+
+				ImGui::PopStyleVar(2);
+				ImGui::Spacing();
+
+				double mainCorrMat[3][3];
+				ActiveCorrectionMatrix(mainCorrMat);
+
+				float availW = ImGui::GetContentRegionAvail().x;
+				float graphW = (availW > 260.0f) ? availW : 260.0f;
+				float graphH = 112.0f;
+
+				ImVec2 cpMain = ImGui::GetCursorScreenPos();
+				DrawSpectralGraphPanel(ImGui::GetWindowDrawList(), cpMain, graphW, graphH, mainCorrMat, /*isDetached=*/false, CurrentSettings.UiOpacity, CurrentSettings.MainGraphMode);
+				ImGui::InvisibleButton("##curve_panel_main", ImVec2(graphW, graphH));
+
+				const float pad = 8.0f;
+				const float labelSpaceLeft = 28.0f;
+				const float badgeSpaceRight = 6.0f;
+				float plotX = cpMain.x + pad + labelSpaceLeft;
+				float plotW = graphW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
+				float beamH = 10.0f;
+
+				ImVec2 beamPos = ImGui::GetCursorScreenPos();
+				beamPos.x = plotX;
+				ImDrawList* dlMain = ImGui::GetWindowDrawList();
+
+				constexpr int kBeamSteps = 48;
+				for (int b = 0; b < kBeamSteps; ++b) {
+					float u0 = (float)b / kBeamSteps;
+					float u1 = (float)(b + 1) / kBeamSteps;
+					float uMid = (u0 + u1) * 0.5f;
+					float h = uMid * 6.0f;
+					float x = 1.0f - std::abs(std::fmod(h, 2.0f) - 1.0f);
+					float r0 = 0.0f, g0 = 0.0f, b0 = 0.0f;
+					if (h < 1.0f)      { r0 = 1.0f; g0 = x;    b0 = 0.0f; }
+					else if (h < 2.0f) { r0 = x;    g0 = 1.0f; b0 = 0.0f; }
+					else if (h < 3.0f) { r0 = 0.0f; g0 = 1.0f; b0 = x;    }
+					else if (h < 4.0f) { r0 = 0.0f; g0 = x;    b0 = 1.0f; }
+					else if (h < 5.0f) { r0 = x;    g0 = 0.0f; b0 = 1.0f; }
+					else               { r0 = 1.0f; g0 = 0.0f; b0 = x;    }
+
+					double cr = std::clamp(mainCorrMat[0][0]*r0 + mainCorrMat[0][1]*g0 + mainCorrMat[0][2]*b0, 0.0, 1.0);
+					double cg = std::clamp(mainCorrMat[1][0]*r0 + mainCorrMat[1][1]*g0 + mainCorrMat[1][2]*b0, 0.0, 1.0);
+					double cb = std::clamp(mainCorrMat[2][0]*r0 + mainCorrMat[2][1]*g0 + mainCorrMat[2][2]*b0, 0.0, 1.0);
+
+					int beamAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 210.0f, 40.0f, 255.0f));
+					ImU32 col = IM_COL32((int)(cr*255), (int)(cg*255), (int)(cb*255), beamAlpha);
+					dlMain->AddRectFilled(ImVec2(plotX + u0 * plotW, beamPos.y), ImVec2(plotX + u1 * plotW, beamPos.y + beamH), col, (b == 0 || b == kBeamSteps - 1) ? 2.0f : 0.0f);
+				}
+				int borderAlpha = (int)(CurrentSettings.UiOpacity * 130.0f);
+				dlMain->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 2.0f);
+				ImGui::Dummy(ImVec2(graphW, beamH));
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				DrawContrastTestSwatches(isDe, mainCorrMat, saveNeeded);
+
+				ImGui::Spacing();
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+				if (ImGui::Button(isDe ? "Reset auf Neutral##det" : "Reset to Neutral##det", ImVec2(0.0f, 24.0f)))
+				{
+					EnsureDeferredInitialized();
+					CurrentSettings.CommanderTagMode = 0;
+					CurrentSettings.EnhancerTolerance = 0.12f;
+					UpdateTagEnhancerConflicts();
+					Recompute(/*aForce=*/true);
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurueck" : "Resets Commander Tag Enhancer to Off / Neutral");
+				}
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+			
+			}
+
+			ImGui::Spacing();
+
+			// Tile: Commander Tag
+			{
+			cba::ScopedChild tileComTag("Tile_ComTag", ImVec2(0, 320), true, ImGuiWindowFlags_MenuBar);
+			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Commander-Tag Enhancer"); ImGui::EndMenuBar(); }
+// ── Commander-Tag & Contrast Enhancer Block ─────────────────────
+			// The on/off toggle + 3 profile-select buttons removed here
+			// 2026-09-11 ("ein Zuhause pro Einstellung") were an exact
+			// duplicate of the Nexus-embedded panel's "Commander Tag
+			// Contrast" quick-select buttons (both ultimately call
+			// ActivateCommanderTagProfile()) - kept only what's genuinely
+			// unique to Studio: saving the current profile into the named
+			// slot bank. The unused "Load on startup" width calculation
+			// that used to sit alongside this (computed, never actually
+			// rendered as a checkbox) was dead code, removed with it.
+			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
+			int shiftedCount = 0;
+			for (int i = 0; i < 9; ++i) {
+				if (s_tagConflictStates[i].inConflict) shiftedCount++;
+			}
+			const char* curDefName = CurrentSettings.Type == BalanceType::Protan ? (isDe ? "Protan (Rot)" : "Protan (Red)")
+				: (CurrentSettings.Type == BalanceType::Deutan ? (isDe ? "Deutan (Gruen)" : "Deutan (Green)") : (isDe ? "Tritan (Blau)" : "Tritan (Blue)"));
+			if (enhancerActive)
+				ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "Com-Tag-Kontrast: %s - %d von 9 Farben verschoben" : "Com-Tag Contrast: %s - %d of 9 colors shifted", curDefName, shiftedCount);
+			else
+				ImGui::TextDisabled("%s", isDe ? "Com-Tag-Kontrast: Inaktiv (im Nexus-Panel einschalten)" : "Com-Tag Contrast: Inactive (enable in Nexus Panel)");
+
+			if (enhancerActive)
+			{
+				ImGui::Spacing();
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+
+				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+				if (ImGui::Button(isDe ? "Aktuelles Profil in Profilbank speichern##save_com_bank" : "Save current profile to profile bank##save_com_bank"))
+				{
+					EnsureDeferredInitialized();
+					int targetSlot = (CurrentSettings.Type == BalanceType::Protan) ? 0 :
+					                 (CurrentSettings.Type == BalanceType::Deutan) ? 1 : 2;
+					SaveSettingsToSlot(targetSlot);
+
+					CurrentSettings.Save(AddonDir);
+					saveNeeded = true;
+				}
+				ImGui::PopStyleColor(4);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe ? "Speichert das aktuell gesetzte Com-Tag Profil dauerhaft in der Profilspeicherbank"
+					                       : "Saves the currently configured Com-Tag profile to the profile bank");
+				}
+
+				ImGui::PopStyleVar();
+			}
+
+			// Always visible from here on (not gated behind Auto Com-Tag anymore).
+			// The Curve View further below used to be accidentally nested
+			// inside `if (enhancerActive)` too - a coupling bug from an
+			// earlier reorg, not intentional (Emi flagged this).
+			ImGui::Spacing();
+
+			// Brightness/Eye Comfort Gamma used to be duplicated here AND in
+			// Section 2 - two sliders bound to the same value, in two
+			// different places. Removed from here entirely 2026-09-09 (Emi's
+			// UI walkthrough); Section 2 "Eye Comfort" is its one home now,
+			// it has the fuller picture anyway (Retention/HDR/Apply-Target).
+			//
+			// The "Advanced" group that held Tolerance and the AQ/HRR
+			// reference field moved to the Sensor Graph window 2026-09-12,
+			// into the manual-control module. Decluttering this section in
+			// 2026-09-09 had collapsed those two into a fold nobody opens;
+			// the real problem was that they had been separated from the
+			// contrast logic they drive in the first place. They are editable
+			// in exactly one place now, next to the sliders they interact
+			// with - see SensorGraphHUD.cpp's "Manual Filter Controls".
+
+			// "Intensity Scale (Compensation)" used to live here as a second
+			// slider bound to the exact same CurrentSettings.Severity01 as the
+			// "Strength" slider above (just a different range/display format) -
+			// removed as a duplicate rather than relocated, per Emi.
+
+			if (enhancerActive)
+			{
+				ImGui::Spacing();
+				ImGui::TextDisabled("%s", isDe ? "Tag-Farben: Betroffen (wird verschoben) vs. Sicher (unangetastet):"
+				                               : "Tag Colors: Affected (shifted) vs. Safe (untouched):");
+				ImGui::Spacing();
+
+				const float circleRadius = 11.0f;
+				const float circleSpacing = 8.0f;
+				ImDrawList* dlTags = ImGui::GetWindowDrawList();
+
+				for (int i = 0; i < 9; ++i)
+				{
+					if (i > 0) ImGui::SameLine(0, circleSpacing);
+					ImVec2 p = ImGui::GetCursorScreenPos();
+					ImVec2 center(p.x + circleRadius, p.y + circleRadius);
+					ImU32 col = IM_COL32((int)(kGw2TagRefs[i].r * 255), (int)(kGw2TagRefs[i].g * 255), (int)(kGw2TagRefs[i].b * 255), 255);
+
+					bool conflict = s_tagConflictStates[i].inConflict;
+
+					dlTags->AddCircleFilled(center, circleRadius, col);
+
+					if (conflict) {
+						dlTags->AddCircle(center, circleRadius + 2.0f, IM_COL32(255, 80, 50, 240), 0, 2.0f);
+						dlTags->AddCircleFilled(ImVec2(center.x + 8.0f, center.y - 7.0f), 3.5f, IM_COL32(255, 60, 50, 255));
+					} else {
+						dlTags->AddCircle(center, circleRadius, IM_COL32(220, 230, 245, 140), 0, 1.2f);
+						dlTags->AddCircleFilled(ImVec2(center.x + 8.0f, center.y - 7.0f), 3.0f, IM_COL32(70, 220, 110, 220));
+					}
+
+					ImGui::Dummy(ImVec2(circleRadius * 2.0f + 2.0f, circleRadius * 2.0f + 2.0f));
+					if (ImGui::IsItemHovered())
+					{
+						const char* tagLabel = kGw2TagRefs[i].labelFunc(t);
+						if (conflict)
+							ImGui::SetTooltip(isDe ? "%s: Konflikt erkannt -> Auto-Verschiebung aktiv" 
+							                       : "%s: Conflict detected -> Auto-shift active", tagLabel);
+						else
+							ImGui::SetTooltip(isDe ? "%s: Kein Konflikt -> Farbe bleibt unberuehrt"
+							                       : "%s: No conflict -> Color remains untouched", tagLabel);
+					}
+				}
+			}
+
+			
+			}
+
+			ImGui::Spacing();
+
+			// Tile: Vision Assessment (Sehtest) & Profil - moved to sit
+			// directly above the profile-management tile (2026-09-13)
+			{
+			cba::ScopedChild tileProfile("Tile_Profile", ImVec2(0, 140), true, ImGuiWindowFlags_MenuBar);
 			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Farbprofil & Korrektur"); ImGui::EndMenuBar(); }
 
 auto applyDerivedProfile = [&](BalanceType aType, bool aMixed, float aSeverity) {
@@ -1014,270 +1227,13 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 			}
 
 			ImGui::Spacing();
-			
-			// Tile: Commander Tag
+
+			// Tile: Profile Management - save/load slots, auto-start and
+			// profile export/import all live here now, nowhere else
+			// (2026-09-13, Emi: "die ganze Profil-Logik auf dieses Tile").
 			{
-			cba::ScopedChild tileComTag("Tile_ComTag", ImVec2(0, 320), true, ImGuiWindowFlags_MenuBar);
-			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Commander-Tag Enhancer"); ImGui::EndMenuBar(); }
-// ── Commander-Tag & Contrast Enhancer Block ─────────────────────
-			// The on/off toggle + 3 profile-select buttons removed here
-			// 2026-09-11 ("ein Zuhause pro Einstellung") were an exact
-			// duplicate of the Nexus-embedded panel's "Commander Tag
-			// Contrast" quick-select buttons (both ultimately call
-			// ActivateCommanderTagProfile()) - kept only what's genuinely
-			// unique to Studio: saving the current profile into the named
-			// slot bank. The unused "Load on startup" width calculation
-			// that used to sit alongside this (computed, never actually
-			// rendered as a checkbox) was dead code, removed with it.
-			bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
-			int shiftedCount = 0;
-			for (int i = 0; i < 9; ++i) {
-				if (s_tagConflictStates[i].inConflict) shiftedCount++;
-			}
-			const char* curDefName = CurrentSettings.Type == BalanceType::Protan ? (isDe ? "Protan (Rot)" : "Protan (Red)")
-				: (CurrentSettings.Type == BalanceType::Deutan ? (isDe ? "Deutan (Gruen)" : "Deutan (Green)") : (isDe ? "Tritan (Blau)" : "Tritan (Blue)"));
-			if (enhancerActive)
-				ImGui::TextColored(Theme::kTextGoldLabel, isDe ? "Com-Tag-Kontrast: %s - %d von 9 Farben verschoben" : "Com-Tag Contrast: %s - %d of 9 colors shifted", curDefName, shiftedCount);
-			else
-				ImGui::TextDisabled("%s", isDe ? "Com-Tag-Kontrast: Inaktiv (im Nexus-Panel einschalten)" : "Com-Tag Contrast: Inactive (enable in Nexus Panel)");
-
-			if (enhancerActive)
-			{
-				ImGui::Spacing();
-				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-				if (ImGui::Button(isDe ? "Aktuelles Profil in Profilbank speichern##save_com_bank" : "Save current profile to profile bank##save_com_bank"))
-				{
-					EnsureDeferredInitialized();
-					int targetSlot = (CurrentSettings.Type == BalanceType::Protan) ? 0 :
-					                 (CurrentSettings.Type == BalanceType::Deutan) ? 1 : 2;
-					SaveSettingsToSlot(targetSlot);
-
-					CurrentSettings.Save(AddonDir);
-					saveNeeded = true;
-				}
-				ImGui::PopStyleColor(4);
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip(isDe ? "Speichert das aktuell gesetzte Com-Tag Profil dauerhaft in der Profilspeicherbank"
-					                       : "Saves the currently configured Com-Tag profile to the profile bank");
-				}
-
-				ImGui::PopStyleVar();
-			}
-
-			// Always visible from here on (not gated behind Auto Com-Tag anymore).
-			// The Curve View further below used to be accidentally nested
-			// inside `if (enhancerActive)` too - a coupling bug from an
-			// earlier reorg, not intentional (Emi flagged this).
-			ImGui::Spacing();
-
-			// Brightness/Eye Comfort Gamma used to be duplicated here AND in
-			// Section 2 - two sliders bound to the same value, in two
-			// different places. Removed from here entirely 2026-09-09 (Emi's
-			// UI walkthrough); Section 2 "Eye Comfort" is its one home now,
-			// it has the fuller picture anyway (Retention/HDR/Apply-Target).
-			//
-			// The "Advanced" group that held Tolerance and the AQ/HRR
-			// reference field moved to the Sensor Graph window 2026-09-12,
-			// into the manual-control module. Decluttering this section in
-			// 2026-09-09 had collapsed those two into a fold nobody opens;
-			// the real problem was that they had been separated from the
-			// contrast logic they drive in the first place. They are editable
-			// in exactly one place now, next to the sliders they interact
-			// with - see SensorGraphHUD.cpp's "Manual Filter Controls".
-
-			// "Intensity Scale (Compensation)" used to live here as a second
-			// slider bound to the exact same CurrentSettings.Severity01 as the
-			// "Strength" slider above (just a different range/display format) -
-			// removed as a duplicate rather than relocated, per Emi.
-
-			if (enhancerActive)
-			{
-				ImGui::Spacing();
-				ImGui::TextDisabled("%s", isDe ? "Tag-Farben: Betroffen (wird verschoben) vs. Sicher (unangetastet):"
-				                               : "Tag Colors: Affected (shifted) vs. Safe (untouched):");
-				ImGui::Spacing();
-
-				const float circleRadius = 11.0f;
-				const float circleSpacing = 8.0f;
-				ImDrawList* dlTags = ImGui::GetWindowDrawList();
-
-				for (int i = 0; i < 9; ++i)
-				{
-					if (i > 0) ImGui::SameLine(0, circleSpacing);
-					ImVec2 p = ImGui::GetCursorScreenPos();
-					ImVec2 center(p.x + circleRadius, p.y + circleRadius);
-					ImU32 col = IM_COL32((int)(kGw2TagRefs[i].r * 255), (int)(kGw2TagRefs[i].g * 255), (int)(kGw2TagRefs[i].b * 255), 255);
-
-					bool conflict = s_tagConflictStates[i].inConflict;
-
-					dlTags->AddCircleFilled(center, circleRadius, col);
-
-					if (conflict) {
-						dlTags->AddCircle(center, circleRadius + 2.0f, IM_COL32(255, 80, 50, 240), 0, 2.0f);
-						dlTags->AddCircleFilled(ImVec2(center.x + 8.0f, center.y - 7.0f), 3.5f, IM_COL32(255, 60, 50, 255));
-					} else {
-						dlTags->AddCircle(center, circleRadius, IM_COL32(220, 230, 245, 140), 0, 1.2f);
-						dlTags->AddCircleFilled(ImVec2(center.x + 8.0f, center.y - 7.0f), 3.0f, IM_COL32(70, 220, 110, 220));
-					}
-
-					ImGui::Dummy(ImVec2(circleRadius * 2.0f + 2.0f, circleRadius * 2.0f + 2.0f));
-					if (ImGui::IsItemHovered())
-					{
-						const char* tagLabel = kGw2TagRefs[i].labelFunc(t);
-						if (conflict)
-							ImGui::SetTooltip(isDe ? "%s: Konflikt erkannt -> Auto-Verschiebung aktiv" 
-							                       : "%s: Conflict detected -> Auto-shift active", tagLabel);
-						else
-							ImGui::SetTooltip(isDe ? "%s: Kein Konflikt -> Farbe bleibt unberuehrt"
-							                       : "%s: No conflict -> Color remains untouched", tagLabel);
-					}
-				}
-			}
-
-			
-			}
-			
-			ImGui::Spacing();
-			
-			// Tile: Curve View
-			{
-			cba::ScopedChild tileCurveView("Tile_CurveView", ImVec2(0, 200), true, ImGuiWindowFlags_MenuBar);
-			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Sensor Matrix Visualisierung"); ImGui::EndMenuBar(); }
-// Curve View is unconditional from here (see note above) - it shows
-			// the currently active Type/Severity/Mixed correction regardless of
-			// whether Auto Com-Tag happens to be on.
-			ImGui::Spacing();
-			ImGui::Spacing();
-			ImGui::TextDisabled("%s", isDe ? "Kurvenansicht (geladenes Preset / Farbprofil):"
-			                               : "Curve View (Loaded Preset / Color Profile):");
-				ImGui::Spacing();
-
-				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
-
-				auto mainGraphModeBtn = [&](const char* aName, int aModeVal, const char* aTip) {
-					bool active = (CurrentSettings.MainGraphMode == aModeVal);
-					if (active) {
-						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-					} else {
-						ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-						ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-						ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-					}
-					if (ImGui::Button(aName, ImVec2(0.0f, 22.0f))) {
-						CurrentSettings.MainGraphMode = aModeVal;
-						saveNeeded = true;
-					}
-					ImGui::PopStyleColor(4);
-					if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTip);
-				};
-
-				ImGui::TextDisabled("%s:", isDe ? "Ansicht" : "View");
-				ImGui::SameLine(0, 8.0f);
-				mainGraphModeBtn(isDe ? "Polygonal##main" : "Polygonal##main", 0, isDe ? "1. Spektrale Transferfunktion (Polygonal / PWL)\nStueckweise lineare Farbvektor-Projektion ueber die Hue-Winkel."
-				                                            : "1. Spectral Transfer Function (Piecewise-Linear / PWL)\nPiecewise linear color vector projection across hue angles.");
-				ImGui::SameLine();
-				mainGraphModeBtn(isDe ? "Harmonisch##main" : "Harmonic##main", 1, isDe ? "2. Harmonische Resonanz (Gauss / Sinusoidale LMS-Kurven)\nFliessende, stetige Wellenkurven nach dem LMS-Zapfenmodell des menschlichen Auges."
-				                                             : "2. Harmonic Spectral Response (Gaussian / Smooth Spline)\nFlowing, continuous wave curves based on the human LMS cone model.");
-				ImGui::SameLine();
-				mainGraphModeBtn(isDe ? "Strahlen##main" : "Rays##main", 2, isDe ? "3. Diskrete Strahlen-Zerlegung (Lineare Strahlen / Ray Scope)\nPhysikalische Strahlenzerlegung der Farbkanaele wie bei einem Gitterspektrometer."
-				                                           : "3. Linear Spectral Rays (Ray Scope / Dispersion Bars)\nPhysical ray-optics decomposition of channels like a diffraction spectrometer.");
-
-				ImGui::PopStyleVar(2);
-				ImGui::Spacing();
-
-				double mainCorrMat[3][3];
-				ActiveCorrectionMatrix(mainCorrMat);
-
-				float availW = ImGui::GetContentRegionAvail().x;
-				float graphW = (availW > 260.0f) ? availW : 260.0f;
-				float graphH = 112.0f;
-
-				ImVec2 cpMain = ImGui::GetCursorScreenPos();
-				DrawSpectralGraphPanel(ImGui::GetWindowDrawList(), cpMain, graphW, graphH, mainCorrMat, /*isDetached=*/false, CurrentSettings.UiOpacity, CurrentSettings.MainGraphMode);
-				ImGui::InvisibleButton("##curve_panel_main", ImVec2(graphW, graphH));
-
-				const float pad = 8.0f;
-				const float labelSpaceLeft = 28.0f;
-				const float badgeSpaceRight = 6.0f;
-				float plotX = cpMain.x + pad + labelSpaceLeft;
-				float plotW = graphW - pad * 2 - labelSpaceLeft - badgeSpaceRight;
-				float beamH = 10.0f;
-
-				ImVec2 beamPos = ImGui::GetCursorScreenPos();
-				beamPos.x = plotX;
-				ImDrawList* dlMain = ImGui::GetWindowDrawList();
-
-				constexpr int kBeamSteps = 48;
-				for (int b = 0; b < kBeamSteps; ++b) {
-					float u0 = (float)b / kBeamSteps;
-					float u1 = (float)(b + 1) / kBeamSteps;
-					float uMid = (u0 + u1) * 0.5f;
-					float h = uMid * 6.0f;
-					float x = 1.0f - std::abs(std::fmod(h, 2.0f) - 1.0f);
-					float r0 = 0.0f, g0 = 0.0f, b0 = 0.0f;
-					if (h < 1.0f)      { r0 = 1.0f; g0 = x;    b0 = 0.0f; }
-					else if (h < 2.0f) { r0 = x;    g0 = 1.0f; b0 = 0.0f; }
-					else if (h < 3.0f) { r0 = 0.0f; g0 = 1.0f; b0 = x;    }
-					else if (h < 4.0f) { r0 = 0.0f; g0 = x;    b0 = 1.0f; }
-					else if (h < 5.0f) { r0 = x;    g0 = 0.0f; b0 = 1.0f; }
-					else               { r0 = 1.0f; g0 = 0.0f; b0 = x;    }
-
-					double cr = std::clamp(mainCorrMat[0][0]*r0 + mainCorrMat[0][1]*g0 + mainCorrMat[0][2]*b0, 0.0, 1.0);
-					double cg = std::clamp(mainCorrMat[1][0]*r0 + mainCorrMat[1][1]*g0 + mainCorrMat[1][2]*b0, 0.0, 1.0);
-					double cb = std::clamp(mainCorrMat[2][0]*r0 + mainCorrMat[2][1]*g0 + mainCorrMat[2][2]*b0, 0.0, 1.0);
-
-					int beamAlpha = (int)(std::clamp(CurrentSettings.UiOpacity * 210.0f, 40.0f, 255.0f));
-					ImU32 col = IM_COL32((int)(cr*255), (int)(cg*255), (int)(cb*255), beamAlpha);
-					dlMain->AddRectFilled(ImVec2(plotX + u0 * plotW, beamPos.y), ImVec2(plotX + u1 * plotW, beamPos.y + beamH), col, (b == 0 || b == kBeamSteps - 1) ? 2.0f : 0.0f);
-				}
-				int borderAlpha = (int)(CurrentSettings.UiOpacity * 130.0f);
-				dlMain->AddRect(ImVec2(plotX, beamPos.y), ImVec2(plotX + plotW, beamPos.y + beamH), IM_COL32(80, 100, 140, borderAlpha), 2.0f);
-				ImGui::Dummy(ImVec2(graphW, beamH));
-
-				ImGui::Spacing();
-				ImGui::Separator();
-				ImGui::Spacing();
-
-				DrawContrastTestSwatches(isDe, mainCorrMat, saveNeeded);
-
-				ImGui::Spacing();
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
-				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-				if (ImGui::Button(isDe ? "Reset auf Neutral##det" : "Reset to Neutral##det", ImVec2(0.0f, 24.0f)))
-				{
-					EnsureDeferredInitialized();
-					CurrentSettings.CommanderTagMode = 0;
-					CurrentSettings.EnhancerTolerance = 0.12f;
-					UpdateTagEnhancerConflicts();
-					Recompute(/*aForce=*/true);
-					changed = true;
-					saveNeeded = true;
-				}
-				ImGui::PopStyleColor(4);
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::SetTooltip(isDe ? "Setzt Commander Tag Enhancer auf Inaktiv / Neutral zurueck" : "Resets Commander Tag Enhancer to Off / Neutral");
-				}
-
-			ImGui::Spacing();
-			ImGui::Separator();
-			ImGui::Spacing();
-			
-			}
-
+			cba::ScopedChild tileProfileMgr("Tile_ProfileManager", ImVec2(0, 360), true, ImGuiWindowFlags_MenuBar);
+			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, isDe ? "Profil-Verwaltung" : "Profile Management"); ImGui::EndMenuBar(); }
 			int usedCount = 0;
 			int firstEmptySlot = -1;
 			for (int i = 0; i < 3; ++i) {
@@ -1579,66 +1535,90 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 				// this section 2026-09-09 (Emi's UI walkthrough), it's a
 				// personal-notes field, not a core everyday control.
 
-				// Preset Exchange (Clipboard)
+				// Preset Exchange - a visible field instead of two blind clipboard
+				// buttons (2026-09-13, Emi: "ein Ein- und Ausgabefeld... damit
+				// man eine visuelle Unterstuetzung hat"). "Anwenden" reads
+				// whatever is actually in the field, not the OS clipboard
+				// directly, so pasting in a foreign profile is a two-step,
+				// see-before-you-apply action rather than a blind one.
 				ImGui::Spacing();
 				ImGui::Separator();
 				ImGui::Spacing();
-				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Profil-Austausch (Zwischenablage):" : "Profile Exchange (Clipboard):");
+				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Profil-Code (Kopieren / Einfuegen):" : "Profile Code (Copy / Paste):");
 				ImGui::Spacing();
 
-				if (ImGui::Button(isDe ? "Profil in Zwischenablage kopieren##exp" : "Copy profile to clipboard##exp", ImVec2(0.0f, 24.0f)))
+				static char s_profileCodeBuf[512] = "";
+				static bool s_profileCodeInit = false;
+				if (!s_profileCodeInit)
+				{
+					std::string cur = CurrentSettings.ExportPresetString();
+					std::snprintf(s_profileCodeBuf, sizeof(s_profileCodeBuf), "%s", cur.c_str());
+					s_profileCodeInit = true;
+				}
+
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 180.0f);
+				ImGui::InputText("##profile_code_field", s_profileCodeBuf, sizeof(s_profileCodeBuf));
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(isDe
+						? "Dein Farbprofil als Text. Zum Teilen kopieren, oder ein fremdes Profil hier einfuegen und anwenden."
+						: "Your color profile as text. Copy it to share, or paste someone else's profile here and apply it.");
+				}
+
+				ImGui::SameLine(0, 6.0f);
+				if (ImGui::Button(isDe ? "Kopieren##exp" : "Copy##exp", ImVec2(78.0f, 0.0f)))
 				{
 					std::string expStr = CurrentSettings.ExportPresetString();
+					std::snprintf(s_profileCodeBuf, sizeof(s_profileCodeBuf), "%s", expStr.c_str());
 					ImGui::SetClipboardText(expStr.c_str());
 					s_profileFeedbackTime = std::chrono::steady_clock::now();
 					s_profileFeedbackMsg = isDe ? "[OK] Profil in Zwischenablage kopiert!" : "[OK] Profile copied to clipboard!";
 				}
 				if (ImGui::IsItemHovered())
 				{
-					ImGui::SetTooltip(isDe 
-						? "Kopiert dein aktuelles Farbprofil als kompakten String zum Teilen in Discord oder Chat."
-						: "Copies your current color profile as a compact string to share in Discord or chat.");
+					ImGui::SetTooltip(isDe
+						? "Aktualisiert das Feld mit deinem aktuellen Profil und kopiert es in die Zwischenablage."
+						: "Refreshes the field with your current profile and copies it to the clipboard.");
 				}
 
-				ImGui::SameLine(0, 8.0f);
-
-				if (ImGui::Button(isDe ? "Aus Zwischenablage importieren##imp" : "Import from clipboard##imp", ImVec2(0.0f, 24.0f)))
+				ImGui::SameLine(0, 4.0f);
+				if (ImGui::Button(isDe ? "Anwenden##imp" : "Apply##imp", ImVec2(82.0f, 0.0f)))
 				{
-					const char* clip = ImGui::GetClipboardText();
-					if (clip && clip[0] != '\0')
+					std::string err;
+					if (CurrentSettings.ImportPresetString(s_profileCodeBuf, &err))
 					{
-						std::string err;
-						if (CurrentSettings.ImportPresetString(clip, &err))
-						{
-							EnsureDeferredInitialized();
-							CurrentSettings.Save(AddonDir);
-							Recompute(/*aForce=*/true);
-							s_profileFeedbackTime = std::chrono::steady_clock::now();
-							s_profileFeedbackMsg = isDe ? "[OK] Profil erfolgreich importiert!" : "[OK] Profile imported successfully!";
-							changed = true;
-							saveNeeded = true;
-						}
-						else
-						{
-							s_profileFeedbackTime = std::chrono::steady_clock::now();
-							s_profileFeedbackMsg = isDe ? "[FEHLER] Ungueltiger Profil-String!" : "[ERROR] Invalid profile string!";
-						}
+						EnsureDeferredInitialized();
+						CurrentSettings.Save(AddonDir);
+						Recompute(/*aForce=*/true);
+						s_profileFeedbackTime = std::chrono::steady_clock::now();
+						s_profileFeedbackMsg = isDe ? "[OK] Profil erfolgreich importiert!" : "[OK] Profile imported successfully!";
+						changed = true;
+						saveNeeded = true;
 					}
 					else
 					{
 						s_profileFeedbackTime = std::chrono::steady_clock::now();
-						s_profileFeedbackMsg = isDe ? "[FEHLER] Zwischenablage ist leer!" : "[ERROR] Clipboard is empty!";
+						s_profileFeedbackMsg = isDe ? "[FEHLER] Ungueltiger Profil-String!" : "[ERROR] Invalid profile string!";
 					}
 				}
 				if (ImGui::IsItemHovered())
 				{
-					ImGui::SetTooltip(isDe 
-						? "Liest ein vorher kopiertes CBA-Profil (CBA1:...) aus der Zwischenablage ein und wendet es an."
-						: "Reads a previously copied CBA profile (CBA1:...) from the clipboard and applies it.");
+					ImGui::SetTooltip(isDe
+						? "Wendet den Text im Feld links als CBA-Profil (CBA1:...) an."
+						: "Applies the text in the field on the left as a CBA profile (CBA1:...).");
 				}
 			}
-			
-	
+			}
+
+			ImGui::Spacing();
+
+			// Tile: Active Functions - mirrors the Sensor Graph HUD's own
+			// status chip row (2026-09-13, shared via RenderActiveModulesChips).
+			{
+			cba::ScopedChild tileActiveFns("Tile_ActiveFunctions", ImVec2(0, 70), true, ImGuiWindowFlags_MenuBar);
+			if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, isDe ? "Aktive Funktionen" : "Active Functions"); ImGui::EndMenuBar(); }
+			cba::RenderActiveModulesChips(isDe);
+			}
 	}
 
 		// ── Section 2: Eye Comfort (Helligkeit) ──────────────────────────────
