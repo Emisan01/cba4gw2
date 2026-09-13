@@ -389,25 +389,25 @@ namespace cba
 		ImGui::SameLine();
 		tabBtn(isDe ? "System" : "System", 3);
 		
-		ImGui::SameLine(ImGui::GetContentRegionAvail().x - 285.0f);
+		// Same two-color scheme and 140x32 size as tabBtn above, on purpose -
+		// this is a toggle, not a tab, but it sits in the same row and has
+		// to read as one family with it (2026-09-13, Emi: "genau so
+		// designen wie links").
+		ImGui::SameLine(ImGui::GetContentRegionAvail().x - 330.0f);
 		bool graphOpen = CurrentSettings.ShowGraphWindow;
 		if (graphOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+			ImGui::PushStyleColor(ImGuiCol_Button, Theme::kBtnStateActiveIdle);
+			ImGui::PushStyleColor(ImGuiCol_Text,   Theme::kTextCyanLicht);
 		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.16f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Text,   ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
 		}
-		if (ImGui::Button(isDe ? "Sensor##tabbar_graph" : "Sensor##tabbar_graph", ImVec2(95.0f, 32.0f))) {
+		if (ImGui::Button(isDe ? "Sensor Graph##tabbar_graph" : "Sensor Graph##tabbar_graph", ImVec2(140.0f, 32.0f))) {
 			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
 			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 			saveNeeded = true;
 		}
-		ImGui::PopStyleColor(4);
+		ImGui::PopStyleColor(2);
 		if (ImGui::IsItemHovered()) {
 			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
 		}
