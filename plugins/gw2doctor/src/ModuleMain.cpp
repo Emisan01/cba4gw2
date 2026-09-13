@@ -15,7 +15,12 @@ namespace
 	AddonDefinition AddonDef{};
 	AddonAPI* APIDefs = nullptr;
 
-	// Findings are gathered once when the panel is first opened, not every
+	// In-memory only for now, not persisted across restarts - gw2doctor has
+	// no settings file yet (2026-09-13 scope note: add one if this needs to
+	// remember open/closed across sessions).
+	bool s_showMainWindow = false;
+
+	// Findings are gathered once when the window is first opened, not every
 	// frame - module enumeration, a DXGI adapter query and walking the
 	// cache directories are cheap but pointless to repeat 60 times a
 	// second for a static report the user opens deliberately.
@@ -63,15 +68,12 @@ namespace
 		s_armedCache = -1;
 	}
 
-	// Nexus-embedded options panel (shown under Configure in Nexus's addon
-	// list) - the same home cba4gw2's own RenderEmbeddedOptions uses.
-	void AddonOptions()
+	// All of the actual diagnostics UI - lives in its own function so both
+	// the real window and (if ever useful again) an embedded panel can
+	// call the same thing. One implementation, not two copies to keep in
+	// sync.
+	void RenderDiagnosticsContent()
 	{
-		if (!ImGui::GetCurrentContext()) return;
-
-		ImGui::TextDisabled("GW2 Doctor: Startup & Stability Diagnostics");
-		ImGui::Spacing();
-
 		if (ImGui::Button("Rescan"))
 		{
 			s_scanned = false;
@@ -93,7 +95,7 @@ namespace
 		ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "Nexus API surface");
 		if (!APIDefs)
 		{
-			ImGui::TextDisabled("Not loaded (unexpected - this panel wouldn't be open otherwise).");
+			ImGui::TextDisabled("Not loaded (unexpected - this window wouldn't be open otherwise).");
 		}
 		else
 		{
@@ -351,12 +353,46 @@ namespace
 		}
 	}
 
+	// The real window - registered under ERenderType_Render (drawn every
+	// frame, gated by s_showMainWindow), not ERenderType_OptionsRender
+	// (which only ever draws inside Nexus's own Configure dropdown).
+	void RenderMainWindow()
+	{
+		if (!ImGui::GetCurrentContext()) return;
+		if (!s_showMainWindow) return;
+
+		ImGui::SetNextWindowSize(ImVec2(560.0f, 640.0f), ImGuiCond_FirstUseEver);
+		if (ImGui::Begin("gw2doctor - Startup & Stability Diagnostics", &s_showMainWindow))
+		{
+			RenderDiagnosticsContent();
+		}
+		ImGui::End();
+	}
+
+	// Nexus-embedded options panel (shown under Configure in Nexus's addon
+	// list) - deliberately thin: a summary line and a button to open the
+	// real window, same pattern as cba4gw2's RenderEmbeddedOptions ->
+	// RenderMainWindow.
+	void AddonOptions()
+	{
+		if (!ImGui::GetCurrentContext()) return;
+
+		ImGui::TextDisabled("GW2 Doctor: Startup & Stability Diagnostics");
+		ImGui::Spacing();
+
+		if (ImGui::Button("Open GW2 Doctor"))
+		{
+			s_showMainWindow = true;
+		}
+	}
+
 	void AddonLoad(AddonAPI* aApi)
 	{
 		APIDefs = aApi;
 		if (APIDefs && APIDefs->Renderer.Register)
 		{
 			APIDefs->Renderer.Register(ERenderType_OptionsRender, AddonOptions);
+			APIDefs->Renderer.Register(ERenderType_Render, RenderMainWindow);
 		}
 	}
 
@@ -365,8 +401,10 @@ namespace
 		if (APIDefs && APIDefs->Renderer.Deregister)
 		{
 			APIDefs->Renderer.Deregister(AddonOptions);
+			APIDefs->Renderer.Deregister(RenderMainWindow);
 		}
 		s_scanned = false;
+		s_showMainWindow = false;
 		APIDefs = nullptr;
 	}
 }
@@ -388,7 +426,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.APIVersion = NEXUS_API_VERSION;
 	AddonDef.Name = "gw2doctor";
 	AddonDef.Version.Major = 0;
-	AddonDef.Version.Minor = 2;
+	AddonDef.Version.Minor = 3;
 	AddonDef.Version.Build = 1;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "Emisan01";
