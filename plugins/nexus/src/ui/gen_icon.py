@@ -28,9 +28,9 @@ SIZE = 32
 SS = 12  # supersample factor for anti-aliasing
 BIG = SIZE * SS
 
-NORMAL_RGB = (222, 218, 176)
-HOVER_RGB = (252, 252, 246)
-INACTIVE_DIM = 0.66
+NORMAL_RGB = (198, 195, 158)
+HOVER_RGB = (228, 228, 218)
+INACTIVE_DIM = 0.80
 INACTIVE_RGB = tuple(int(c * INACTIVE_DIM) for c in NORMAL_RGB)
 INACTIVE_ALPHA = 235
 
@@ -38,9 +38,9 @@ INACTIVE_ALPHA = 235
 # mechanical bullseye) and its own brightness step (outer brightest, inner
 # darkest - the "tunnel" read). (cx, cy, radius, stroke, brightness).
 RINGS = [
-    (16.3 * SS, 15.3 * SS, 12.5 * SS, 3.6 * SS, 1.00),  # outer - footprint anchor, unchanged since round 4
-    (15.6 * SS, 16.6 * SS,  8.2 * SS, 3.0 * SS, 0.85),  # middle - pulled in, slightly thinner
-    (16.7 * SS, 16.8 * SS,  4.2 * SS, 3.0 * SS, 0.68),  # inner - pulled in, slightly thinner
+    (16.3 * SS, 15.3 * SS, 13.8 * SS, 3.6 * SS, 1.00),  # outer - slightly bigger, was reading short next to neighbors
+    (15.6 * SS, 16.6 * SS,  6.6 * SS, 3.0 * SS, 0.85),  # middle - split further from outer
+    (16.7 * SS, 16.8 * SS,  2.2 * SS, 3.0 * SS, 0.68),  # inner - split further from middle
 ]
 
 

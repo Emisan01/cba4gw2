@@ -1238,7 +1238,7 @@ namespace cba
 			// (found in the 2026-09-09 codebase review).
 			bool isDe = cba::IsGerman();
 			bool isActive = CurrentSettings.Enabled;
-			const char* texNormal = isActive ? "CBA_ICON" : "CBA_ICON_INACTIVE";
+			const char* texNormal = isActive ? CBA_ICON_NAME : CBA_ICON_INACTIVE_NAME;
 			// Hover always brightens to the same near-white tone regardless
 			// of Active/Inactive (2026-09-10, "volle Integration in die
 			// Nexus Icon Familie") - matches every native Nexus icon, which
@@ -1246,7 +1246,7 @@ namespace cba
 			// Nexus.h itself only supports 2 textures per icon (Normal/
 			// Hover), so the family-hover tone lives in texHover and CBA's
 			// own on/off distinction lives entirely in texNormal.
-			const char* texHover = "CBA_ICON_HOVER";
+			const char* texHover = CBA_ICON_HOVER_NAME;
 			// Just the keybind combo (2026-09-13, Emi: "das tooltip soll nur
 			// sein ALT+STRG+C") - the previous text also named "Filter Aus:
 			// Strg+Shift+O", a keybind that no longer exists (see
@@ -1731,9 +1731,9 @@ namespace cba
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{
-				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON", (void*)kCbaIconPng, sizeof(kCbaIconPng));
-				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON_INACTIVE", (void*)kCbaIconInactivePng, sizeof(kCbaIconInactivePng));
-				APIDefs->Textures.GetOrCreateFromMemory("CBA_ICON_HOVER", (void*)kCbaIconHoverPng, sizeof(kCbaIconHoverPng));
+				APIDefs->Textures.GetOrCreateFromMemory(CBA_ICON_NAME, (void*)kCbaIconPng, sizeof(kCbaIconPng));
+				APIDefs->Textures.GetOrCreateFromMemory(CBA_ICON_INACTIVE_NAME, (void*)kCbaIconInactivePng, sizeof(kCbaIconInactivePng));
+				APIDefs->Textures.GetOrCreateFromMemory(CBA_ICON_HOVER_NAME, (void*)kCbaIconHoverPng, sizeof(kCbaIconHoverPng));
 			}
 			if (CurrentSettings.ShowQuickAccessIcon)
 			{

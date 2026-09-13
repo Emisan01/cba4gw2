@@ -7,6 +7,7 @@
 #include "ui/Theme.h"
 #include "ui/L10n.h"
 #include "ui/ImGuiSafe.h"
+#include "ui/CbaIcon.h"
 
 #include "core/NexusEcosystem.h"
 #include <imgui.h>
@@ -537,7 +538,7 @@ namespace cba
 		if (APIDefs && APIDefs->Textures.Get)
 		{
 			bool isActive = CurrentSettings.Enabled;
-			tex = APIDefs->Textures.Get(isActive ? "CBA_ICON" : "CBA_ICON_INACTIVE");
+			tex = APIDefs->Textures.Get(isActive ? CBA_ICON_NAME : CBA_ICON_INACTIVE_NAME);
 		}
 		if (!tex || !tex->Resource) return;
 
@@ -635,7 +636,7 @@ namespace cba
 			// same near-white tone on hover no matter their own state.
 			if (isHovered)
 			{
-				Texture* hovTex = APIDefs ? APIDefs->Textures.Get("CBA_ICON_HOVER") : nullptr;
+				Texture* hovTex = APIDefs ? APIDefs->Textures.Get(CBA_ICON_HOVER_NAME) : nullptr;
 				if (hovTex && hovTex->Resource) drawSrv = hovTex->Resource;
 			}
 
