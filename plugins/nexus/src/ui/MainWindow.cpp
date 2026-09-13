@@ -1994,8 +1994,7 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 								: "Render-thread time for the colour pass's copy and draw.\nGPU time is not visible from here - this is what the pass costs the game on the CPU.");
 						}
 					}
-						ImGui::EndChild();
-	}
+				}
 				ImGui::EndChild();
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor(2);
