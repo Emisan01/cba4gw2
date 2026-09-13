@@ -55,6 +55,17 @@ namespace cba
 			}
 		}
 
+		if (ImGui::Checkbox(isDe ? "Icon##emb_icon_toggle" : "Icon##emb_icon_toggle", &CurrentSettings.ShowQuickAccessIcon))
+		{
+			UpdateQuickAccessIcon();
+			changed = true;
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip(isDe ? "Zeigt ein Icon in Nexus' Quick-Access-Leiste zum Oeffnen des Studios."
+			                       : "Shows an icon in Nexus's Quick Access bar to open the Studio.");
+		}
+
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
@@ -72,6 +83,44 @@ namespace cba
 		ImGui::Spacing();
 		ImGui::TextDisabled("%s", isDe ? "Tipp: Studio kann auch ueber einen Keybind geoeffnet werden (einstellbar unter Nexus > Keybinds)."
 		                               : "Tip: Studio can also be opened via a keybind (configurable under Nexus > Keybinds).");
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		// Same two reset actions as the Studio's own header row - one
+		// implementation each (ResetUiLayout / ResetFilterSettingsAndDisable),
+		// so this embedded panel and the Studio can never drift into two
+		// different ideas of what "reset" means (2026-09-13, Emi: "was noch
+		// fehlt ist die Reset-Logik fuer UI und Filter").
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+		if (ImGui::Button(isDe ? "UI zuruecksetzen##emb" : "Reset UI##emb", ImVec2(0.0f, 24.0f))) {
+			ResetUiLayout();
+			changed = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardposition links oben zurueck."
+			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left position.");
+		}
+
+		ImGui::SameLine(0, 5.0f);
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+		if (ImGui::Button(isDe ? "Filter zuruecksetzen##emb" : "Reset Filter##emb", ImVec2(0.0f, 24.0f))) {
+			ResetFilterSettingsAndDisable();
+			changed = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip(isDe ? "Setzt Farbprofil, Commander-Tag-Enhancer, Hybrid-Modus, Free Filter und Filter-Labor zurueck und schaltet den Filter aus."
+			                       : "Resets color profile, Commander Tag Enhancer, Hybrid Mode, Free Filter and Filter Lab, and turns the filter off.");
+		}
 
 		if (changed) {
 			Recompute(true);
@@ -290,8 +339,9 @@ namespace cba
 		// which called a Settings::FactoryReset() that both preserved some
 		// fields and reset others in ways nobody could fully account for.
 		// This one is exactly ResetFilterSettingsAndDisable() - same function
-		// the "CBA - Filter Off" keybind and the Sensor Graph HUD's Reset
-		// button use, so there's one reset behavior, not three.
+		// the Sensor Graph HUD's own Reset button uses (the "CBA - Filter
+		// Off" keybind that also used to call it is gone, per Emi - see
+		// ProcessKeybind), so there's one reset behavior, not several.
 		ImGui::SameLine(0, 5.0f);
 		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
@@ -481,6 +531,7 @@ namespace cba
 		if (!ImGui::GetCurrentContext()) return;
 		if (!CurrentSettings.ShowQuickAccessIcon) return;
 		if (!CurrentSettings.MovableToolbarIcon) return;
+		bool isDe = cba::IsGerman();
 
 		Texture* tex = nullptr;
 		if (APIDefs && APIDefs->Textures.Get)
@@ -540,14 +591,15 @@ namespace cba
 				s_wasDragged = false;
 			}
 
-			// Left Click: Toggle Main Window - respects the Advanced Mode
-			// gate the same way the keybind does (2026-09-09): can always
-			// close, can only open once unlocked.
-			if (isClickedLeft && (CurrentSettings.AdvancedModeUnlocked || CurrentSettings.ShowMainWindow))
+			// Left Click: opens the Main Window - open-only, not a toggle
+			// (2026-09-13, Emi: "nur dieser Hotkey ist nicht bidirektional,
+			// er oeffnet nur"). Every other control here stays bidirectional;
+			// this is the one meant to just bring the Studio to front.
+			if (isClickedLeft && CurrentSettings.AdvancedModeUnlocked)
 			{
 				EnsureDeferredInitialized();
-				CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
-				if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
+				CurrentSettings.ShowMainWindow = true;
+				s_focusMainWindow = true;
 			}
 
 			// Right Click: Master Filter Toggle - was a 4th inline copy of
@@ -557,6 +609,18 @@ namespace cba
 			if (isClickedRight)
 			{
 				ToggleMasterEnabled();
+			}
+
+			if (isHovered)
+			{
+				// Hardcoded to the requested-at-registration combo (2026-09-13,
+				// Emi: "das tooltip ueber dem icon soll nur sein ALT+STRG+C").
+				// Nexus lets the user rebind "CBA - Main Window" freely in its
+				// own Keybinds settings, so this can drift from whatever is
+				// actually bound - same tradeoff already accepted for the
+				// Studio's own tip text, just spelled out here instead of
+				// left generic because Emi asked for the literal combo.
+				ImGui::SetTooltip("%s", isDe ? "ALT+STRG+C" : "ALT+CTRL+C");
 			}
 
 			// Rendering the Icon Image

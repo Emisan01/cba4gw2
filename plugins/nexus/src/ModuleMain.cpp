@@ -1201,11 +1201,16 @@ namespace cba
 		// toggle), not as separate global keybinds.
 		if (strcmp(aIdentifier, "CBA - Main Window") == 0)
 		{
-			// Advanced Mode gate (2026-09-09) - only blocks opening.
-			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowMainWindow) return;
+			// Open-only, not a toggle (2026-09-13, Emi: "nur dieser Hotkey
+			// ist nicht bidirektional, er oeffnet nur") - a global hotkey
+			// that can also close the window risks an accidental press
+			// dismissing it; closing stays the job of the window's own
+			// controls. Advanced Mode gate (2026-09-09) still blocks it
+			// entirely until unlocked.
+			if (!CurrentSettings.AdvancedModeUnlocked) return;
 			EnsureDeferredInitialized();
-			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
-			if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
+			CurrentSettings.ShowMainWindow = true;
+			s_focusMainWindow = true;
 			CurrentSettings.Save(AddonDir);
 		}
 	}
@@ -1242,11 +1247,13 @@ namespace cba
 			// Hover), so the family-hover tone lives in texHover and CBA's
 			// own on/off distinction lives entirely in texNormal.
 			const char* texHover = "CBA_ICON_HOVER";
-			const char* tooltip   = isDe
-				? (isActive ? "cba4gw2 [Aktiv] (Strg+Shift+C / Filter Aus: Strg+Shift+O)"
-				            : "cba4gw2 [Inaktiv] (Strg+Shift+C / Filter Ein: Strg+Shift+C)")
-				: (isActive ? "cba4gw2 [Active] (Ctrl+Shift+C / Filter Off: Ctrl+Shift+O)"
-				            : "cba4gw2 [Inactive] (Ctrl+Shift+C / Filter On: Ctrl+Shift+C)");
+			// Just the keybind combo (2026-09-13, Emi: "das tooltip soll nur
+			// sein ALT+STRG+C") - the previous text also named "Filter Aus:
+			// Strg+Shift+O", a keybind that no longer exists (see
+			// ProcessKeybind's history). One reset button per action already
+			// exists elsewhere; this tooltip doesn't need to re-document it,
+			// and inventing a second phrasing here is how it goes stale next.
+			const char* tooltip = isDe ? "ALT+STRG+C" : "ALT+CTRL+C";
 
 			if (APIDefs->QuickAccess.Add)
 			{
