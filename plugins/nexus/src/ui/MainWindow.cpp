@@ -363,7 +363,7 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kBtnStateActivePress);
 		ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextCyanLicht);
-		if (ImGui::Button(isDe ? "CBA Studio Oeffnen" : "Open CBA Studio", ImVec2(ImGui::GetContentRegionAvail().x, 32.0f)))
+		if (ImGui::Button(isDe ? "CBA Studio Oeffnen" : "Open CBA Studio", ImVec2(180.0f, 28.0f)))
 		{
 			CurrentSettings.ShowMainWindow = true;
 		}
@@ -777,8 +777,8 @@ namespace cba
 		}
 
 		ImGui::EndGroup();
-		
-		ImGui::PopStyleColor(6);
+
+		ImGui::PopStyleColor(3);
 		ImGui::PopStyleVar(2);
 		
 		ImGui::Spacing();
@@ -2166,7 +2166,7 @@ auto pairOption = [&](const char* aId, int aTagA, int aTagB, const char* aLabel)
 				s_showC64Credits.store(true);
 				StartC64Audio();
 			}
-			ImGui::PopStyleColor(6);
+			ImGui::PopStyleColor(3);
 			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.CreditsTooltip);
 			ImGui::Spacing();
 		}

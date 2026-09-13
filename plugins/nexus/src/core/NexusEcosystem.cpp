@@ -57,17 +57,9 @@ namespace cba
 		{
 			if (mShuttingDown.load())
 			{
-				if (mIsArcDPSLoaded.load())
-				{
-					// Wait ~200ms to ensure ArcDPS has closed its handles and written its INI files
-					std::this_thread::sleep_for(std::chrono::milliseconds(200));
-					
-					if (::CurrentSettings.ShowMiniHUD)
-						InjectArcDPSIni();
-						
-					if (::CurrentSettings.SyncArcDpsTheme)
-						SyncArcDpsColors();
-				}
+				// ArcDPS ini sync disabled for now: untested, uses relative paths
+				// instead of AddonDir, and was written in the same session as the
+				// crash this addon just had. Revisit once the base is stable again.
 				break; // End the worker thread
 			}
 
