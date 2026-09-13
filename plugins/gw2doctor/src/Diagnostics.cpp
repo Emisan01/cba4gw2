@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cstdint>
 #include <array>
 #include <fstream>
 #include <sstream>
@@ -137,6 +138,56 @@ namespace gw2doc
 			ULONG MaxIdleState = 0;
 			ULONG CurrentIdleState = 0;
 		};
+
+		// MumbleLink's layout - the public de facto standard every GW2
+		// companion tool reads (originally the Mumble voice-chat plugin
+		// struct; GW2 fills the trailing "context" bytes with its own
+		// GW2Context below). Not declared anywhere we can #include - this
+		// is the well-known public shape, not a guess.
+		#pragma pack(push, 1)
+		struct MumbleLinkedMem
+		{
+			UINT32 uiVersion;
+			DWORD uiTick;
+			float fAvatarPosition[3];
+			float fAvatarFront[3];
+			float fAvatarTop[3];
+			wchar_t name[256];
+			float fCameraPosition[3];
+			float fCameraFront[3];
+			float fCameraTop[3];
+			wchar_t identity[256];
+			UINT32 context_len;
+			unsigned char context[256];
+			wchar_t description[2048];
+		};
+
+		// GW2's own extension living inside MumbleLinkedMem::context.
+		// uiState bit values are ArenaNet's own documented Mumble Link
+		// flags (api.guildwars2.com wiki).
+		struct Gw2MumbleContext
+		{
+			unsigned char serverAddress[28];
+			uint32_t mapId;
+			uint32_t mapType;
+			uint32_t shardId;
+			uint32_t instance;
+			uint32_t buildId;
+			uint32_t uiState;
+			uint16_t compassWidth;
+			uint16_t compassHeight;
+			float compassRotation;
+			float playerX, playerY;
+			float mapCenterX, mapCenterY;
+			float mapScale;
+			uint32_t processId;
+			uint8_t mountIndex;
+		};
+		#pragma pack(pop)
+
+		constexpr uint32_t kGw2UiState_IsMapOpen = 0x01;
+		constexpr uint32_t kGw2UiState_GameHasFocus = 0x08;
+		constexpr uint32_t kGw2UiState_IsInCombat = 0x40;
 
 		const ExpensiveSetting kExpensiveSettings[] = {
 			{ "reflections", "all", "Renders the whole scene a second time for water-plane reflections - one of the single most expensive settings in the game." },
@@ -353,6 +404,43 @@ namespace gw2doc
 		info.memoryLoadPercent = status.dwMemoryLoad;
 		info.pressureStatus = MemoryPressureStatus(info.memoryLoadPercent);
 
+		return info;
+	}
+
+	MumbleLinkInfo GetMumbleLinkInfo()
+	{
+		MumbleLinkInfo info{};
+
+		// Opened by name, not created - GW2 itself owns and writes this
+		// section; we only ever read. FILE_MAP_READ is the narrowest
+		// access that works, on purpose.
+		HANDLE mapping = OpenFileMappingW(FILE_MAP_READ, FALSE, L"MumbleLink");
+		if (!mapping) return info;
+		info.available = true;
+
+		void* view = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, sizeof(MumbleLinkedMem));
+		if (view)
+		{
+			const auto* mem = static_cast<const MumbleLinkedMem*>(view);
+			if (mem->uiVersion != 0)
+			{
+				info.populated = true;
+				if (mem->context_len >= sizeof(Gw2MumbleContext))
+				{
+					const auto* ctx = reinterpret_cast<const Gw2MumbleContext*>(mem->context);
+					info.buildId = ctx->buildId;
+					info.mapId = ctx->mapId;
+					info.mapType = ctx->mapType;
+					info.processId = ctx->processId;
+					info.gameHasFocus = (ctx->uiState & kGw2UiState_GameHasFocus) != 0;
+					info.isInCombat = (ctx->uiState & kGw2UiState_IsInCombat) != 0;
+					info.isMapOpen = (ctx->uiState & kGw2UiState_IsMapOpen) != 0;
+				}
+			}
+			UnmapViewOfFile(view);
+		}
+
+		CloseHandle(mapping);
 		return info;
 	}
 

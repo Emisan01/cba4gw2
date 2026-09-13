@@ -30,6 +30,7 @@ namespace
 	gw2doc::CpuInfo s_cpu;
 	gw2doc::MemoryInfo s_memory;
 	gw2doc::DiskInfo s_disk;
+	gw2doc::MumbleLinkInfo s_mumble;
 	gw2doc::GfxSettingsInfo s_gfx;
 	std::vector<gw2doc::CacheInfo> s_caches;
 	std::vector<gw2doc::AddonFolderFinding> s_addonFolder;
@@ -61,6 +62,7 @@ namespace
 		s_cpu = gw2doc::GetCpuInfo();
 		s_memory = gw2doc::GetMemoryInfo();
 		s_disk = gw2doc::GetGw2DriveInfo();
+		s_mumble = gw2doc::GetMumbleLinkInfo();
 		s_gfx = gw2doc::GetGfxSettingsInfo();
 		s_caches = gw2doc::GetClearableCaches();
 		s_addonFolder = gw2doc::ScanAddonsFolder();
@@ -80,6 +82,29 @@ namespace
 			s_hasClearResult = false;
 		}
 		RunScanIfNeeded();
+
+		ImGui::Spacing();
+
+		// Snapshot context via GW2's own MumbleLink shared memory (the same
+		// public interface BlishHUD/TacO/etc. read - GW2 writes it, we only
+		// open and read, no hooking or process-memory access). buildId is
+		// the most useful single field this module has for correlating a
+		// startup crash with a specific GW2 patch.
+		if (!s_mumble.available)
+		{
+			ImGui::TextDisabled("MumbleLink not available (unusual - most GW2 sessions have this).");
+		}
+		else if (!s_mumble.populated)
+		{
+			ImGui::TextDisabled("MumbleLink present but not yet written to by GW2 (very early in loading).");
+		}
+		else
+		{
+			ImGui::TextDisabled("Snapshot: GW2 build %u, map %u, %s, %s",
+				s_mumble.buildId, s_mumble.mapId,
+				s_mumble.gameHasFocus ? "focused" : "unfocused",
+				s_mumble.isInCombat ? "in combat" : "out of combat");
+		}
 
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -426,7 +451,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.APIVersion = NEXUS_API_VERSION;
 	AddonDef.Name = "gw2doctor";
 	AddonDef.Version.Major = 0;
-	AddonDef.Version.Minor = 3;
+	AddonDef.Version.Minor = 4;
 	AddonDef.Version.Build = 1;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "Emisan01";

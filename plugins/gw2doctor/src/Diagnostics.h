@@ -128,12 +128,36 @@ namespace gw2doc
 		unsigned long long sizeBytes = 0;
 	};
 
+	// GW2's own MumbleLink data - a named shared-memory block the game
+	// itself writes every frame, originally built for the Mumble voice
+	// chat app's positional audio, now a de facto public interface every
+	// mainstream GW2 companion tool (BlishHUD, TacO, ...) reads the same
+	// way. Reading it is opening a mailbox GW2 chose to publish, not
+	// touching its private process memory - no hooking, no injection (see
+	// CLAUDE.md's account-safety rules, which this respects). Most useful
+	// for us: buildId lets a startup-crash report be correlated against a
+	// specific GW2 patch (see the "Nexus/ArcDPS out of date after a patch"
+	// scenario), and map/focus/combat give a snapshot some context.
+	struct MumbleLinkInfo
+	{
+		bool available = false;  // the shared memory section itself exists
+		bool populated = false;  // and GW2 has actually written a frame into it
+		unsigned int buildId = 0;
+		unsigned int mapId = 0;
+		unsigned int mapType = 0;
+		unsigned int processId = 0;
+		bool gameHasFocus = false;
+		bool isInCombat = false;
+		bool isMapOpen = false;
+	};
+
 	std::vector<ModuleFinding> ScanLoadedModules();
 	GpuInfo GetPrimaryGpuInfo();
 	DiskInfo GetGw2DriveInfo();
 	GfxSettingsInfo GetGfxSettingsInfo();
 	CpuInfo GetCpuInfo();
 	MemoryInfo GetMemoryInfo();
+	MumbleLinkInfo GetMumbleLinkInfo();
 
 	// Looks in <GW2 install dir>/addons/ (derived from this process's own
 	// executable path, not assumed) for the two file-level problems noted
