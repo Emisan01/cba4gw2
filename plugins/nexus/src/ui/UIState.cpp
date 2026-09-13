@@ -10,12 +10,10 @@ namespace cba
 	std::atomic<bool> s_resetMainWindowPos{false};
 	std::atomic<bool> s_resetGraphWindowPos{false};
 	std::atomic<bool> s_resetLabWindowPos{false};
-	std::atomic<bool> s_resetVisionLabWindowPos{false};
 
 	std::atomic<bool> s_focusMainWindow{false};
 	std::atomic<bool> s_focusGraphWindow{false};
 	std::atomic<bool> s_focusLabWindow{false};
-	std::atomic<bool> s_focusVisionLabWindow{false};
 
 	std::atomic<bool> s_showC64Credits{false};
 	std::atomic<bool> s_deferredInitDone{false};
@@ -35,8 +33,6 @@ namespace cba
 	double g_perfCurvesMs = 0.0;
 	double g_perfShaderPassMs = 0.0;
 	double g_perfFilterLabMs = 0.0;
-	double g_perfVisionLabMs = 0.0;
-	double g_perfSafeStartMs = 0.0;
 	double g_perfTotalImGuiMs = 0.0;
 
 	// ── Live Status Dot & Filter State Indicator ─────────────────────────────

@@ -95,7 +95,6 @@ namespace cba
 		bool MiniHudBorders = true;
 		bool ShowGraphWindow = false;
 		bool ShowLabWindow = false;
-		bool ShowVisionLabWindow = false;
 		bool ShowQuickAccessIcon = true;
 		bool MovableToolbarIcon = true;
 		float ToolbarIconPosX = 405.0f;

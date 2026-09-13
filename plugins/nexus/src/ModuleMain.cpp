@@ -632,7 +632,6 @@ namespace cba
 		s_resetMainWindowPos = true;
 		s_resetGraphWindowPos = true;
 		s_resetLabWindowPos = true;
-		s_resetVisionLabWindowPos = true;
 		CurrentSettings.ToolbarIconPosX = 405.0f;
 		CurrentSettings.ToolbarIconPosY = 8.0f;
 	}
@@ -1324,8 +1323,6 @@ namespace cba
 		CBA_GUARD_RENDER_CONTEXT();
 		auto tStartTotal = std::chrono::high_resolution_clock::now();
 
-		g_perfSafeStartMs = 0.0;
-
 		// ── Deferred Warmup Gate ────────────────────────────────────────────────
 		// Wait 30 frames for stable GW2/D3D11/ArcDPS/NVIDIA initialization before DWM
 		// Prevents crashes during game startup (per AGENTS.md rule)
@@ -1598,19 +1595,6 @@ namespace cba
 			g_perfFilterLabMs = 0.0;
 		}
 
-		// ── Window 4: Vision Lab Floating Window ─────────────────────────────
-		if (CurrentSettings.ShowVisionLabWindow && ImGui::GetCurrentContext())
-		{
-			auto t0 = std::chrono::high_resolution_clock::now();
-			// RenderVisionLabWindow();
-			auto t1 = std::chrono::high_resolution_clock::now();
-			g_perfVisionLabMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
-		}
-		else
-		{
-			g_perfVisionLabMs = 0.0;
-		}
-
 		cba::NexusEcosystem::Get().Update();
 		cba::MiniHUD::Get().Render();
 
@@ -1704,7 +1688,6 @@ namespace cba
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
-				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Vision Lab###CBA_VisionLabWindow", &CurrentSettings.ShowVisionLabWindow);
 			}
 
 			// Renderers
@@ -1810,7 +1793,6 @@ namespace cba
 			CurrentSettings.ShowMainWindow = false;
 			CurrentSettings.ShowGraphWindow = false;
 			CurrentSettings.ShowLabWindow = false;
-			CurrentSettings.ShowVisionLabWindow = false;
 			CurrentSettings.Save(AddonDir);
 
 			s_showC64Credits.store(false);
@@ -1846,7 +1828,6 @@ namespace cba
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Sensor Graph###CBA_GraphWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow");
-					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Vision Lab###CBA_VisionLabWindow");
 				}
 				if (APIDefs->WndProc.Deregister)
 					APIDefs->WndProc.Deregister(AddonWndProc);

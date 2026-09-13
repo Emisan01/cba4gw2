@@ -17,12 +17,10 @@ namespace cba
 	extern std::atomic<bool> s_resetMainWindowPos;
 	extern std::atomic<bool> s_resetGraphWindowPos;
 	extern std::atomic<bool> s_resetLabWindowPos;
-	extern std::atomic<bool> s_resetVisionLabWindowPos;
 
 	extern std::atomic<bool> s_focusMainWindow;
 	extern std::atomic<bool> s_focusGraphWindow;
 	extern std::atomic<bool> s_focusLabWindow;
-	extern std::atomic<bool> s_focusVisionLabWindow;
 
 	extern std::atomic<bool> s_showC64Credits;
 	extern std::atomic<bool> s_deferredInitDone;
@@ -208,7 +206,5 @@ namespace cba
 	// the game's render thread", not as the full cost.
 	extern double g_perfShaderPassMs;
 	extern double g_perfFilterLabMs;
-	extern double g_perfVisionLabMs;
-	extern double g_perfSafeStartMs;
 	extern double g_perfTotalImGuiMs;
 }

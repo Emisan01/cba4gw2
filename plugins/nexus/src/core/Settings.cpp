@@ -135,7 +135,6 @@ namespace cba
 			else if (key == "MiniHudBorders")   s.MiniHudBorders = (value == "1");
 			else if (key == "ShowGraphWindow")  s.ShowGraphWindow = (value == "1");
 			else if (key == "ShowLabWindow")    s.ShowLabWindow = (value == "1");
-			else if (key == "ShowVisionLab")    s.ShowVisionLabWindow = (value == "1");
 			else if (key == "ShowQuickAccess")   s.ShowQuickAccessIcon = (value == "1");
 			else if (key == "MovableToolbarIcon") s.MovableToolbarIcon = (value == "1");
 			else if (key == "ToolbarIconPosX")     s.ToolbarIconPosX = safeStof(value, 405.0f);
@@ -249,7 +248,6 @@ namespace cba
 		s.ShowMiniHUD = false;
 		s.ShowGraphWindow = false;
 		s.ShowLabWindow = false;
-		s.ShowVisionLabWindow = false;
 
 		// The filter ALWAYS starts disarmed, every launch, regardless of what
 		// was saved - this used to be conditional on a "LoadOnStartup" opt-in
@@ -314,7 +312,6 @@ namespace cba
 		file << "MiniHudBorders=" << (MiniHudBorders ? "1" : "0") << "\n";
 		file << "ShowGraphWindow=" << (ShowGraphWindow ? "1" : "0") << "\n";
 		file << "ShowLabWindow=" << (ShowLabWindow ? "1" : "0") << "\n";
-		file << "ShowVisionLab=" << (ShowVisionLabWindow ? "1" : "0") << "\n";
 		file << "ShowQuickAccess=" << (ShowQuickAccessIcon ? "1" : "0") << "\n";
 		file << "MovableToolbarIcon=" << (MovableToolbarIcon ? "1" : "0") << "\n";
 		file << "ToolbarIconPosX=" << ToolbarIconPosX << "\n";

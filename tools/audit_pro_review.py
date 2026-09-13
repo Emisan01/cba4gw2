@@ -335,7 +335,6 @@ neutral_start = [
     ("main window closed", r"s\.ShowMainWindow\s*=\s*false\s*;"),
     ("graph window closed", r"s\.ShowGraphWindow\s*=\s*false\s*;"),
     ("lab window closed", r"s\.ShowLabWindow\s*=\s*false\s*;"),
-    ("vision lab closed", r"s\.ShowVisionLabWindow\s*=\s*false\s*;"),
     ("filter disarmed", r"s\.Enabled\s*=\s*false\s*;"),
 ]
 _anchor = re.search(neutral_start[0][1], settings_src)

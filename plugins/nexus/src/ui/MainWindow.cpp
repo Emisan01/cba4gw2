@@ -281,8 +281,8 @@ namespace cba
 		}
 		ImGui::PopStyleColor(4);
 		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor, Vision-Lab) auf Standardposition links oben zurueck."
-			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab, Vision Lab) to default top-left position.");
+			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardposition links oben zurueck."
+			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left position.");
 		}
 
 		// The other of the two reset functions (window-layout reset above,
