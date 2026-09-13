@@ -1190,36 +1190,16 @@ namespace cba
 
 	void ProcessKeybind(const char* aIdentifier, bool aIsRelease)
 	{
-		// Hold-to-compare is the one bind that cares about the release edge -
-		// handled before the early-return below, which every other (toggle-
-		// style) bind relies on. See PRODUCT_CONCEPT.md 3.2: a toggle costs
-		// two presses and the moment; holding answers "is this doing
-		// anything?" against the live game in half a second.
-		//
-		// Restored 2026-09-13: this branch, "Filter Off" and "Sensor Graph"
-		// below were silently dropped by the f0392591 TAC refactor - their
-		// RegisterWithString calls disappeared from AddonLoad while the
-		// Deregister calls and s_compareHoldActive's AddonUnload safety-net
-		// stayed behind, so "hold to compare" and the other two keybinds
-		// had no way to ever fire again.
-		if (strcmp(aIdentifier, "CBA - Compare (hold)") == 0 || strcmp(aIdentifier, "KB_CBA_COMPARE") == 0)
-		{
-			s_compareHoldActive.store(!aIsRelease);
-			Recompute(/*aForce=*/true);
-			return;
-		}
-
 		if (aIsRelease) return;
 
-		if (strcmp(aIdentifier, "CBA - Filter Off") == 0 || strcmp(aIdentifier, "CBA - Not-Aus") == 0 || strcmp(aIdentifier, "KB_CBA_PANIC") == 0)
-		{
-			// Full reset (base correction + Commander Tag Enhancer + Hybrid Mode +
-			// Free Filter + Filter Lab), not just Enabled=false - this used to only
-			// touch Enabled, so Commander Tag Enhancer's tag-highlight overlay kept
-			// running after "Filter Off", which looked like the filter was still on.
-			ResetFilterSettingsAndDisable();
-		}
-		else if (strcmp(aIdentifier, "CBA - Main Window") == 0)
+		// One keybind, one job (2026-09-13, Emi: "ein Keybind fuer das
+		// Hauptfenster reicht"). Filter-Off/Not-Aus, Sensor-Graph and
+		// Compare-hold briefly came back here after being traced to a
+		// dropped RegisterWithString call in the f0392591 TAC refactor, but
+		// Emi confirmed that was a restoration nobody asked for - those
+		// actions live in the UI now (the on/off button, the tab-bar Sensor
+		// toggle), not as separate global keybinds.
+		if (strcmp(aIdentifier, "CBA - Main Window") == 0)
 		{
 			// Advanced Mode gate (2026-09-09) - only blocks opening.
 			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowMainWindow) return;
@@ -1227,13 +1207,6 @@ namespace cba
 			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
 			if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 			CurrentSettings.Save(AddonDir);
-		}
-		else if (strcmp(aIdentifier, "CBA - Sensor Graph") == 0 || strcmp(aIdentifier, "KB_CBA_GRAPH") == 0)
-		{
-			if (!CurrentSettings.AdvancedModeUnlocked && !CurrentSettings.ShowGraphWindow) return;
-			EnsureDeferredInitialized();
-			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
-			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 		}
 	}
 
@@ -1740,7 +1713,14 @@ namespace cba
 			// QuickAccess toolbar icon & window toggle keybinds
 			if (APIDefs->InputBinds.RegisterWithString)
 			{
-				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+O");
+				// CTRL+O was tried as the default here, but Nexus reserves that
+				// combo for its own main window - Nexus silently falls back to
+				// something else instead of ever handing it to us (Emi found
+				// this live: Nexus's own Keybinds panel showed ALT+CTRL+C while
+				// our own tooltip below kept claiming Ctrl+O). Rebindable in
+				// Nexus's Keybinds settings either way - this is just the
+				// starting point for a user who has never touched it.
+				APIDefs->InputBinds.RegisterWithString("CBA - Main Window", ProcessKeybind, "CTRL+SHIFT+C");
 			}
 			if (APIDefs->Textures.GetOrCreateFromMemory)
 			{

@@ -324,7 +324,7 @@ namespace cba
 		// Tile: Curve View (moved to the top 2026-09-13, Emi: the graph
 		// is what people look at first)
 		{
-		cba::ScopedChild tileCurveView("Tile_CurveView", ImVec2(0, 260), true, ImGuiWindowFlags_MenuBar);
+		cba::ScopedChild tileCurveView("Tile_CurveView", ImVec2(0, 520), true, ImGuiWindowFlags_MenuBar);
 		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Sensor Matrix Visualisierung"); ImGui::EndMenuBar(); }
 // Curve View is unconditional from here (see note above) - it shows
 		// the currently active Type/Severity/Mixed correction regardless of
@@ -459,7 +459,12 @@ namespace cba
 
 		// Tile: Commander Tag
 		{
-		cba::ScopedChild tileComTag("Tile_ComTag", ImVec2(0, 320), true, ImGuiWindowFlags_MenuBar);
+		// Sized off the same flag it's about to render (2026-09-13, Emi:
+		// "leer und riesig") - a fixed 320px was mostly empty air whenever
+		// the enhancer was off, since only the "inactive" one-liner below
+		// renders in that state.
+		bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
+		cba::ScopedChild tileComTag("Tile_ComTag", ImVec2(0, enhancerActive ? 320.0f : 70.0f), true, ImGuiWindowFlags_MenuBar);
 		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Commander-Tag Enhancer"); ImGui::EndMenuBar(); }
 // ── Commander-Tag & Contrast Enhancer Block ─────────────────────
 		// The on/off toggle + 3 profile-select buttons removed here
@@ -471,7 +476,6 @@ namespace cba
 		// slot bank. The unused "Load on startup" width calculation
 		// that used to sit alongside this (computed, never actually
 		// rendered as a checkbox) was dead code, removed with it.
-		bool enhancerActive = (CurrentSettings.CommanderTagMode != 0);
 		int shiftedCount = 0;
 		for (int i = 0; i < 9; ++i) {
 			if (s_tagConflictStates[i].inConflict) shiftedCount++;

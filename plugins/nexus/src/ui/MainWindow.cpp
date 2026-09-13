@@ -70,8 +70,8 @@ namespace cba
 		ImGui::PopStyleColor(4);
 
 		ImGui::Spacing();
-		ImGui::TextDisabled("%s", isDe ? "Tipp: Studio kann auch ueber Keybind (Strg+O) geoeffnet werden." 
-		                               : "Tip: Studio can also be opened via keybind (Ctrl+O).");
+		ImGui::TextDisabled("%s", isDe ? "Tipp: Studio kann auch ueber einen Keybind geoeffnet werden (einstellbar unter Nexus > Keybinds)."
+		                               : "Tip: Studio can also be opened via a keybind (configurable under Nexus > Keybinds).");
 
 		if (changed) {
 			Recompute(true);
