@@ -60,15 +60,30 @@ namespace Theme
 		//   Gold:  min.akzent #C09600 / text-label #FAD840 (unchanged - was already this value)
 		//   Grau:  bg #111 / tile #1E1E1E / border #2C2C2C / inaktiv #6B6B6B / sekundaer #AAA / primaer #DDD
 		//   Signal: ready/green, warn/gold, off/grey - dots and icons only, never a fill.
+		// 2026-09-14: Emi on the live UI - "dieser tuerkis ton ist zu
+		// aufdringlich wir sollten mehr mit blauabstufungen arbeiten oder
+		// wenigstens die farben ins pastell ziehen." The saturated teal
+		// (btnStateActive*, ex-#006B68/#009985/#003D3B) drove the master
+		// ON/OFF button, active tabs and most highlight chrome; textCyanLicht
+		// (ex-#5EEAE4, near-neon) rode along on every label using it. Both
+		// moved off the Cyan stop entirely onto the same Blau family as
+		// textBlauPeak/hudEyeComfort (already pastel, already approved,
+		// untouched here) so the whole "active" role reads as one blue
+		// instead of cyan-vs-blue competing for attention. Desaturated
+		// roughly 35-40% and lightened vs. the old teal so it reads as
+		// pastel, not just a hue rotation at full saturation. hudHybridMode
+		// (ex mint-teal #66E6B3) shifted the same way for the same reason;
+		// hudFilterLab (purple) and the dot/danger/gold roles are a
+		// different family and untouched.
 		const Palette kClassic = {
 			ImVec4(0.051f, 0.169f, 0.271f, 0.88f), ImVec4(0.086f, 0.239f, 0.369f, 0.95f), ImVec4(0.020f, 0.082f, 0.125f, 1.00f),
-			ImVec4(0.000f, 0.420f, 0.408f, 0.92f), ImVec4(0.000f, 0.600f, 0.520f, 1.00f), ImVec4(0.000f, 0.239f, 0.231f, 1.00f),
+			ImVec4(0.290f, 0.450f, 0.640f, 0.85f), ImVec4(0.380f, 0.540f, 0.730f, 0.95f), ImVec4(0.180f, 0.300f, 0.460f, 1.00f),
 			ImVec4(0.173f, 0.173f, 0.173f, 0.85f), ImVec4(0.227f, 0.227f, 0.227f, 0.95f), ImVec4(0.067f, 0.067f, 0.067f, 1.00f),
 			ImVec4(0.22f, 0.15f, 0.16f, 0.85f), ImVec4(0.32f, 0.20f, 0.22f, 0.95f), ImVec4(0.15f, 0.10f, 0.11f, 1.00f),
-			ImVec4(0.867f, 0.867f, 0.867f, 1.00f), ImVec4(0.667f, 0.667f, 0.667f, 0.95f), ImVec4(0.369f, 0.918f, 0.894f, 1.00f),
+			ImVec4(0.867f, 0.867f, 0.867f, 1.00f), ImVec4(0.667f, 0.667f, 0.667f, 0.95f), ImVec4(0.620f, 0.780f, 0.950f, 1.00f),
 			ImVec4(0.722f, 0.847f, 0.973f, 1.00f), ImVec4(0.980f, 0.847f, 0.251f, 1.00f), ImVec4(0.90f, 0.75f, 0.76f, 0.95f),
 			IM_COL32(62, 207, 110, 255), IM_COL32(250, 216, 64, 255), IM_COL32(138, 138, 138, 255),
-			ImVec4(0.40f, 0.90f, 0.70f, 1.0f), ImVec4(0.85f, 0.50f, 0.95f, 1.0f), ImVec4(0.55f, 0.80f, 0.95f, 1.0f)
+			ImVec4(0.55f, 0.72f, 0.90f, 1.0f), ImVec4(0.85f, 0.50f, 0.95f, 1.0f), ImVec4(0.55f, 0.80f, 0.95f, 1.0f)
 		};
 
 		// ── Palette 1: "Symbiont" (experimental, in progress) ───────────────

@@ -3,6 +3,7 @@
 #include "../core/Settings.h"
 #include "../core/NexusEcosystem.h"
 #include "ImGuiSafe.h"
+#include "L10n.h"
 #include <string>
 
 namespace cba
@@ -22,11 +23,10 @@ namespace cba
 		if (!CurrentSettings.MiniHudTitleBar)
 			flags |= ImGuiWindowFlags_NoTitleBar;
 
-		// AlwaysAutoResize used to sit here - HANDOVER.md's own account of the
-		// original ImGui crash class names it as a contributor (negative
-		// window sizes -> D3D11 vertex-buffer crash on Nexus's ImGui 1.8x). A
-		// fixed default size the user can still resize once is the same
-		// outcome without the risk.
+		// AlwaysAutoResize used to sit here - a contributor to a crash class
+		// where a negative window size reached Nexus's ImGui 1.8x as a
+		// D3D11 vertex-buffer size. A fixed default size the user can still
+		// resize once is the same outcome without the risk.
 		ImGui::SetNextWindowSize(ImVec2(160.0f, 40.0f), ImGuiCond_FirstUseEver);
 
 		// Apply custom ArcDPS-style transparency
@@ -38,17 +38,24 @@ namespace cba
 		if (ImGui::Begin("CBAMiniHUD", &CurrentSettings.ShowMiniHUD, flags))
 		{
 			// Status text
+			bool isDe = cba::IsGerman();
 			ImVec4 activeColor = CurrentSettings.Enabled ? ImVec4(0.3f, 1.0f, 0.3f, 1.0f) : ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
-			
+
 			std::string statusText = "CBA: ";
-			statusText += CurrentSettings.Enabled ? "On" : "Off";
-			
-			std::string modeText = "";
-			if (CurrentSettings.Type == BalanceType::Deutan) modeText = "Deutan";
+			statusText += CurrentSettings.Enabled ? (isDe ? "An" : "On") : (isDe ? "Aus" : "Off");
+
+			// Mixed was missing here - unlike every other readout of this same
+			// state (Dashboard, Sensor Graph HUD, System diagnostics), this one
+			// checked Type alone, so a Mixed-mode profile showed the last
+			// single Type it had before switching to Mixed - stale, not the
+			// current mode (2026-09-14 consistency pass).
+			std::string modeText;
+			if (CurrentSettings.Mixed) modeText = isDe ? "Gemischt" : "Mixed";
+			else if (CurrentSettings.Type == BalanceType::Deutan) modeText = "Deutan";
 			else if (CurrentSettings.Type == BalanceType::Protan) modeText = "Protan";
 			else if (CurrentSettings.Type == BalanceType::Tritan) modeText = "Tritan";
-			else modeText = "Custom";
-			
+			else modeText = isDe ? "Benutzerdef." : "Custom";
+
 			ImGui::TextColored(activeColor, "%s", statusText.c_str());
 			ImGui::SameLine();
 			ImGui::TextUnformatted("|");

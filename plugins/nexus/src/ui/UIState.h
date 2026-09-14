@@ -89,6 +89,17 @@ namespace cba
 	void SaveSettingsToSlot(int aSlotIndex);
 	bool LoadSettingsFromSlot(int aSlotIndex);
 
+	// Save the currently active filter state to a free slot (or the active
+	// one if all three are full - same fallback the Profile Management
+	// tile's own "Save" button uses) AND link it as the Auto-Start profile,
+	// in one action (2026-09-14, Emi: once the Commander-Tag-Contrast
+	// wizard has a profile dialed in, offer to save it and have it load
+	// automatically next launch - "der ist dann mit der Startautomatic
+	// verknuepft"). Deliberately a separate action from the plain "Save"
+	// button, which does NOT touch AutoStartSlot - linking auto-start is
+	// an extra commitment a save alone should not make silently.
+	void SaveActiveProfileAndSetAutoStart();
+
 	// ── The screen-effect gate (one rule, one place, 2026-09-12) ───────────
 	//
 	// ShouldScreenEffectBeActive() is the single answer to "should the
@@ -155,6 +166,23 @@ namespace cba
 	extern std::atomic<bool> s_compareHoldActive;
 
 	void DrawFilterStatusIndicator(bool aWithText);
+
+	// Collapsible tile title bar (2026-09-14, Emi: wants every Dashboard
+	// tile to fold down to just its title, like Gw2Purgator's own windows -
+	// "das sollten wir in alle tiles einbauen"). Draws the tile's MenuBar
+	// (arrow toggle + title) and flips aCollapsed on click. Returns whether
+	// the tile is currently expanded, so the caller gates its body content
+	// on it - the tile's own ScopedChild height still has to be sized from
+	// aCollapsed by the caller *before* constructing it, since a child
+	// window's size is fixed at BeginChild time.
+	bool DrawTileHeader(const char* aTitle, bool& aCollapsed);
+
+	// Same idea as DrawTileHeader, but inline flow content instead of a
+	// child window's MenuBar - for "Rubriken in der Rubrik" (2026-09-14,
+	// Emi: nested sub-sections inside one bigger tile, e.g. the Dashboard's
+	// combined Filter-Steuerung tile: Filter-Profil / Eye Comfort /
+	// Commander-Contrast each foldable within the same outer tile).
+	bool DrawSubsectionHeader(const char* aTitle, bool& aCollapsed);
 	BrightnessRetentionResult GetBrightnessRetention();
 	void UpdateQuickAccessIcon();
 

@@ -110,8 +110,24 @@ Der verlorene Kontrast $\vec{E}$ wird über eine typspezifische Shift-Matrix $\m
 * **Protanopia ($Shift_{Protan}$):** Roter Fehler wird zu 70 % auf Grün und Blau verschoben:
   $$\mathbf{Shift}_{Protan} = \begin{pmatrix} 0{,}0 & 0{,}0 & 0{,}0 \\ 0{,}7 & 0{,}0 & 0{,}0 \\ 0{,}7 & 0{,}0 & 0{,}0 \end{pmatrix}$$
 
-* **Deuteranopia ($Shift_{Deutan}$):** Grüner Fehler wird zu 70 % auf Rot und Blau verschoben:
-  $$\mathbf{Shift}_{Deutan} = \begin{pmatrix} 0{,}0 & 0{,}7 & 0{,}0 \\ 0{,}0 & 0{,}0 & 0{,}0 \\ 0{,}0 & 0{,}7 & 0{,}0 \end{pmatrix}$$
+* **Deuteranopia ($Shift_{Deutan}$):** Grüner Fehler wird auf Rot und Blau
+  verschoben, Faktor 2,8 statt der nominellen 70 % der anderen beiden Achsen:
+  $$\mathbf{Shift}_{Deutan} = \begin{pmatrix} 0{,}0 & 2{,}8 & 0{,}0 \\ 0{,}0 & 0{,}0 & 0{,}0 \\ 0{,}0 & 2{,}8 & 0{,}0 \end{pmatrix}$$
+  Angepasst 2026-09-14: derselbe nominelle 0,7-Faktor ergab bei Protan/
+  Tritan sehr unterschiedliche reale Stärke, weil er mit der jeweils eigenen
+  Sim-Matrix multipliziert wird und diese sich in ihrer Größenordnung stark
+  unterscheiden (physiologische LMS-Projektionen nach Viénot/Brettel, keine
+  frei wählbare Größe). Deutan lag bei identischem Faktor bei rund einem
+  Drittel von Protans und einem Achtel von Tritans wahrgenommener Stärke
+  (gemessen als mittlere geclampte Farbverschiebung über sechs Testfarben
+  bei Severity 0,6: Protan 0,264, Deutan alt 0,087, Tritan 0,644). 2,8 bringt
+  Deutan auf rund 0,45 — über Protan, rund 70 % von Tritan. Keine volle
+  Parität mit Tritan (dafür wären ~6,0 nötig, mit starkem Channel-Clamping)
+  — bewusst als erster, spürbarer Schritt gewählt, keine finale Kalibrierung.
+  Betrifft über `MixedCorrectionMatrix()` auch die Rot-Grün-Achse im
+  Mixed-Modus, da diese denselben Codepfad (`BalanceType::Deutan`) nutzt.
+  Weiß bleibt bei jedem Faktor exakt invariant, siehe Beweis oben — der
+  Shift wirkt nur auf den (für Weiß stets null) Fehlerterm.
 
 * **Tritanopia ($Shift_{Tritan}$):** Blauer Fehler wird zu 70 % auf Rot und Grün verschoben:
   $$\mathbf{Shift}_{Tritan} = \begin{pmatrix} 0{,}0 & 0{,}0 & 0{,}7 \\ 0{,}0 & 0{,}0 & 0{,}7 \\ 0{,}0 & 0{,}0 & 0{,}0 \end{pmatrix}$$

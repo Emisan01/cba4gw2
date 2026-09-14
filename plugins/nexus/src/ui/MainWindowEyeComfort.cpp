@@ -39,110 +39,20 @@
 
 namespace cba
 {
-	void RenderEyeComfortTab(bool isDe, const L10n& t, bool& changed, bool& saveNeeded)
+	// Gamma/Auto-Brightness, Eye-Sensitive toggle and its three sliders -
+	// split out from RenderEyeComfortTab 2026-09-14 so the Main Window
+	// Dashboard's own Eye Comfort tile can share it (see MainWindowTabs.h).
+	// The HDR-detection dot stays tab-only: diagnostic context for this
+	// specific tab, not a control.
+	void RenderEyeComfortControls(bool isDe, const L10n& t, bool& changed, bool& saveNeeded)
 	{
-		cba::ScopedChild tileEye("Tile_Eye", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
-		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Eye Comfort Settings"); ImGui::EndMenuBar(); }
-
-		static int s_lastHdrCheckFrameDet = -1;
-		static bool s_cachedHdrDetectedDet = false;
-		int curFrame = ImGui::GetFrameCount();
-		if (curFrame != s_lastHdrCheckFrameDet + 1)
-		{
-			IDXGISwapChain* sc = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
-			s_cachedHdrDetectedDet = DetectHdrColorSpace(sc);
-		}
-		s_lastHdrCheckFrameDet = curFrame;
-
-		ImVec2 dotPos = ImGui::GetCursorScreenPos();
-		float dotRadius = 4.0f;
-		ImU32 dotColor = s_cachedHdrDetectedDet ? Theme::kDotReadyCol : Theme::kDotOffCol;
-		ImVec2 dotCenter(dotPos.x + dotRadius + 2.0f, dotPos.y + ImGui::GetTextLineHeight() * 0.5f);
-		ImGui::GetWindowDrawList()->AddCircleFilled(dotCenter, dotRadius, dotColor);
-		ImGui::Dummy(ImVec2(dotRadius * 2.0f + 4.0f, ImGui::GetTextLineHeight()));
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip("HDR: %s\n(%s)", s_cachedHdrDetectedDet ? (isDe ? "Aktiv" : "Active") : (isDe ? "Inaktiv (SDR)" : "Inactive (SDR)"), t.EyeComfortHdrTooltip);
-		}
-		ImGui::SameLine(0, 6.0f);
-		ImGui::TextDisabled("HDR: %s", s_cachedHdrDetectedDet ? (isDe ? "Erkannt" : "Detected") : (isDe ? "Aus (SDR)" : "Off (SDR)"));
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip("HDR: %s\n(%s)", s_cachedHdrDetectedDet ? (isDe ? "Aktiv" : "Active") : (isDe ? "Inaktiv (SDR)" : "Inactive (SDR)"), t.EyeComfortHdrTooltip);
-		}
-
-		ImGui::Spacing();
-		ImGui::TextUnformatted(isDe ? "Helligkeit (Eye Comfort Gamma):" : "Brightness (Eye Comfort Gamma):");
-		float availGamma = ImGui::GetContentRegionAvail().x;
-		float padXGamma = ImGui::GetStyle().FramePadding.x * 2.0f;
-		float btnWGamma = ImGui::CalcTextSize("Reset").x + padXGamma + 8.0f;
-		float spGamma = 6.0f;
-		float sWGamma = (availGamma > (btnWGamma + spGamma + 60.0f)) ? (availGamma - btnWGamma - spGamma) : 180.0f;
-
-		ImGui::SetNextItemWidth(sWGamma);
-		// Registry-backed (CLAUDE.md, Registry/Control Layer step 1) - same
-		// pattern as the Tolerance slider pilot: clamp lives in ParamMeta.
-		{
-			float gain = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
-			if (ImGui::SliderFloat("##EyeComfortGammaSlider", &gain, 0.70f, 1.30f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
-			{
-				SetGammaGainManual(gain);
-				changed = true;
-			}
-		}
-		if (ImGui::IsItemDeactivatedAfterEdit())
-		{
-			saveNeeded = true;
-		}
-		ImGui::SameLine(0, spGamma);
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-		if (ImGui::Button("Reset##gamma_main", ImVec2(btnWGamma, 0.0f)))
-		{
-			SetGammaGainManual(1.0f);
-			changed = true;
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Helligkeit auf 1.00x zuruecksetzen" : "Reset brightness to 1.00x");
-
-		SyncAutoBrightnessGain(changed, saveNeeded);
-		BrightnessRetentionResult retention = GetBrightnessRetention();
-
-		ImGui::Spacing();
-		ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
-		ImGui::Spacing();
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-		if (ImGui::Button(t.EyeComfortApply, ImVec2(0.0f, 24.0f)))
-		{
-			ApplyAutoBrightnessGain();
-			changed = true;
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		ImGui::SameLine(0, 12.0f);
-		if (ImGui::Checkbox(isDe ? "Auto-Helligkeit##main_auto" : "Auto-Brightness##main_auto", &CurrentSettings.AutoBrightness))
-		{
-			if (CurrentSettings.AutoBrightness)
-			{
-				ApplyAutoBrightnessGain();
-				changed = true;
-			}
-			saveNeeded = true;
-		}
-
 		// Eye-Sensitive Mode (2026-09-09) - its own module within Eye
-		// Comfort, independent of the Gamma/Auto-Brightness pair above
+		// Comfort, independent of the Gamma/Auto-Brightness pair below
 		// (which stays untouched, Emi: "funktioniert einwandfrei").
 		// Composes with CVD correction in Recompute(), never replaces it.
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
+		// Ordered before Gamma/Brightness 2026-09-14 (Emi's mockup):
+		// the toggle for the whole sub-module reads better first, then
+		// its sliders, then the separately-scoped brightness pair.
 		if (ImGui::Checkbox(isDe ? "Eye-Sensitive Mode aktivieren" : "Activate Eye-Sensitive Mode", &CurrentSettings.EyeComfortModeEnabled))
 		{
 			changed = true;
@@ -215,6 +125,108 @@ namespace cba
 			ImGui::Unindent(16.0f);
 		}
 
-		
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextUnformatted(isDe ? "Helligkeit (Eye Comfort Gamma):" : "Brightness (Eye Comfort Gamma):");
+		float availGamma = ImGui::GetContentRegionAvail().x;
+		float padXGamma = ImGui::GetStyle().FramePadding.x * 2.0f;
+		float btnWGamma = ImGui::CalcTextSize("Reset").x + padXGamma + 8.0f;
+		float spGamma = 6.0f;
+		float sWGamma = (availGamma > (btnWGamma + spGamma + 60.0f)) ? (availGamma - btnWGamma - spGamma) : 180.0f;
+
+		ImGui::SetNextItemWidth(sWGamma);
+		// Registry-backed (CLAUDE.md, Registry/Control Layer step 1) - same
+		// pattern as the Tolerance slider pilot: clamp lives in ParamMeta.
+		{
+			float gain = ParameterRegistry::Get().GetFloat(ParamId::GammaGain);
+			if (ImGui::SliderFloat("##EyeComfortGammaSlider", &gain, 0.70f, 1.30f, "%.2fx", ImGuiSliderFlags_AlwaysClamp))
+			{
+				SetGammaGainManual(gain);
+				changed = true;
+			}
+		}
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			saveNeeded = true;
+		}
+		ImGui::SameLine(0, spGamma);
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+		if (ImGui::Button("Reset##gamma_main", ImVec2(btnWGamma, 0.0f)))
+		{
+			SetGammaGainManual(1.0f);
+			changed = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip(isDe ? "Helligkeit auf 1.00x zuruecksetzen" : "Reset brightness to 1.00x");
+
+		SyncAutoBrightnessGain(changed, saveNeeded);
+		BrightnessRetentionResult retention = GetBrightnessRetention();
+
+		ImGui::Spacing();
+		ImGui::Text(t.EyeComfortRetention, retention.retentionRatio * 100.0f, retention.recommendedGain);
+		ImGui::Spacing();
+		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
+		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
+		if (ImGui::Button(t.EyeComfortApply, ImVec2(0.0f, 24.0f)))
+		{
+			ApplyAutoBrightnessGain();
+			changed = true;
+			saveNeeded = true;
+		}
+		ImGui::PopStyleColor(4);
+		ImGui::SameLine(0, 12.0f);
+		if (ImGui::Checkbox(isDe ? "Auto-Helligkeit##main_auto" : "Auto-Brightness##main_auto", &CurrentSettings.AutoBrightness))
+		{
+			if (CurrentSettings.AutoBrightness)
+			{
+				ApplyAutoBrightnessGain();
+				changed = true;
+			}
+			saveNeeded = true;
+		}
+	}
+
+	void RenderEyeComfortTab(bool isDe, const L10n& t, bool& changed, bool& saveNeeded)
+	{
+		cba::ScopedChild tileEye("Tile_Eye", ImVec2(0, 0), true, ImGuiWindowFlags_MenuBar);
+		if (ImGui::BeginMenuBar()) { ImGui::TextColored(Theme::kTextCyanLicht, "Eye Comfort Settings"); ImGui::EndMenuBar(); }
+
+		static int s_lastHdrCheckFrameDet = -1;
+		static bool s_cachedHdrDetectedDet = false;
+		int curFrame = ImGui::GetFrameCount();
+		if (curFrame != s_lastHdrCheckFrameDet + 1)
+		{
+			IDXGISwapChain* sc = APIDefs ? static_cast<IDXGISwapChain*>(APIDefs->SwapChain) : nullptr;
+			s_cachedHdrDetectedDet = DetectHdrColorSpace(sc);
+		}
+		s_lastHdrCheckFrameDet = curFrame;
+
+		ImVec2 dotPos = ImGui::GetCursorScreenPos();
+		float dotRadius = 4.0f;
+		ImU32 dotColor = s_cachedHdrDetectedDet ? Theme::kDotReadyCol : Theme::kDotOffCol;
+		ImVec2 dotCenter(dotPos.x + dotRadius + 2.0f, dotPos.y + ImGui::GetTextLineHeight() * 0.5f);
+		ImGui::GetWindowDrawList()->AddCircleFilled(dotCenter, dotRadius, dotColor);
+		ImGui::Dummy(ImVec2(dotRadius * 2.0f + 4.0f, ImGui::GetTextLineHeight()));
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("HDR: %s\n(%s)", s_cachedHdrDetectedDet ? (isDe ? "Aktiv" : "Active") : (isDe ? "Inaktiv (SDR)" : "Inactive (SDR)"), t.EyeComfortHdrTooltip);
+		}
+		ImGui::SameLine(0, 6.0f);
+		ImGui::TextDisabled("HDR: %s", s_cachedHdrDetectedDet ? (isDe ? "Erkannt" : "Detected") : (isDe ? "Aus (SDR)" : "Off (SDR)"));
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("HDR: %s\n(%s)", s_cachedHdrDetectedDet ? (isDe ? "Aktiv" : "Active") : (isDe ? "Inaktiv (SDR)" : "Inactive (SDR)"), t.EyeComfortHdrTooltip);
+		}
+
+		ImGui::Spacing();
+		RenderEyeComfortControls(isDe, t, changed, saveNeeded);
 	}
 }

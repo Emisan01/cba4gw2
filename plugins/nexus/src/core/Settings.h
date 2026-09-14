@@ -25,7 +25,6 @@ namespace cba
 		std::string DiagnosisHint = ""; // freeform AQ/HRR diagnostic label for presets
 		bool EnableHybridMode = false; // toggles the experimental DXGI CPU readback layer
 		bool DebugMode = false; // toggles the developer metrics UI
-		bool SyncArcDpsTheme = false; // Sync CBA colors/styles to arcdps.ini
 
 		// Advanced/experimental visual theme - 0 = Classic (the only look
 		// this addon has ever had, stays the default so existing users see

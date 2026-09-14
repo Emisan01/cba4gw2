@@ -71,4 +71,16 @@ namespace cba
 	// modelling Recompute()'s transient foreground/minimized gate: tag
 	// colours would then churn on every alt-tab.
 	void EffectiveDisplayMatrix(double aOut3x3[3][3]);
+
+	// Same composition as EffectiveDisplayMatrix (CVD + Eye-Sensitive +
+	// Gamma) but WITHOUT the Settings.Enabled gate - for graph/preview
+	// displays that should show the configured profile regardless of
+	// whether the master filter is currently on (2026-09-14, Emi: Warm
+	// Tint / Blue Filter weren't showing up in the Dashboard curve view at
+	// all, because that view read ActiveCorrectionMatrix - CVD only, no
+	// Eye Comfort, no Gamma). Not fed into GetBrightnessRetention or any
+	// other measurement, so the GammaGain feedback-loop concern that keeps
+	// ColorStackMatrix gamma-free (see its own comment above) does not
+	// apply to a value nothing reads back.
+	void PreviewCorrectionMatrix(double aOut3x3[3][3]);
 }

@@ -110,4 +110,12 @@ namespace cba
 			for (int c = 0; c < 3; ++c)
 				aOut3x3[r][c] *= CurrentSettings.GammaGain;
 	}
+
+	void PreviewCorrectionMatrix(double aOut3x3[3][3])
+	{
+		ColorStackMatrix(aOut3x3);
+		for (int r = 0; r < 3; ++r)
+			for (int c = 0; c < 3; ++c)
+				aOut3x3[r][c] *= CurrentSettings.GammaGain;
+	}
 }

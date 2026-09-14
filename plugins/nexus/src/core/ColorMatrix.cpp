@@ -50,11 +50,32 @@ namespace cba
 			{ 0.7, 0.0, 0.0 },
 			{ 0.7, 0.0, 0.0 }
 		};
-		// Deuteranopia (M-defect, green lost): shift green error into red and blue
+		// Deuteranopia (M-defect, green lost): shift green error into red and blue.
+		//
+		// 0.7 -> 2.8 (2026-09-14, Emi: Deutan and Mixed-mode's red-green axis
+		// - same code path, MixedCorrectionMatrix() calls CorrectionMatrix
+		// with BalanceType::Deutan - both read as "way too weak" next to
+		// Tritan/blue-yellow). Measured, not guessed: the shared 0.7 shift
+		// factor produces very different real-world strength per type,
+		// because it multiplies each type's own Sim matrix, and those
+		// differ hugely in magnitude (Viénot/Brettel's physiological LMS
+		// projections, not a tunable). Average clamped colour-shift over a
+		// 6-colour probe set at severity 0.6: Protan 0.264, Deutan (old)
+		// 0.087, Tritan 0.644 - Deutan sat at roughly a third of Protan and
+		// an eighth of Tritan despite the identical "0.7" on paper. 2.8
+		// brings it to ~0.45 at the same severity - past Protan, roughly
+		// 70% of Tritan's strength. Not full parity with Tritan (that needs
+		// ~6.0 and pushes deep into per-channel clamping territory) -
+		// picked as a substantial first pass, not a final calibration; Emi
+		// flagged wanting to revisit slider intensity in more depth later.
+		// White stays exactly invariant at any coefficient (Shift only acts
+		// on the zero error term for equi-energy white - see COLOR_MATH.md
+		// section 4), so this cannot reintroduce the historical white-point
+		// bug.
 		constexpr double ShiftDeutan[3][3] = {
-			{ 0.0, 0.7, 0.0 },
+			{ 0.0, 2.8, 0.0 },
 			{ 0.0, 0.0, 0.0 },
-			{ 0.0, 0.7, 0.0 }
+			{ 0.0, 2.8, 0.0 }
 		};
 		// Tritanopia (S-defect, blue lost): shift blue error into red and green
 		constexpr double ShiftTritan[3][3] = {

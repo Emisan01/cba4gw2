@@ -18,153 +18,6 @@
 
 namespace cba
 {
-	// ── Kontrast-Kombinationen (Überlappende Farbfelder Widget) ────────────────
-	void DrawContrastCombinationsWidget(bool isDe, bool& changed, bool& saveNeeded)
-	{
-		if (!ImGui::GetCurrentContext()) return;
-		const char* pairNamesDe[] = {
-			"Blau / Gruen (GW2 Standard)",
-			"Rot / Gruen (Protan / Deutan Test)",
-			"Gelb / Blau (Tritanopie Test)",
-			"Cyan / Blau (Mittelwert Kontrast)",
-			"Orange / Rot (Gefahrenzonen)"
-		};
-		const char* pairNamesEn[] = {
-			"Blue / Green (GW2 Default)",
-			"Red / Green (Protan / Deutan Test)",
-			"Yellow / Blue (Tritanopia Test)",
-			"Cyan / Blue (Midtone Contrast)",
-			"Orange / Red (Hazard Zones)"
-		};
-
-		struct ColorPair { float r1, g1, b1; float r2, g2, b2; };
-		static const ColorPair kPairs[5] = {
-			{ 0.212f, 0.439f, 0.800f,   0.247f, 0.616f, 0.302f }, // Blau / Gruen
-			{ 0.851f, 0.275f, 0.235f,   0.247f, 0.616f, 0.302f }, // Rot / Gruen
-			{ 0.910f, 0.753f, 0.125f,   0.212f, 0.439f, 0.800f }, // Gelb / Blau
-			{ 0.149f, 0.682f, 0.741f,   0.212f, 0.439f, 0.800f }, // Cyan / Blau
-			{ 0.910f, 0.522f, 0.059f,   0.851f, 0.275f, 0.235f }  // Orange / Rot
-		};
-
-		int pIdx = std::clamp(CurrentSettings.ContrastPairIndex, 0, 4);
-
-		ImGui::TextDisabled("%s:", isDe ? "Farben-Paarung auswaehlen" : "Select Color Pair");
-		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-		if (ImGui::Combo("##contrast_pair_combo", &pIdx, isDe ? pairNamesDe : pairNamesEn, 5))
-		{
-			CurrentSettings.ContrastPairIndex = pIdx;
-			saveNeeded = true;
-		}
-
-		ColorPair p = kPairs[pIdx];
-
-		// Compute CVD Simulation for pair
-		double sim1R = p.r1, sim1G = p.g1, sim1B = p.b1;
-		double sim2R = p.r2, sim2G = p.g2, sim2B = p.b2;
-		ColorMatrix::SimulatePixel(p.r1, p.g1, p.b1, CurrentSettings.Type, sim1R, sim1G, sim1B);
-		ColorMatrix::SimulatePixel(p.r2, p.g2, p.b2, CurrentSettings.Type, sim2R, sim2G, sim2B);
-
-		// Compute CBA Correction for pair. Both the matrix build and the
-		// per-pixel multiply go through shared, tested code now - this site
-		// used to hand-expand the multiply and had corrMat[1][0] twice in the
-		// green row instead of [1][1], silently rendering a wrong "with
-		// filter" green (2026-09-11). ApplyPixel already clamps to [0,1].
-		double corrMat[3][3];
-		ActiveCorrectionMatrix(corrMat);
-
-		double c1r, c1g, c1b, c2r, c2g, c2b;
-		ColorMatrix::ApplyPixel(p.r1, p.g1, p.b1, corrMat, c1r, c1g, c1b);
-		ColorMatrix::ApplyPixel(p.r2, p.g2, p.b2, corrMat, c2r, c2g, c2b);
-
-		float cor1R = (float)c1r, cor1G = (float)c1g, cor1B = (float)c1b;
-		float cor2R = (float)c2r, cor2G = (float)c2g, cor2B = (float)c2b;
-
-		ImGui::Spacing();
-
-		float availW = ImGui::GetContentRegionAvail().x;
-		float cardW = (availW - 12.0f) * 0.5f;
-		if (cardW < 140.0f) cardW = availW;
-		float cardH = 92.0f;
-
-		// Card 1: Ohne Filter (CVD Simulation)
-		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.09f, 0.11f, 0.15f, 0.95f));
-		ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.25f, 0.30f, 0.40f, 0.50f));
-		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
-
-		if (ImGui::BeginChild("##contrast_card_sim", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
-		{
-			ImGui::TextDisabled("%s", isDe ? "Ohne Filter (CVD)" : "Without Filter (CVD)");
-			ImVec2 sp = ImGui::GetCursorScreenPos();
-			ImDrawList* dl = ImGui::GetWindowDrawList();
-
-			float r = 18.0f;
-			float cx1 = sp.x + 36.0f;
-			float cx2 = sp.x + 62.0f;
-			float cy = sp.y + 24.0f;
-
-			ImU32 cSim1 = IM_COL32((int)(sim1R*255), (int)(sim1G*255), (int)(sim1B*255), 220);
-			ImU32 cSim2 = IM_COL32((int)(sim2R*255), (int)(sim2G*255), (int)(sim2B*255), 220);
-
-			dl->AddCircleFilled(ImVec2(cx1, cy), r, cSim1);
-			dl->AddCircleFilled(ImVec2(cx2, cy), r, cSim2);
-			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(200, 200, 200, 80), 0, 1.2f);
-			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(200, 200, 200, 80), 0, 1.2f);
-
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 14.0f));
-			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Identisch /" : "Identical /");
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 28.0f));
-			ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "%s", isDe ? "Verwechselbar" : "Confusable");
-		}
-		ImGui::EndChild();
-
-		if (cardW < availW) ImGui::SameLine(0, 12.0f);
-		else ImGui::Spacing();
-
-		// Card 2: Mit CBA Filter (Kompensation)
-		if (ImGui::BeginChild("##contrast_card_cba", ImVec2(cardW, cardH), true, ImGuiWindowFlags_NoScrollbar))
-		{
-			ImGui::TextDisabled("%s", isDe ? "Mit CBA Filter (Boost)" : "With CBA Filter (Boost)");
-			ImVec2 sp = ImGui::GetCursorScreenPos();
-			ImDrawList* dl = ImGui::GetWindowDrawList();
-
-			float r = 18.0f;
-			float cx1 = sp.x + 36.0f;
-			float cx2 = sp.x + 62.0f;
-			float cy = sp.y + 24.0f;
-
-			ImU32 cCor1 = IM_COL32((int)(cor1R*255), (int)(cor1G*255), (int)(cor1B*255), 255);
-			ImU32 cCor2 = IM_COL32((int)(cor2R*255), (int)(cor2G*255), (int)(cor2B*255), 255);
-
-			dl->AddCircleFilled(ImVec2(cx1, cy), r, cCor1);
-			dl->AddCircleFilled(ImVec2(cx2, cy), r, cCor2);
-			dl->AddCircle(ImVec2(cx1, cy), r, IM_COL32(80, 240, 160, 180), 0, 1.5f);
-			dl->AddCircle(ImVec2(cx2, cy), r, IM_COL32(80, 240, 160, 180), 0, 1.5f);
-
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 14.0f));
-			ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Absolut" : "Distinct /");
-			ImGui::SetCursorScreenPos(ImVec2(sp.x + 92.0f, sp.y + 28.0f));
-			ImGui::TextColored(ImVec4(0.35f, 0.95f, 0.55f, 1.0f), "%s", isDe ? "verschieden!" : "Separated!");
-		}
-		ImGui::EndChild();
-
-		ImGui::PopStyleVar(2);
-		ImGui::PopStyleColor(2);
-
-		ImGui::Spacing();
-		ImGui::TextUnformatted(isDe ? "Intensitaets-Skala (inkl. +25% Boost fuer maximale Unterscheidung):" 
-		                            : "Intensity Scale (incl. +25% Boost for maximum distinction):");
-		float availSlider = ImGui::GetContentRegionAvail().x;
-		ImGui::SetNextItemWidth(availSlider);
-		float sevVal = (float)CurrentSettings.Severity01;
-		if (ImGui::SliderFloat("##contrast_sev_slider", &sevVal, 0.0f, 1.25f, isDe ? "%.0f%% (Kompensation)" : "%.0f%% (Compensation)", ImGuiSliderFlags_None))
-		{
-			CurrentSettings.Severity01 = sevVal;
-			changed = true;
-		}
-		if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-	}
-
 	// ── Filter-Labor & Experimentierfeld Widget ───────────────────────────────
 	void DrawFilterLabWidget(bool isDe, bool& aOutChanged, bool& aOutSaveNeeded)
 	{
@@ -546,12 +399,23 @@ namespace cba
 				// core/FilterLayers.h and HybridScanner::AnalyzeBuffer). Row
 				// 1 always wins any pixel it matches, regardless of whether
 				// a lower row's color would have been a closer match.
+				// Stage 1's label used to hardcode "(DWM)"/"screen-wide" no
+				// matter which backend is actually painting it - same stale
+				// claim the status dot had (UIState.cpp, 2026-09-14). Shader
+				// is the default (Settings.h, RenderBackend = 1), so most
+				// sessions were reading a wrong description of their own
+				// active backend here.
+				bool stage1Shader = (CurrentSettings.RenderBackend == 1);
 				ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Filter-Pipeline" : "Filter Pipeline");
 				if (ImGui::IsItemHovered())
 				{
 					ImGui::SetTooltip(isDe
-						? "Die vollstaendige Wirkkette, in der Reihenfolge in der sie wirkt.\nStufe 1 faerbt den ganzen Bildschirm (DWM), Stufe 2 ersetzt einzelne Zielfarben darueber.\nEin frueherer Ziel-Layer gewinnt immer gegen einen spaeteren - auch wenn dessen Farbe naeher waere."
-						: "The complete chain, in the order it actually applies.\nStage 1 tints the entire screen (DWM), stage 2 replaces individual target colors on top of it.\nAn earlier target layer always wins over a later one - even if its color would be a closer match.");
+						? (stage1Shader
+							? "Die vollstaendige Wirkkette, in der Reihenfolge in der sie wirkt.\nStufe 1 korrigiert das Spielbild (Shader), Stufe 2 ersetzt einzelne Zielfarben darueber.\nEin frueherer Ziel-Layer gewinnt immer gegen einen spaeteren - auch wenn dessen Farbe naeher waere."
+							: "Die vollstaendige Wirkkette, in der Reihenfolge in der sie wirkt.\nStufe 1 faerbt den ganzen Bildschirm (DWM), Stufe 2 ersetzt einzelne Zielfarben darueber.\nEin frueherer Ziel-Layer gewinnt immer gegen einen spaeteren - auch wenn dessen Farbe naeher waere.")
+						: (stage1Shader
+							? "The complete chain, in the order it actually applies.\nStage 1 corrects the game frame (Shader), stage 2 replaces individual target colors on top of it.\nAn earlier target layer always wins over a later one - even if its color would be a closer match."
+							: "The complete chain, in the order it actually applies.\nStage 1 tints the entire screen (DWM), stage 2 replaces individual target colors on top of it.\nAn earlier target layer always wins over a later one - even if its color would be a closer match."));
 				}
 				ImGui::Spacing();
 
@@ -572,7 +436,9 @@ namespace cba
 						: (CurrentSettings.Type == BalanceType::Protan ? "Protan"
 						 : CurrentSettings.Type == BalanceType::Deutan ? "Deutan" : "Tritan");
 
-					ImGui::TextDisabled("%s", isDe ? "Stufe 1 - bildschirmweit (DWM):" : "Stage 1 - screen-wide (DWM):");
+					ImGui::TextDisabled("%s", isDe
+						? (stage1Shader ? "Stufe 1 - Spielbild (Shader):" : "Stufe 1 - bildschirmweit (DWM):")
+						: (stage1Shader ? "Stage 1 - game frame (Shader):" : "Stage 1 - screen-wide (DWM):"));
 
 					if (ImGui::BeginTable("##pipeline_stage1", 3,
 						ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))

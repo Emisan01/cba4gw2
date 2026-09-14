@@ -21,15 +21,6 @@ namespace cba
 		_entries[aId] = e;
 	}
 
-	void ParameterRegistry::RegisterBool(ParamId aId, bool* aStorage, ParamMeta aMeta)
-	{
-		aMeta.kind = ParamKind::Bool;
-		Entry e;
-		e.meta = aMeta;
-		e.storage.b = aStorage;
-		_entries[aId] = e;
-	}
-
 	void ParameterRegistry::RegisterInt(ParamId aId, int* aStorage, ParamMeta aMeta)
 	{
 		aMeta.kind = ParamKind::Int;
@@ -67,22 +58,6 @@ namespace cba
 		if (meta.maxF > meta.minF)
 			aValue = std::clamp(aValue, meta.minF, meta.maxF);
 		*it->second.storage.f = aValue;
-	}
-
-	bool ParameterRegistry::GetBool(ParamId aId) const
-	{
-		auto it = _entries.find(aId);
-		assert(it != _entries.end() && it->second.meta.kind == ParamKind::Bool);
-		if (it == _entries.end() || it->second.meta.kind != ParamKind::Bool) return false;
-		return *it->second.storage.b;
-	}
-
-	void ParameterRegistry::SetBool(ParamId aId, bool aValue)
-	{
-		auto it = _entries.find(aId);
-		assert(it != _entries.end() && it->second.meta.kind == ParamKind::Bool);
-		if (it == _entries.end() || it->second.meta.kind != ParamKind::Bool) return;
-		*it->second.storage.b = aValue;
 	}
 
 	int ParameterRegistry::GetInt(ParamId aId) const

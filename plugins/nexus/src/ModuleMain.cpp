@@ -34,6 +34,7 @@
 #include <chrono>
 #include <array>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <cmath>
 #include <algorithm>
@@ -586,6 +587,25 @@ namespace cba
 		// on invisible prior state - exactly the kind of inconsistency the
 		// Strength slider must not have.
 		CurrentSettings.Severity01 = 1.0f;
+
+		// Neutralize anything that could visually fight the freshly
+		// activated profile (2026-09-14, Emi: "sicherstellen dass nichts
+		// reinstoert... beim Click auf die Funktionen auch alles umgesetzt
+		// wird") - Filter Lab's custom target replacements and Hybrid
+		// Mode's tag-colour swaps, both confirmed by Emi when asked which
+		// he meant. Eye Comfort deliberately stays untouched ("kann aktiv
+		// bleiben"). Reuses each module's own registered reset - the same
+		// one Reset Filter calls - rather than a hand-written copy of
+		// "turn Hybrid/Filter Lab off" here.
+		for (const auto& module : FeatureModuleRegistry::Get().GetAll())
+		{
+			if (module.resetToNeutral &&
+				(std::strcmp(module.key, "hybrid_mode") == 0 || std::strcmp(module.key, "filter_lab") == 0))
+			{
+				module.resetToNeutral();
+			}
+		}
+
 		// Same redundant-and-unprotected UpdateTagEnhancerConflicts() call
 		// removed as in ResetFilterSettingsAndDisable() above - Recompute()
 		// below already calls it once, under s_recomputeMutex.
@@ -1016,6 +1036,23 @@ namespace cba
 		return true;
 	}
 
+	void SaveActiveProfileAndSetAutoStart()
+	{
+		int firstEmptySlot = -1;
+		for (int i = 0; i < 3; ++i)
+		{
+			if (!CurrentSettings.Slots[i].Used) { firstEmptySlot = i; break; }
+		}
+		// Same fallback the Profile Management tile's own "Save" button
+		// uses: an empty slot if one exists, otherwise overwrite whatever
+		// is currently marked active.
+		int targetSlot = (firstEmptySlot != -1) ? firstEmptySlot : ParameterRegistry::Get().GetInt(ParamId::ActiveSlotIdx);
+		SaveSettingsToSlot(targetSlot);
+		ParameterRegistry::Get().SetInt(ParamId::ActiveSlotIdx, targetSlot);
+		CurrentSettings.AutoStartSlot = targetSlot;
+		CurrentSettings.Save(AddonDir);
+	}
+
 	bool IsWatchdogRunning()
 	{
 		return s_watchdogRunning.load() && s_watchdogThread.joinable();
@@ -1205,9 +1242,13 @@ namespace cba
 			// ist nicht bidirektional, er oeffnet nur") - a global hotkey
 			// that can also close the window risks an accidental press
 			// dismissing it; closing stays the job of the window's own
-			// controls. Advanced Mode gate (2026-09-09) still blocks it
-			// entirely until unlocked.
-			if (!CurrentSettings.AdvancedModeUnlocked) return;
+			// controls.
+			//
+			// Used to also require CurrentSettings.AdvancedModeUnlocked - a
+			// 2026-09-09 gate nothing in the codebase ever sets true (see
+			// MainWindow.cpp's toolbar-icon click handler for the same fix,
+			// 2026-09-14). Dropped so this keybind and the toolbar icon
+			// behave the same as the Studio button, which never had the gate.
 			EnsureDeferredInitialized();
 			CurrentSettings.ShowMainWindow = true;
 			s_focusMainWindow = true;
@@ -1434,7 +1475,18 @@ namespace cba
 
 			ImVec2 disp = ImGui::GetIO().DisplaySize;
 			float screenH = (disp.y > 400.0f) ? disp.y : 1080.0f;
-			float defaultW = 530.0f;
+			// 920, not the old 530 (2026-09-14, Emi: header buttons went
+			// missing/overlapping on a dragged-narrow window, screenshotted
+			// live). The header's tab row is six 140px buttons plus 5*4px
+			// spacing = 860px content, plus this window's own 12px side
+			// padding * 2 - 884px is the floor before that row would need
+			// to scroll; 920 leaves a small margin. This is only the
+			// starting width (ImGuiCond_FirstUseEver) and the width Reset
+			// UI restores (s_resetMainWindowPos, ImGuiCond_Always below) -
+			// dragging narrower afterwards is still free, MainWindow.cpp's
+			// header row grows a horizontal scrollbar instead of clipping
+			// once it no longer fits.
+			float defaultW = 920.0f;
 			float defaultH = std::clamp(screenH * 0.76f, 620.0f, 860.0f);
 
 			ImGui::SetNextWindowBgAlpha(0.96f);
@@ -1471,7 +1523,12 @@ namespace cba
 			// (found in the 2026-09-09 codebase review).
 			bool isDe = cba::IsGerman();
 			ImGuiWindowFlags winFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
-			if (ImGui::Begin(isDe ? "cba4gw2 - Hauptfenster###CBA_MainWindow" : "cba4gw2 - Main Window###CBA_MainWindow", &CurrentSettings.ShowMainWindow, winFlags))
+			// Renamed 2026-09-14 (Emi: "cba4gw2 - Main Window" bothered him,
+			// "CBA Dashboard" instead) - one name in both languages, not a
+			// translated phrase, same as "cba4gw2" itself never was. The
+			// ###CBA_MainWindow anchor is unchanged, so window position/size
+			// persistence and RegisterCloseOnEscape below still match.
+			if (ImGui::Begin("CBA Dashboard###CBA_MainWindow", &CurrentSettings.ShowMainWindow, winFlags))
 			{
 				RenderMainWindow();
 			}
@@ -1697,7 +1754,7 @@ namespace cba
 			if (APIDefs->UI.RegisterCloseOnEscape)
 			{
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
-				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Main Window###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
+				APIDefs->UI.RegisterCloseOnEscape("CBA Dashboard###CBA_MainWindow", &CurrentSettings.ShowMainWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba graph###CBA_GraphWindow", &CurrentSettings.ShowGraphWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
 				APIDefs->UI.RegisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow", &CurrentSettings.ShowLabWindow);
@@ -1842,7 +1899,7 @@ namespace cba
 				if (APIDefs->UI.DeregisterCloseOnEscape)
 				{
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Hauptfenster###CBA_MainWindow");
-					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Main Window###CBA_MainWindow");
+					APIDefs->UI.DeregisterCloseOnEscape("CBA Dashboard###CBA_MainWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba graph###CBA_GraphWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter-Labor###CBA_LabWindow");
 					APIDefs->UI.DeregisterCloseOnEscape("cba4gw2 - Filter Lab###CBA_LabWindow");

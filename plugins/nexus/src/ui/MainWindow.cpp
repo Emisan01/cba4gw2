@@ -47,6 +47,32 @@ namespace cba
 		ImGui::TextDisabled("%s", isDe ? "CBA: Color Balance Assist" : "CBA: Color Balance Assist");
 		ImGui::Spacing();
 
+		// Reordered 2026-09-14 (Emi: panel felt buried, wanted the primary
+		// action first) - Open CBA Studio at the very top, the panel's
+		// three checkmarks (Enabled/Icon/Start-with-GW2) grouped right
+		// below it, Reset UI/Reset Filter last since they are the
+		// destructive pair, not the everyday ones.
+		ImGui::PushStyleColor(ImGuiCol_Button, Theme::kBtnStateActiveIdle);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kBtnStateActivePress);
+		ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextCyanLicht);
+		// Toggle, not open-only (2026-09-14, Emi: "der Button im Nexus
+		// Main Window auch [bidirektional]" - matches the toolbar icon's
+		// own click, which got the same change today).
+		if (ImGui::Button(isDe ? "CBA Studio Oeffnen" : "Open CBA Studio", ImVec2(180.0f, 28.0f)))
+		{
+			CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+		}
+		ImGui::PopStyleColor(4);
+
+		ImGui::Spacing();
+		ImGui::TextDisabled("%s", isDe ? "Tipp: Studio kann auch ueber einen Keybind geoeffnet werden (einstellbar unter Nexus > Keybinds)."
+		                               : "Tip: Studio can also be opened via a keybind (configurable under Nexus > Keybinds).");
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
 		if (ImGui::Checkbox(isDe ? "Aktiviert##emb_main_toggle" : "Enabled##emb_main_toggle", &CurrentSettings.Enabled))
 		{
 			changed = true;
@@ -56,6 +82,7 @@ namespace cba
 			}
 		}
 
+		ImGui::SameLine(0, 16.0f);
 		if (ImGui::Checkbox(isDe ? "Icon##emb_icon_toggle" : "Icon##emb_icon_toggle", &CurrentSettings.ShowQuickAccessIcon))
 		{
 			UpdateQuickAccessIcon();
@@ -67,23 +94,15 @@ namespace cba
 			                       : "Shows an icon in Nexus's Quick Access bar to open the Studio.");
 		}
 
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		ImGui::PushStyleColor(ImGuiCol_Button, Theme::kBtnStateActiveIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kBtnStateActivePress);
-		ImGui::PushStyleColor(ImGuiCol_Text, Theme::kTextCyanLicht);
-		if (ImGui::Button(isDe ? "CBA Studio Oeffnen" : "Open CBA Studio", ImVec2(180.0f, 28.0f)))
-		{
-			CurrentSettings.ShowMainWindow = true;
-		}
-		ImGui::PopStyleColor(4);
-
-		ImGui::Spacing();
-		ImGui::TextDisabled("%s", isDe ? "Tipp: Studio kann auch ueber einen Keybind geoeffnet werden (einstellbar unter Nexus > Keybinds)."
-		                               : "Tip: Studio can also be opened via a keybind (configurable under Nexus > Keybinds).");
+		// Third checkmark alongside Enabled/Icon (2026-09-14, Emi: "die
+		// 'active on startup' bitte noch dazu"). Was its own paragraph
+		// with a full sentence before - DrawAutoStartControl now has a
+		// short aCompact label specifically so it reads as one more
+		// checkbox in this group, not a separate feature. Own line since
+		// a third checkbox would not fit this panel's width on the same
+		// row as the first two, but still visually grouped with them
+		// (no separator between this and the pair above).
+		DrawAutoStartControl(changed, isDe, /*aCompact=*/true);
 
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -176,232 +195,157 @@ namespace cba
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(6.0f, 3.0f));
 
-		// Master ON/OFF toggle button
+		// Master ON/OFF toggle button, round 3 (2026-09-14, Emi's reference
+		// screenshots: a pill-shaped badge, dark background, coloured
+		// border and text, small leading status dot - not a solid colour
+		// fill like round 2. Wording stays "ON/OFF" ("EIN/AUS") - the
+		// reference's own "Error"/"Connected" text was style-only
+		// inspiration, not a literal label Emi asked for.
 		{
 			bool wasEnabled = CurrentSettings.Enabled;
-			if (wasEnabled) {
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-				ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-			} else {
-				ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-				ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.00f, 0.28f, 0.28f, 1.00f));
-			}
+			ImVec4 stateCol = wasEnabled ? ImVec4(0.35f, 0.85f, 0.45f, 1.00f) : ImVec4(0.92f, 0.32f, 0.32f, 1.00f);
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.06f, 0.08f, 0.10f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.10f, 0.13f, 0.16f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.03f, 0.04f, 0.05f, 1.00f));
+			ImGui::PushStyleColor(ImGuiCol_Text,          stateCol);
+			ImGui::PushStyleColor(ImGuiCol_Border,        stateCol);
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 16.0f);
 			const char* masterBtnLabel = isDe ? (wasEnabled ? "EIN##main_master" : "AUS##main_master")
 			                                  : (wasEnabled ? "ON##main_master"  : "OFF##main_master");
-			if (ImGui::Button(masterBtnLabel, ImVec2(0.0f, 24.0f))) {
+			bool masterClicked = ImGui::Button(masterBtnLabel, ImVec2(140.0f, 32.0f));
+			// Status dot, drawn as a filled circle (Rule 7: ASCII-only
+			// string literals rules out a unicode bullet glyph like the
+			// reference's own "*") - same technique DrawFilterStatusIndicator
+			// already uses, overlaid near the button's left edge.
+			{
+				ImVec2 bMin = ImGui::GetItemRectMin();
+				ImVec2 bMax = ImGui::GetItemRectMax();
+				ImVec2 dotCenter(bMin.x + 14.0f, (bMin.y + bMax.y) * 0.5f);
+				ImGui::GetWindowDrawList()->AddCircleFilled(dotCenter, 3.5f, ImGui::ColorConvertFloat4ToU32(stateCol));
+			}
+			if (masterClicked) {
 				ToggleMasterEnabled();
 				changed    = true;
 				saveNeeded = false;
 			}
-			ImGui::PopStyleColor(4);
+			ImGui::PopStyleVar(2);
+			ImGui::PopStyleColor(5);
 
 			// The "OS BLOCKIERT FILTER!" banner used to sit right here, and
-			// it was wrong twice over (removed 2026-09-12, Emi's report).
-			//
-			// Wrong about the world: g_DwmLastCallSuccessful goes false
-			// whenever GW2 is not the foreground window, because a background
-			// process's MagSetFullscreenColorEffect call does not go through.
-			// Alt-tab to a browser or open the snipping tool and the banner
-			// appeared - while the already-installed colour effect kept
-			// working perfectly. It accused the OS of blocking a filter that
-			// was visibly running.
-			//
-			// Wrong about this window: it was a full-width BeginChild dropped
-			// between the master button and the toolbar buttons that follow it
-			// on the same row via SameLine(). The child ends the row, so every
-			// one of those buttons - Sensor Graph, Filter Lab, Vision Lab,
-			// Reset UI, Reset Filter, Export, Import, language - was laid out
-			// past the right edge and vanished. The whole tab bar disappeared
-			// exactly when someone alt-tabbed away to screenshot it. It also
-			// stole the two ImGui "last item" queries below: the master
-			// button's own tooltip, and the GetItemRectMin/Max that the
-			// OFF-state glint animation traces, both read the banner's rect
-			// instead of the button's whenever it showed. Removing it repairs
-			// all three at once.
-			//
-			// The signal is not lost: SelfTest reports it as INFO, the right
-			// surface for a fact that legitimately varies (CLAUDE.md, "Where a
-			// fact belongs").
+			// it was wrong twice over (removed 2026-09-12, Emi's report):
+			// wrong about the world (g_DwmLastCallSuccessful goes false
+			// whenever GW2 is not the foreground window, so alt-tabbing away
+			// made it accuse the OS of blocking a filter that was visibly
+			// still running) and wrong about this window (a full-width
+			// BeginChild between the master button and the row of buttons
+			// that follow it via SameLine() ended the row, pushing every one
+			// of them past the right edge and out of view). The signal is
+			// not lost: SelfTest reports it as INFO, the right surface for a
+			// fact that legitimately varies (CLAUDE.md, "Where a fact
+			// belongs").
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip(wasEnabled ? (isDe ? "Filter aktiv - Klicke zum Ausschalten" : "Filter active - click to disable")
 				                             : (isDe ? "Filter inaktiv - Klicke zum Einschalten" : "Filter inactive - click to enable"));
-
-			if (!wasEnabled)
-			{
-				// Two glints, starting top-center and bottom-center (exactly
-				// half a perimeter apart on a rectangle) and rotating
-				// continuously counter-clockwise (2026-09-10, Emi's redesign -
-				// was a single dot ping-ponging back and forth; slower, calmer,
-				// and easier to notice at a glance that the filter is OFF).
-				ImVec2 bMin = ImGui::GetItemRectMin();
-				ImVec2 bMax = ImGui::GetItemRectMax();
-				float bw = bMax.x - bMin.x;
-				float bh = bMax.y - bMin.y;
-				float peri = 2.0f * (bw + bh);
-
-				auto getPerimeterPoint = [&](float uNorm) -> ImVec2 {
-					uNorm = uNorm - std::floor(uNorm);
-					float dist = uNorm * peri;
-					if (dist < bw) {
-						return ImVec2(bMin.x + dist, bMin.y);
-					} else if (dist < bw + bh) {
-						return ImVec2(bMax.x, bMin.y + (dist - bw));
-					} else if (dist < 2.0f * bw + bh) {
-						return ImVec2(bMax.x - (dist - (bw + bh)), bMax.y);
-					} else {
-						return ImVec2(bMin.x, bMax.y - (dist - (2.0f * bw + bh)));
-					}
-				};
-
-				float timeVal = (float)ImGui::GetTime();
-				float revolutionPeriod = 5.5f; // seconds per full lap - "langsam wandern"
-				float u0Top = (bw * 0.5f) / peri; // top-center's position along the walk
-				// The walk (top edge left->right, then down, then bottom
-				// right->left, then up) traces clockwise on screen as u
-				// increases - so decreasing u is counter-clockwise.
-				float rotation = -(timeVal / revolutionPeriod);
-
-				ImDrawList* dl = ImGui::GetWindowDrawList();
-				// Elongated streak instead of a dot+crosshair sparkle
-				// (2026-09-10, Emi's ask: "laengliche Glanzpunkte...wie eine
-				// Lichtreflektion auf glaenzender Oberflaeche") - several
-				// samples trailing behind the head, tapering in size and
-				// alpha, bending naturally around the button's corners since
-				// they're all sampled along the same perimeter-walk function
-				// as the head. Classic "comet trail" specular-sweep look.
-				auto drawGlint = [&](float uBase) {
-					float u = uBase + rotation;
-					const int kTrailSamples = 7;
-					const float kTrailSpan = 0.028f; // how far back along the perimeter the streak reaches
-					for (int i = kTrailSamples - 1; i >= 0; --i) {
-						float t = (float)i / (float)(kTrailSamples - 1); // 0 = head, 1 = tail tip
-						ImVec2 p = getPerimeterPoint(u + t * kTrailSpan);
-						float taper = 1.0f - t;
-						float radius = 1.0f + taper * 2.6f;
-						int alpha = (int)(taper * taper * 220.0f);
-						dl->AddCircleFilled(p, radius, IM_COL32(255, 225, 225, alpha));
-					}
-					ImVec2 head = getPerimeterPoint(u);
-					dl->AddCircleFilled(head, 4.2f, IM_COL32(255, 90, 90, 45)); // soft glow
-					dl->AddCircleFilled(head, 1.6f, IM_COL32(255, 255, 255, 255)); // hot core
-				};
-				drawGlint(u0Top);
-				drawGlint(u0Top + 0.5f);
-			}
 		}
 
 		ImGui::SameLine(0, 6.0f);
 		DrawFilterStatusIndicator(false);
 
-		ImGui::SameLine(0, 6.0f);
-		bool labOpen = CurrentSettings.ShowLabWindow;
-		if (labOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnStateActiveIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnStateActiveHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnStateActivePress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextCyanLicht);
-		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnMittelwertIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnMittelwertHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnMittelwertActive);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextBlauPeak);
-		}
-		if (ImGui::Button(isDe ? "Filter-Labor##main_top" : "Filter Lab##main_top", ImVec2(0.0f, 24.0f))) {
-			CurrentSettings.ShowLabWindow = !CurrentSettings.ShowLabWindow;
-			if (CurrentSettings.ShowLabWindow) s_focusLabWindow = true;
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Filter-Labor als eigenes Fenster oeffnen oder schliessen" : "Open or close Filter Lab detached window");
-		}
-
-		ImGui::SameLine(0, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		if (ImGui::Button(isDe ? "UI zuruecksetzen##main" : "Reset UI##main", ImVec2(0.0f, 24.0f))) {
-			ResetUiLayout();
-			saveNeeded = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardposition links oben zurueck."
-			                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left position.");
-		}
-
-		// The other of the two reset functions (window-layout reset above,
-		// filter-state reset here) - replaces the old "Factory Reset" button,
-		// which called a Settings::FactoryReset() that both preserved some
-		// fields and reset others in ways nobody could fully account for.
-		// This one is exactly ResetFilterSettingsAndDisable() - same function
-		// the Sensor Graph HUD's own Reset button uses (the "CBA - Filter
-		// Off" keybind that also used to call it is gone, per Emi - see
-		// ProcessKeybind), so there's one reset behavior, not several.
-		ImGui::SameLine(0, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
-		if (ImGui::Button(isDe ? "Filter zuruecksetzen##main" : "Reset Filter##main", ImVec2(0.0f, 24.0f))) {
-			ResetFilterSettingsAndDisable();
-			changed = true;
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Setzt Farbprofil, Commander-Tag-Enhancer, Hybrid-Modus, Free Filter und Filter-Labor zurueck und schaltet den Filter aus."
-			                       : "Resets color profile, Commander Tag Enhancer, Hybrid Mode, Free Filter and Filter Lab, and turns the filter off.");
-		}
-
-		ImGui::SameLine(0, 5.0f);
-		ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-		ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
-		const char* curLangBtnText = (CurrentSettings.Language == 2) ? "Deutsch##main_top_lang" :
-		                             (CurrentSettings.Language == 0) ? "System##main_top_lang" : "English##main_top_lang";
-		if (ImGui::Button(curLangBtnText, ImVec2(0.0f, 24.0f))) {
-			ImGui::OpenPopup("##LangSelectPopupTop");
-		}
-		ImGui::PopStyleColor(4);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip(isDe ? "Sprache waehlen (English / Deutsch / System)" 
-			                       : "Select Language (English / Deutsch / System)");
-		}
-
-		if (ImGui::BeginPopup("##LangSelectPopupTop")) {
-			int currentLang = CurrentSettings.Language;
-			if (ImGui::Selectable("English", currentLang == 1)) {
-				CurrentSettings.Language = 1;
-				UpdateQuickAccessIcon();
-				changed = true;
-				saveNeeded = true;
-			}
-			if (ImGui::Selectable(isDe ? "System (Windows)" : "System (Windows)", currentLang == 0)) {
-				CurrentSettings.Language = 0;
-				UpdateQuickAccessIcon();
-				changed = true;
-				saveNeeded = true;
-			}
-			if (ImGui::Selectable("Deutsch", currentLang == 2)) {
-				CurrentSettings.Language = 2;
-				UpdateQuickAccessIcon();
-				changed = true;
-				saveNeeded = true;
-			}
-			ImGui::EndPopup();
-		}
-
 		ImGui::PopStyleVar(2);
 
+		// Row 2 + 3 (2026-09-14, second pass - Emi caught the first version
+		// overlapping at narrow widths: "die reset buttons und english
+		// dropdown... dann kommt der text, damit es sich einfach nicht
+		// ueberlappt"). Two separate rows instead of one shared line with
+		// right-align math: nothing computed against a shrinking width
+		// means nothing left to overlap. The trio's total width stays
+		// comfortably under the window's 480px minimum
+		// (SetNextWindowSizeConstraints, ModuleMain.cpp) so it never needs
+		// its own scrollbar; the tagline below wraps instead of clipping
+		// if the window is narrower than its text.
 		ImGui::Spacing();
-		ImGui::TextDisabled("%s", isDe ? "Farb- & Kontrastanpassung fuer Barrierefreiheit in Guild Wars 2 (DWM / Live-Filter)"
-		                               : "Accessible Color & Contrast Enhancer for Guild Wars 2 (DWM / Live Filter)");
+		{
+			const char* resetUiLabel  = isDe ? "UI zuruecksetzen##main" : "Reset UI##main";
+			const char* resetFiltLabel = isDe ? "Filter zuruecksetzen##main" : "Reset Filter##main";
+			const char* curLangBtnText = (CurrentSettings.Language == 2) ? "Deutsch##main_top_lang" :
+			                             (CurrentSettings.Language == 0) ? "System##main_top_lang" : "English##main_top_lang";
+
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+			if (ImGui::Button(resetUiLabel, ImVec2(0.0f, 24.0f))) {
+				ResetUiLayout();
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip(isDe ? "Setzt alle CBA-Fenster (Hauptfenster, Sensor-Graph, Filter-Labor) auf Standardposition links oben zurueck."
+				                       : "Resets all CBA windows (Main Window, Sensor Graph, Filter Lab) to default top-left position.");
+			}
+
+			// Same two reset actions as the embedded panel's own row - one
+			// implementation each (ResetUiLayout / ResetFilterSettingsAndDisable).
+			ImGui::SameLine(0, 5.0f);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnDangerSubtleIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnDangerSubtleHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnDangerSubtlePress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextDangerSubtle);
+			if (ImGui::Button(resetFiltLabel, ImVec2(0.0f, 24.0f))) {
+				ResetFilterSettingsAndDisable();
+				changed = true;
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip(isDe ? "Setzt Farbprofil, Commander-Tag-Enhancer, Hybrid-Modus, Free Filter und Filter-Labor zurueck und schaltet den Filter aus."
+				                       : "Resets color profile, Commander Tag Enhancer, Hybrid Mode, Free Filter and Filter Lab, and turns the filter off.");
+			}
+
+			ImGui::SameLine(0, 5.0f);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextPrimary);
+			if (ImGui::Button(curLangBtnText, ImVec2(0.0f, 24.0f))) {
+				ImGui::OpenPopup("##LangSelectPopupTop");
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip(isDe ? "Sprache waehlen (English / Deutsch / System)"
+				                       : "Select Language (English / Deutsch / System)");
+			}
+
+			if (ImGui::BeginPopup("##LangSelectPopupTop")) {
+				int currentLang = CurrentSettings.Language;
+				if (ImGui::Selectable("English", currentLang == 1)) {
+					CurrentSettings.Language = 1;
+					UpdateQuickAccessIcon();
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::Selectable(isDe ? "System (Windows)" : "System (Windows)", currentLang == 0)) {
+					CurrentSettings.Language = 0;
+					UpdateQuickAccessIcon();
+					changed = true;
+					saveNeeded = true;
+				}
+				if (ImGui::Selectable("Deutsch", currentLang == 2)) {
+					CurrentSettings.Language = 2;
+					UpdateQuickAccessIcon();
+					changed = true;
+					saveNeeded = true;
+				}
+				ImGui::EndPopup();
+			}
+		}
+
+		ImGui::Spacing();
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+		ImGui::TextWrapped("%s", isDe ? "Automatischer visueller Enhancer, anpassbares Live-Filter-Labor & mehr!"
+		                               : "Automatic Visual Enhancer, Adjustable Live Filter Lab & More!");
+		ImGui::PopStyleColor();
+
 		ImGui::Spacing();
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -418,7 +362,20 @@ namespace cba
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.16f, 1.0f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.12f, 0.18f, 0.24f, 1.0f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, Theme::kBtnStateActiveIdle);
-		
+
+		// Six 140x32 buttons run 860px wide (6*140 + 5*4 spacing) - wider
+		// than the window's 480px minimum, so dragging the window narrow
+		// used to clip the trailing buttons clean off with nothing to
+		// reach them by (Emi: "Buttons in der Breite verschwinden... eine
+		// Scrollbar entwerfen"). The outer window can't grow its own
+		// scrollbar for this (NoScrollbar by design - the one real
+		// scrollbar is ##MainWindowScrollContent below, kept singular so
+		// tiles never nest a second one), so this row gets its own
+		// horizontal one instead: invisible at comfortable widths, a thin
+		// scrollable strip instead of a cliff once it does not fit.
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+		{
+			cba::ScopedChild tabRowScroll("##HeaderTabRowScroll", ImVec2(0, 40.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
 		ImGui::BeginGroup();
 		auto tabBtn = [&](const char* label, int idx) {
 			if (s_ActiveTab == idx) {
@@ -432,51 +389,101 @@ namespace cba
 			ImGui::PopStyleColor(2);
 		};
 		
+		// Filter Lab and Sensor Graph are window toggles, not tabs, but they
+		// read as one family with the tabs around them - same two-color
+		// scheme and 140x32 size as tabBtn above (2026-09-13, Emi: "genau so
+		// designen wie links").
+		auto toolWindowToggleBtn = [&](const char* aLabel, bool aOpen, const char* aTooltip) -> bool {
+			if (aOpen) {
+				ImGui::PushStyleColor(ImGuiCol_Button, Theme::kBtnStateActiveIdle);
+				ImGui::PushStyleColor(ImGuiCol_Text,   Theme::kTextCyanLicht);
+			} else {
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.16f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_Text,   ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+			}
+			bool clicked = ImGui::Button(aLabel, ImVec2(140.0f, 32.0f));
+			ImGui::PopStyleColor(2);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", aTooltip);
+			return clicked;
+		};
+
+		// Row order (2026-09-14, Emi): Dashboard, Eye Comfort, Sensor Graph,
+		// Vision Lab, Filter Lab, System - System moved all the way to the
+		// right end on purpose. Tab indices (0/1/2/3) are unchanged, only
+		// the draw order/position in the row moved.
 		tabBtn(isDe ? "Dashboard" : "Dashboard", 0);
 		ImGui::SameLine();
 		tabBtn(isDe ? "Eye Comfort" : "Eye Comfort", 1);
+
 		ImGui::SameLine();
-		tabBtn(isDe ? "Vision Lab" : "Vision Lab", 2);
-		ImGui::SameLine();
-		tabBtn(isDe ? "System" : "System", 3);
-		
-		// Same two-color scheme and 140x32 size as tabBtn above, on purpose -
-		// this is a toggle, not a tab, but it sits in the same row and has
-		// to read as one family with it (2026-09-13, Emi: "genau so
-		// designen wie links").
-		ImGui::SameLine(ImGui::GetContentRegionAvail().x - 330.0f);
-		bool graphOpen = CurrentSettings.ShowGraphWindow;
-		if (graphOpen) {
-			ImGui::PushStyleColor(ImGuiCol_Button, Theme::kBtnStateActiveIdle);
-			ImGui::PushStyleColor(ImGuiCol_Text,   Theme::kTextCyanLicht);
-		} else {
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.12f, 0.16f, 1.0f));
-			ImGui::PushStyleColor(ImGuiCol_Text,   ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
-		}
-		if (ImGui::Button(isDe ? "Sensor Graph##tabbar_graph" : "Sensor Graph##tabbar_graph", ImVec2(140.0f, 32.0f))) {
+		if (toolWindowToggleBtn(isDe ? "Sensor Graph##tabbar_graph" : "Sensor Graph##tabbar_graph", CurrentSettings.ShowGraphWindow,
+			t.OpenSensorGraphTooltip))
+		{
 			CurrentSettings.ShowGraphWindow = !CurrentSettings.ShowGraphWindow;
 			if (CurrentSettings.ShowGraphWindow) s_focusGraphWindow = true;
 			saveNeeded = true;
 		}
-		ImGui::PopStyleColor(2);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("%s", t.OpenSensorGraphTooltip);
-		}
+
 		ImGui::SameLine();
-		ImGui::TextDisabled("%s", isDe ? "Backend:" : "Backend:");
+		tabBtn(isDe ? "Vision Lab" : "Vision Lab", 2);
+
 		ImGui::SameLine();
-		if (CurrentSettings.RenderBackend == 1 && GetShaderColorPipeline().IsReady()) {
-			ImGui::TextColored(Theme::kTextCyanLicht, "Shader");
-		} else if (CurrentSettings.RenderBackend == 0) {
-			ImGui::TextColored(Theme::kTextGoldLabel, "DWM");
-		} else {
-			ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Inaktiv");
+		if (toolWindowToggleBtn(isDe ? "Filter-Labor##tabbar_lab" : "Filter Lab##tabbar_lab", CurrentSettings.ShowLabWindow,
+			isDe ? "Filter-Labor als eigenes Fenster oeffnen oder schliessen" : "Open or close Filter Lab detached window"))
+		{
+			CurrentSettings.ShowLabWindow = !CurrentSettings.ShowLabWindow;
+			if (CurrentSettings.ShowLabWindow) s_focusLabWindow = true;
+			saveNeeded = true;
 		}
 
+		ImGui::SameLine();
+		tabBtn(isDe ? "System" : "System", 3);
+
 		ImGui::EndGroup();
+		}
+		ImGui::PopStyleColor();
 
 		ImGui::PopStyleColor(3);
 		ImGui::PopStyleVar(2);
+
+		// "What's active" overview, its own row below the tabs/toggles with
+		// a bit of breathing room (2026-09-14, Emi's screenshot feedback -
+		// this used to live squeezed inline at the end of the button row
+		// and wrapped awkwardly at normal window widths). Backend is folded
+		// in as the tile's first line instead of a separate text run beside
+		// it. Same chip row already shared between Sensor Graph HUD and the
+		// Dashboard tab (RenderActiveModulesChips) - a third home for it,
+		// not a new implementation. Sized for up to five lines: Backend
+		// plus several modules active at once (Filter + Commander Tag +
+		// Hybrid + Eye-Sensitive + Gamma) can wrap past two.
+		ImGui::Spacing();
+		{
+			float tileW = ImGui::GetContentRegionAvail().x;
+			if (tileW > 40.0f)
+			{
+				ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.09f, 0.13f, 0.19f, 0.85f));
+				ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.22f, 0.34f, 0.50f, 0.55f));
+				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 5.0f));
+				float tileH = ImGui::GetTextLineHeightWithSpacing() * 5.0f + 10.0f;
+				if (ImGui::BeginChild("##HeaderActiveModulesTile", ImVec2(tileW, tileH), true))
+				{
+					ImGui::TextDisabled("%s", isDe ? "Backend:" : "Backend:");
+					ImGui::SameLine();
+					if (CurrentSettings.RenderBackend == 1 && GetShaderColorPipeline().IsReady()) {
+						ImGui::TextColored(Theme::kTextCyanLicht, "Shader");
+					} else if (CurrentSettings.RenderBackend == 0) {
+						ImGui::TextColored(Theme::kTextGoldLabel, "DWM");
+					} else {
+						ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Inaktiv");
+					}
+					RenderActiveModulesChips(isDe);
+				}
+				ImGui::EndChild();
+				ImGui::PopStyleVar(2);
+				ImGui::PopStyleColor(2);
+			}
+		}
 		
 		ImGui::Spacing();
 		ImGui::Separator();
@@ -592,15 +599,18 @@ namespace cba
 				s_wasDragged = false;
 			}
 
-			// Left Click: opens the Main Window - open-only, not a toggle
-			// (2026-09-13, Emi: "nur dieser Hotkey ist nicht bidirektional,
-			// er oeffnet nur"). Every other control here stays bidirectional;
-			// this is the one meant to just bring the Studio to front.
-			if (isClickedLeft && CurrentSettings.AdvancedModeUnlocked)
+			// Left Click: toggles the Main Window (2026-09-14, Emi: "das
+			// Icon sollte bidirektional sein" - reverses the 2026-09-13
+			// open-only decision quoted above; preferences change, this is
+			// the current one). Was previously also gated behind
+			// CurrentSettings.AdvancedModeUnlocked - a 2026-09-09 gate
+			// nothing in the codebase ever set true; removed 2026-09-14
+			// once found dead.
+			if (isClickedLeft)
 			{
 				EnsureDeferredInitialized();
-				CurrentSettings.ShowMainWindow = true;
-				s_focusMainWindow = true;
+				CurrentSettings.ShowMainWindow = !CurrentSettings.ShowMainWindow;
+				if (CurrentSettings.ShowMainWindow) s_focusMainWindow = true;
 			}
 
 			// Right Click: Master Filter Toggle - was a 4th inline copy of

@@ -2,7 +2,6 @@
 #include <windows.h>
 #include <atomic>
 #include <chrono>
-#include <thread>
 
 namespace cba
 {
@@ -19,19 +18,10 @@ namespace cba
 		bool IsFastLoadLoaded() const { return mIsFastLoadLoaded.load(); }
 
 	private:
-		NexusEcosystem();
-		~NexusEcosystem();
-
-		void IniSyncWorker();
-		void InjectArcDPSIni();
-		void SyncArcDpsColors();
+		NexusEcosystem() = default;
 
 		std::atomic<bool> mIsArcDPSLoaded{ false };
 		std::atomic<bool> mIsFastLoadLoaded{ false };
-
-		std::atomic<bool> mWorkerRunning{ false };
-		std::atomic<bool> mShuttingDown{ false };
-		std::thread mIniSyncThread;
 
 		std::chrono::steady_clock::time_point mLastCheckTime{};
 	};

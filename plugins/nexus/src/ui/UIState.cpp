@@ -2,8 +2,10 @@
 #include "Theme.h"
 #include "L10n.h"
 #include "WindowMode.h"
+#include "ShaderColorPipeline.h"
 #include <imgui.h>
 #include <cmath>
+#include <cstdio>
 
 namespace cba
 {
@@ -81,9 +83,22 @@ namespace cba
 			float pulse = 0.70f + 0.30f * std::sin(time * 3.5f);
 			dotColor = Theme::kDotReadyCol;
 			glowColor = IM_COL32(0, 210, 190, (int)(pulse * 90.0f));
-			statusText = isDe ? "Aktiv (DWM)" : "Active (DWM)";
-			tooltipText = isDe ? "CBA Status: Farbfilter ist aktiv und an Guild Wars 2 gebunden.\nWindows Magnification DWM-Hardwarebeschleunigung laeuft stabil."
-			                   : "CBA Status: Color filter active and bound to Guild Wars 2.\nWindows Magnification DWM hardware acceleration active.";
+
+			// Backend suffix used to be hardcoded "(DWM)" regardless of which
+			// backend is actually running - wrong for the common case, since
+			// Shader is the default (Settings.h, RenderBackend = 1). Same
+			// mistake CLAUDE.md's diagnostics-copy fix already caught once
+			// (MainWindowSystem.cpp, "Colour path" line) - this call site was
+			// still making it. Same condition as the Backend: readout next to
+			// the tab bar (MainWindow.cpp), so the two never disagree again.
+			bool shaderActive = (CurrentSettings.RenderBackend == 1) && GetShaderColorPipeline().IsReady();
+			statusText = shaderActive ? (isDe ? "Aktiv (Shader)" : "Active (Shader)")
+			                          : (isDe ? "Aktiv (DWM)" : "Active (DWM)");
+			tooltipText = shaderActive
+				? (isDe ? "CBA Status: Farbfilter ist aktiv und an Guild Wars 2 gebunden.\nDer Shader-Pass laeuft direkt im Spielbild, ohne Windows-Systemkomponenten."
+				        : "CBA Status: Color filter active and bound to Guild Wars 2.\nThe shader pass runs directly in the game frame, no Windows system components involved.")
+				: (isDe ? "CBA Status: Farbfilter ist aktiv und an Guild Wars 2 gebunden.\nWindows Magnification DWM-Hardwarebeschleunigung laeuft stabil."
+				        : "CBA Status: Color filter active and bound to Guild Wars 2.\nWindows Magnification DWM hardware acceleration active.");
 		}
 
 		ImVec2 p = ImGui::GetCursorScreenPos();
@@ -115,6 +130,61 @@ namespace cba
 				ImGui::SetTooltip("%s", tooltipText);
 			}
 		}
+	}
+
+	bool DrawTileHeader(const char* aTitle, bool& aCollapsed)
+	{
+		bool isDe = cba::IsGerman();
+		if (ImGui::BeginMenuBar())
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(1.0f, 1.0f, 1.0f, 0.15f));
+			if (ImGui::SmallButton(aCollapsed ? "[+]##tile_arrow" : "[-]##tile_arrow"))
+			{
+				aCollapsed = !aCollapsed;
+			}
+			ImGui::PopStyleColor(3);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("%s", aCollapsed ? (isDe ? "Aufklappen" : "Expand") : (isDe ? "Einklappen" : "Collapse"));
+			}
+			ImGui::SameLine();
+			ImGui::TextColored(Theme::kTextCyanLicht, "%s", aTitle);
+			ImGui::EndMenuBar();
+		}
+		return !aCollapsed;
+	}
+
+	bool DrawSubsectionHeader(const char* aTitle, bool& aCollapsed)
+	{
+		bool isDe = cba::IsGerman();
+		// ID bug found 2026-09-14 (Emi's screenshot: the collapse arrows
+		// "don't work as expected"): every call used the literal same ID
+		// ("[+]##subsection_arrow"), fine for DrawTileHeader (one call per
+		// distinct child window) but this is called three times in the
+		// SAME window (the Dashboard's "Filter Control" tile) - all three
+		// arrow buttons collided onto one ImGui ID, so clicks landed on
+		// whichever one ImGui's ID stack resolved to that frame, not
+		// necessarily the one actually clicked. aTitle is unique per call,
+		// so folding it into the ID (not the visible label) fixes it.
+		char arrowId[160];
+		std::snprintf(arrowId, sizeof(arrowId), "%s##sub_arrow_%s", aCollapsed ? "[+]" : "[-]", aTitle);
+		ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(1.0f, 1.0f, 1.0f, 0.08f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(1.0f, 1.0f, 1.0f, 0.15f));
+		if (ImGui::SmallButton(arrowId))
+		{
+			aCollapsed = !aCollapsed;
+		}
+		ImGui::PopStyleColor(3);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("%s", aCollapsed ? (isDe ? "Aufklappen" : "Expand") : (isDe ? "Einklappen" : "Collapse"));
+		}
+		ImGui::SameLine();
+		ImGui::TextColored(Theme::kTextGoldLabel, "%s", aTitle);
+		return !aCollapsed;
 	}
 }
 

@@ -523,13 +523,15 @@ namespace cba
 		ImGui::PopStyleVar(2);
 		ImGui::Spacing();
 
-		// Correction curves
+		// Correction curves - PreviewCorrectionMatrix, same reasoning as the
+		// Dashboard's own curve view (2026-09-14): includes Eye Comfort and
+		// Gamma, not just CVD.
 		double corrMat[3][3];
-		ActiveCorrectionMatrix(corrMat);
+		PreviewCorrectionMatrix(corrMat);
 
 		float availW = ImGui::GetContentRegionAvail().x;
 		float graphW = (availW > 260.0f) ? availW : 260.0f;
-		float graphH = 120.0f;
+		float graphH = 180.0f; // +50% (2026-09-14, Emi: was too squashed), was 120.0f
 
 		ImVec2 cp = ImGui::GetCursorScreenPos();
 		
@@ -793,142 +795,7 @@ namespace cba
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		// The manual path has a home again (2026-09-12, Emi's call after
-		// seeing every window open at once).
-		//
-		// These controls were removed on 2026-09-11 as a third duplicate
-		// editor, which they were - but that left the *manual* path with no
-		// home at all. The Nexus panel asks perception questions and sets the
-		// values for you; that is the right entry point and the wrong tool for
-		// someone who wants to dial a number in by hand. So this is not the
-		// old duplicate coming back: the base panel owns the guided path, this
-		// window owns the manual one, and Main Window Section 1 stays
-		// read-only status.
-		//
-		// Everything the manual path needs is collected here rather than
-		// scattered across windows: the three base profiles, Mixed, their
-		// strength sliders, the contrast tolerance and reference values (moved
-		// out of Main Window Section 1, where they sat two windows away from
-		// the contrast logic they belong to), and the brightness block already
-		// below - the last slider of the module.
-		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Manuelle Filter-Regler" : "Manual Filter Controls");
-		ImGui::TextDisabled("%s", isDe ? "Profil, Staerke und Kontrast direkt setzen - ohne gefuehrte Abfrage."
-		                               : "Set profile, strength and contrast directly - no guided questions.");
-
-		if (!CurrentSettings.Enabled)
-		{
-			// Without this line every slider below stores a value and changes
-			// nothing on screen, i.e. the panel would be supplying false
-			// evidence - the one thing PRODUCT_CONCEPT.md exists to prevent.
-			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Filter ist AUS - Werte werden gespeichert, aber nicht angewendet."
-			                                                     : "Filter is OFF - values are stored but not applied.");
-			ImGui::SameLine(0, 8.0f);
-			// Same shape as the Eye Comfort block's own off-state hint in the
-			// Nexus panel: state the problem, then offer the single click that
-			// solves it. ToggleMasterEnabled() is the shared owner of this
-			// flag - see CLAUDE.md's ungoverned-Enabled ratchet for why no new
-			// site writes it directly.
-			if (ImGui::SmallButton(isDe ? "Jetzt einschalten##hud_enable" : "Turn on now##hud_enable"))
-			{
-				ToggleMasterEnabled();
-				changed = true;
-				saveNeeded = true;
-			}
-		}
-
-		ImGui::Spacing();
-
-		auto typeBtnHUD = [&](const char* aLabel, BalanceType aType) {
-			bool active = (!CurrentSettings.Mixed && CurrentSettings.Type == aType);
-			if (ImGui::RadioButton(aLabel, active)) {
-				if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
-					CurrentSettings.Mixed = false;
-					CurrentSettings.Type  = aType;
-					// Deliberate: picking a type by hand starts at 0% and lets
-					// the user walk it up while watching the screen. The
-					// guided path jumps straight to a working strength
-					// instead, because there the user answered a question
-					// rather than asked for a knob.
-					ParameterRegistry::Get().SetFloat(ParamId::Severity01, 0.0f);
-					changed = true;
-					saveNeeded = true;
-				}
-			}
-		};
-		typeBtnHUD(t.Protan, BalanceType::Protan);
-		ImGui::SameLine();
-		typeBtnHUD(t.Deutan, BalanceType::Deutan);
-		ImGui::SameLine();
-		typeBtnHUD(t.Tritan, BalanceType::Tritan);
-		ImGui::SameLine();
-		if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
-			if (!CurrentSettings.Mixed) {
-				CurrentSettings.Mixed = true;
-				ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, 0.0f);
-				ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, 0.0f);
-				changed = true;
-				saveNeeded = true;
-			}
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip("%s", isDe ? "Korrigiert Rot-Gruen und Blau-Gelb unabhaengig voneinander, mit je eigenem Regler."
-			                             : "Corrects red-green and blue-yellow independently, each with its own slider.");
-		}
-
-		ImGui::Spacing();
-
-		// Slider + Reset, written once. This block used to carry three
-		// near-identical ~25-line copies of it (Strength, RG, BY).
-		//
-		// Percent is display-only: ImGui does not scale the value it is given
-		// to match the format string (see CLAUDE.md's Eye-Sensitive "0%/1%"
-		// bug), so the widget runs in 0-125 display units and converts at the
-		// boundary. The 1.25 ceiling is not the widget's to enforce either -
-		// ParamMeta clamps on every Set, CTRL-click text entry included.
-		auto severitySlider = [&](const char* aLabel, ParamId aId, const char* aSliderId, const char* aResetId) {
-			ImGui::TextUnformatted(aLabel);
-			float avail = ImGui::GetContentRegionAvail().x;
-			float padX  = ImGui::GetStyle().FramePadding.x * 2.0f;
-			float btnW  = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
-			const float sp = 6.0f;
-			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
-
-			float pct = ParameterRegistry::Get().GetFloat(aId) * 100.0f;
-			ImGui::SetNextItemWidth(sW);
-			if (ImGui::SliderFloat(aSliderId, &pct, 0.0f, 125.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
-			{
-				ParameterRegistry::Get().SetFloat(aId, pct * 0.01f);
-				changed = true;
-			}
-			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip("%s", isDe ? "Ueber 100% korrigiert staerker, als die Simulation vorgibt - fuer Faelle, in denen die neutrale Korrektur noch nicht reicht."
-				                             : "Above 100% corrects harder than the simulation prescribes - for cases where the neutral correction is not enough yet.");
-			}
-
-			ImGui::SameLine(0, sp);
-			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
-			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
-			if (ImGui::Button(aResetId, ImVec2(btnW, 0.0f)))
-			{
-				ParameterRegistry::Get().SetFloat(aId, 0.0f);
-				changed = true;
-				saveNeeded = true;
-			}
-			ImGui::PopStyleColor(4);
-			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Wert auf 0% zuruecksetzen" : "Reset value to 0%");
-		};
-
-		if (CurrentSettings.Mixed) {
-			severitySlider(t.RgStrength, ParamId::MixedRgSeverity01, "##rg_hud", "Reset##rg_hud");
-			severitySlider(t.ByStrength, ParamId::MixedBySeverity01, "##by_hud", "Reset##by_hud");
-		} else {
-			severitySlider(t.Strength, ParamId::Severity01, "##sev_hud", "Reset##sev_hud");
-		}
+		RenderManualProfileControls(isDe, t, changed, saveNeeded);
 
 		// ── Advanced: contrast tolerance & reference values ──────────────────
 		// Moved here from Main Window Section 1 (2026-09-12). Emi's reading of
@@ -1130,6 +997,132 @@ namespace cba
 	// Extracted 2026-09-13 so the Main Window Dashboard can show the same
 	// "what's actually doing something right now" chip row the Sensor Graph
 	// HUD already had - one implementation, two homes (CLAUDE.md rule 10).
+	// Extracted 2026-09-14 from this window's own "Manual Filter Controls"
+	// section so the Main Window Dashboard's Curve View tile can share it
+	// (Emi: "unsere manuell setzbaren Filter... die brauchen wir zurueck") -
+	// see SensorGraphHUD.h for the fuller rationale.
+	void RenderManualProfileControls(bool isDe, const L10n& t, bool& changed, bool& saveNeeded)
+	{
+		ImGui::TextColored(Theme::kTextCyanLicht, "%s", isDe ? "Manuelle Filter-Regler" : "Manual Filter Controls");
+		ImGui::TextDisabled("%s", isDe ? "Profil, Staerke und Kontrast direkt setzen - ohne gefuehrte Abfrage."
+		                               : "Set profile, strength and contrast directly - no guided questions.");
+
+		if (!CurrentSettings.Enabled)
+		{
+			// Without this line every slider below stores a value and changes
+			// nothing on screen, i.e. the panel would be supplying false
+			// evidence - the one thing PRODUCT_CONCEPT.md exists to prevent.
+			ImGui::TextColored(Theme::kTextGoldLabel, "%s", isDe ? "Filter ist AUS - Werte werden gespeichert, aber nicht angewendet."
+			                                                     : "Filter is OFF - values are stored but not applied.");
+			ImGui::SameLine(0, 8.0f);
+			// Same shape as the Eye Comfort block's own off-state hint in the
+			// Nexus panel: state the problem, then offer the single click that
+			// solves it. ToggleMasterEnabled() is the shared owner of this
+			// flag - see CLAUDE.md's ungoverned-Enabled ratchet for why no new
+			// site writes it directly.
+			if (ImGui::SmallButton(isDe ? "Jetzt einschalten##hud_enable" : "Turn on now##hud_enable"))
+			{
+				ToggleMasterEnabled();
+				changed = true;
+				saveNeeded = true;
+			}
+		}
+
+		ImGui::Spacing();
+
+		auto typeBtnHUD = [&](const char* aLabel, BalanceType aType) {
+			bool active = (!CurrentSettings.Mixed && CurrentSettings.Type == aType);
+			if (ImGui::RadioButton(aLabel, active)) {
+				if (CurrentSettings.Mixed || CurrentSettings.Type != aType) {
+					CurrentSettings.Mixed = false;
+					CurrentSettings.Type  = aType;
+					// Deliberate: picking a type by hand starts at 0% and lets
+					// the user walk it up while watching the screen. The
+					// guided path jumps straight to a working strength
+					// instead, because there the user answered a question
+					// rather than asked for a knob.
+					ParameterRegistry::Get().SetFloat(ParamId::Severity01, 0.0f);
+					changed = true;
+					saveNeeded = true;
+				}
+			}
+		};
+		typeBtnHUD(t.Protan, BalanceType::Protan);
+		ImGui::SameLine();
+		typeBtnHUD(t.Deutan, BalanceType::Deutan);
+		ImGui::SameLine();
+		typeBtnHUD(t.Tritan, BalanceType::Tritan);
+		ImGui::SameLine();
+		if (ImGui::RadioButton(t.Mixed, CurrentSettings.Mixed)) {
+			if (!CurrentSettings.Mixed) {
+				CurrentSettings.Mixed = true;
+				ParameterRegistry::Get().SetFloat(ParamId::MixedRgSeverity01, 0.0f);
+				ParameterRegistry::Get().SetFloat(ParamId::MixedBySeverity01, 0.0f);
+				changed = true;
+				saveNeeded = true;
+			}
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("%s", isDe ? "Korrigiert Rot-Gruen und Blau-Gelb unabhaengig voneinander, mit je eigenem Regler."
+			                             : "Corrects red-green and blue-yellow independently, each with its own slider.");
+		}
+
+		ImGui::Spacing();
+
+		// Slider + Reset, written once. This block used to carry three
+		// near-identical ~25-line copies of it (Strength, RG, BY).
+		//
+		// Percent is display-only: ImGui does not scale the value it is given
+		// to match the format string (see CLAUDE.md's Eye-Sensitive "0%/1%"
+		// bug), so the widget runs in 0-125 display units and converts at the
+		// boundary. The 1.25 ceiling is not the widget's to enforce either -
+		// ParamMeta clamps on every Set, CTRL-click text entry included.
+		auto severitySlider = [&](const char* aLabel, ParamId aId, const char* aSliderId, const char* aResetId) {
+			ImGui::TextUnformatted(aLabel);
+			float avail = ImGui::GetContentRegionAvail().x;
+			float padX  = ImGui::GetStyle().FramePadding.x * 2.0f;
+			float btnW  = ImGui::CalcTextSize("Reset").x + padX + 8.0f;
+			const float sp = 6.0f;
+			float sW = (avail > (btnW + sp + 60.0f)) ? (avail - btnW - sp) : 180.0f;
+
+			float pct = ParameterRegistry::Get().GetFloat(aId) * 100.0f;
+			ImGui::SetNextItemWidth(sW);
+			if (ImGui::SliderFloat(aSliderId, &pct, 0.0f, 125.0f, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+			{
+				ParameterRegistry::Get().SetFloat(aId, pct * 0.01f);
+				changed = true;
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit()) saveNeeded = true;
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("%s", isDe ? "Ueber 100% korrigiert staerker, als die Simulation vorgibt - fuer Faelle, in denen die neutrale Korrektur noch nicht reicht."
+				                             : "Above 100% corrects harder than the simulation prescribes - for cases where the neutral correction is not enough yet.");
+			}
+
+			ImGui::SameLine(0, sp);
+			ImGui::PushStyleColor(ImGuiCol_Button,        Theme::kBtnNeutralIdle);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Theme::kBtnNeutralHover);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Theme::kBtnNeutralPress);
+			ImGui::PushStyleColor(ImGuiCol_Text,          Theme::kTextSecondary);
+			if (ImGui::Button(aResetId, ImVec2(btnW, 0.0f)))
+			{
+				ParameterRegistry::Get().SetFloat(aId, 0.0f);
+				changed = true;
+				saveNeeded = true;
+			}
+			ImGui::PopStyleColor(4);
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", isDe ? "Wert auf 0% zuruecksetzen" : "Reset value to 0%");
+		};
+
+		if (CurrentSettings.Mixed) {
+			severitySlider(t.RgStrength, ParamId::MixedRgSeverity01, "##rg_hud", "Reset##rg_hud");
+			severitySlider(t.ByStrength, ParamId::MixedBySeverity01, "##by_hud", "Reset##by_hud");
+		} else {
+			severitySlider(t.Strength, ParamId::Severity01, "##sev_hud", "Reset##sev_hud");
+		}
+	}
+
 	void RenderActiveModulesChips(bool isDe)
 	{
 		struct ActiveModule {

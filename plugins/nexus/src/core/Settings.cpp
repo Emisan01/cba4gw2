@@ -111,7 +111,6 @@ namespace cba
 			}
 			else if (key == "DiagnosisHint") s.DiagnosisHint = value;
 			else if (key == "EnableHybrid")  s.EnableHybridMode = (value == "1");
-			else if (key == "SyncArcDps")    s.SyncArcDpsTheme = (value == "1");
 			else if (key == "DebugMode")     s.DebugMode = (value == "1");
 			else if (key == "UiTheme")       s.UiTheme = std::clamp(safeStoi(value, 0), 0, 1);
 			else if (key == "AdvancedModeUnlocked") s.AdvancedModeUnlocked = (value == "1");
@@ -288,7 +287,6 @@ namespace cba
 		file << "Language=" << Language << "\n";
 		file << "DiagnosisHint=" << DiagnosisHint << "\n";
 		file << "EnableHybrid=" << (EnableHybridMode ? "1" : "0") << "\n";
-		file << "SyncArcDps=" << (SyncArcDpsTheme ? "1" : "0") << "\n";
 		file << "DebugMode=" << (DebugMode ? "1" : "0") << "\n";
 		file << "UiTheme=" << UiTheme << "\n";
 		file << "AdvancedModeUnlocked=" << (AdvancedModeUnlocked ? "1" : "0") << "\n";

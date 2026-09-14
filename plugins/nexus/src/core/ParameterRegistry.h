@@ -55,7 +55,7 @@ namespace cba
 		_Count
 	};
 
-	enum class ParamKind { Bool, Float, Int };
+	enum class ParamKind { Float, Int };
 
 	// Which panel a parameter belongs to once the Core/Advanced UI split
 	// (CLAUDE.md step 2) happens. Not consumed by anything yet.
@@ -78,14 +78,10 @@ namespace cba
 		static ParameterRegistry& Get();
 
 		void RegisterFloat(ParamId aId, float* aStorage, ParamMeta aMeta);
-		void RegisterBool(ParamId aId, bool* aStorage, ParamMeta aMeta);
 		void RegisterInt(ParamId aId, int* aStorage, ParamMeta aMeta);
 
 		float GetFloat(ParamId aId) const;
 		void  SetFloat(ParamId aId, float aValue); // clamps to meta min/max
-
-		bool  GetBool(ParamId aId) const;
-		void  SetBool(ParamId aId, bool aValue);
 
 		int   GetInt(ParamId aId) const;
 		void  SetInt(ParamId aId, int aValue); // clamps to meta min/max
@@ -97,7 +93,7 @@ namespace cba
 		struct Entry
 		{
 			ParamMeta meta{};
-			union Storage { float* f; bool* b; int* i; };
+			union Storage { float* f; int* i; };
 			Storage storage{};
 		};
 		std::unordered_map<ParamId, Entry> _entries;
